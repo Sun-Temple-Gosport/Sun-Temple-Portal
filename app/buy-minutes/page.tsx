@@ -1,54 +1,57 @@
+import Link from "next/link";
+
 const packages = [
-  { name: "Bronze", minutes: 30, price: "£18" },
-  { name: "Silver", minutes: 60, price: "£34", popular: true },
-  { name: "Gold", minutes: 90, price: "£47" },
-  { name: "Platinum", minutes: 120, price: "£55" },
+  { id: 1, minutes: 30, price: 18 },
+  { id: 2, minutes: 60, price: 34 },
+  { id: 3, minutes: 90, price: 47 },
+  { id: 4, minutes: 120, price: 55 },
+  { id: 5, minutes: 240, price: 100 },
 ];
 
 export default function BuyMinutes() {
   return (
-    <main className="min-h-screen bg-[#050505] text-white">
-      <section className="mx-auto max-w-7xl px-6 py-24">
-        <p className="text-sm font-semibold uppercase tracking-[0.3em] text-[#d6a84f]">
+    <main className="min-h-screen bg-[#050505] text-white px-6 py-16">
+      <section className="mx-auto max-w-5xl">
+        <p className="uppercase tracking-[0.3em] text-[#d6a84f] font-semibold">
           Sun Temple Gosport
         </p>
 
-        <h1 className="mt-4 text-5xl font-bold md:text-7xl">
-          Buy tanning minutes
+        <h1 className="text-5xl font-bold mt-4">
+          Buy Minutes
         </h1>
 
-        <p className="mt-6 max-w-2xl text-lg text-zinc-400">
-          Choose your package. Minutes expire one month from the date of purchase.
-        </p>
+        <div className="grid md:grid-cols-3 gap-8 mt-12">
 
-        <div className="mt-16 grid gap-8 md:grid-cols-2 xl:grid-cols-4">
           {packages.map((pkg) => (
-            <div
-              key={pkg.name}
-              className="relative rounded-3xl border border-[#d6a84f]/20 bg-[#111] p-8 transition hover:-translate-y-2 hover:border-[#d6a84f]/60"
-            >
-              {pkg.popular && (
-                <span className="absolute right-6 top-6 rounded-full bg-[#d6a84f] px-4 py-2 text-xs font-bold text-black">
-                  POPULAR
-                </span>
-              )}
 
-              <h2 className="text-2xl font-semibold text-[#d6a84f]">
-                {pkg.name}
+            <div
+              key={pkg.id}
+              className="rounded-3xl border border-[#d6a84f]/30 bg-[#111] p-8"
+            >
+
+              <h2 className="text-3xl font-bold">
+                {pkg.minutes}
               </h2>
 
-              <p className="mt-8 text-6xl font-bold">{pkg.minutes}</p>
-              <p className="mt-2 text-zinc-400">minutes</p>
-
-              <p className="mt-8 text-4xl font-bold text-[#d6a84f]">
-                {pkg.price}
+              <p className="text-zinc-400 mt-2">
+                Minutes
               </p>
 
-              <button className="mt-8 w-full rounded-full bg-[#d6a84f] py-4 font-bold text-black transition hover:scale-105">
-                Buy with SumUp
-              </button>
+              <p className="mt-6 text-4xl font-bold text-[#d6a84f]">
+                £{pkg.price}
+              </p>
+
+              <Link
+                href={`/checkout/${pkg.id}`}
+                className="mt-8 inline-block w-full rounded-full bg-[#d6a84f] py-4 text-center font-bold text-black"
+              >
+                Buy Now
+              </Link>
+
             </div>
+
           ))}
+
         </div>
       </section>
     </main>
