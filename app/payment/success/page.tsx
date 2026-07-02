@@ -24,6 +24,26 @@ export default async function PaymentSuccess({ searchParams }: Props) {
     .select("*")
     .eq("checkout_reference", checkoutReference)
     .single();
+    if (purchase.payment_status === "paid") {
+  return (
+    <main className="min-h-screen bg-[#050505] text-white flex items-center justify-center">
+      <div className="text-center">
+        <h1 className="text-5xl font-bold">Payment Already Processed</h1>
+
+        <p className="mt-4">
+          Your minutes have already been added to your account.
+        </p>
+
+        <a
+          href="/my-minutes"
+          className="mt-8 inline-block rounded-full bg-[#d6a84f] px-8 py-4 font-bold text-black"
+        >
+          View My Minutes
+        </a>
+      </div>
+    </main>
+  );
+}
 
   if (!purchase) {
     return <h1>Purchase not found</h1>;
