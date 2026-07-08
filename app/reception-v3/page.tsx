@@ -66,7 +66,9 @@ const [packages, setPackages] = useState<PackageOption[]>([]);
   const [message, setMessage] = useState("");
   const [activities, setActivities] = useState<Activity[]>([]);
   const [isOwnerMode, setIsOwnerMode] = useState(true);
-
+const [userRole, setUserRole] = useState<"owner" | "staff" | "customer">(
+  "customer"
+);
   const [salesToday, setSalesToday] = useState(0);
   const [sessionsToday, setSessionsToday] = useState(0);
   const [customersToday, setCustomersToday] = useState(0);
@@ -81,6 +83,33 @@ const [packages, setPackages] = useState<PackageOption[]>([]);
   function showMessage(text: string) {
     setMessage(text);
   }
+  async function loadUserRole() {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    setUserRole("customer");
+    setIsOwnerMode(false);
+    return;
+  }
+
+  const { data } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  const role = data?.role?.toLowerCase();
+
+  if (role === "owner" || role === "staff") {
+    setUserRole(role);
+    setIsOwnerMode(role === "owner");
+  } else {
+    setUserRole("customer");
+    setIsOwnerMode(false);
+  }
+}
 
   function saveRecentCustomer(customer: CustomerBalance) {
     const updated = [
@@ -417,6 +446,7 @@ async function savePackage(updatedPackage: PackageOption) {
       loadCustomersToday(),
       loadRevenueToday(),
       loadActivities(),
+      loadUserRole(),
     ]);
   }
 
@@ -458,18 +488,7 @@ async function savePackage(updatedPackage: PackageOption) {
     }
 
     refreshDashboardStats();
-    {isOwnerMode && (
-  <button
-    type="button"
-    onClick={() => {
-      loadPackages();
-      setOwnerSettingsOpen(true);
-    }}
-    className="rounded-full border border-slate-700 bg-slate-900 px-4 py-2 text-xs font-black uppercase tracking-wide text-slate-300"
-  >
-    Settings
-  </button>
-)}
+    
 
     const channel = supabase
       .channel("reception-v3-live")
@@ -770,6 +789,7 @@ await refreshDashboardStats();
 
       <div className="mx-auto max-w-7xl space-y-5 p-4 md:p-8">
         {isOwnerMode && (
+        
           <OwnerDashboard
             revenueToday={revenueToday}
             salesToday={salesToday}
