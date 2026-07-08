@@ -25,13 +25,17 @@ export default function MyMinutes() {
         .single();
 
       const { data: balanceData } = await supabase
-        .from("customer_balances")
-        .select("*")
-        .eq("customer_id", user.id)
-        .single();
+  .from("customer_balances")
+  .select("*")
+  .eq("email", user.email)
+  .single();
 
-      setProfile(profileData);
-      setBalance(balanceData);
+setProfile({
+  ...profileData,
+  full_name: profileData?.full_name || balanceData?.full_name || user.email,
+});
+
+setBalance(balanceData);
     }
 
     loadCustomer();
