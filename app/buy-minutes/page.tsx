@@ -6,6 +6,7 @@ const packages = [
   { id: 3, minutes: 90, price: 47 },
   { id: 4, minutes: 120, price: 55 },
   { id: 5, minutes: 240, price: 100 },
+  { id: 6, minutes: 1, price: 1 },
 ];
 
 export default function BuyMinutes() {

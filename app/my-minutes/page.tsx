@@ -54,11 +54,26 @@ export default function MyMinutes() {
           </h2>
 
           <div className="mt-8">
-            <p className="text-zinc-400">Minutes remaining</p>
-            <p className="mt-2 text-7xl font-bold text-[#d6a84f]">
-              {balance?.total_minutes ?? 0}
-            </p>
-          </div>
+  <p className="text-zinc-400">Minutes remaining</p>
+
+  <p className="mt-2 text-7xl font-bold text-[#d6a84f]">
+    {balance?.total_minutes ?? 0}
+  </p>
+
+  <p className="mt-6 text-zinc-400">
+    Next expiry
+  </p>
+
+  <p className="mt-1 text-2xl font-bold text-white">
+    {balance?.next_expiry
+      ? new Date(balance.next_expiry).toLocaleDateString("en-GB", {
+          day: "2-digit",
+          month: "long",
+          year: "numeric",
+        })
+      : "No active expiry"}
+  </p>
+</div>
 
           <a
             href="/buy-minutes"

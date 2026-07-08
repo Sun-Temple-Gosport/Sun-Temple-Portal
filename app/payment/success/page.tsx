@@ -11,6 +11,12 @@ const supabaseAdmin = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
+function getExpiryDate() {
+  const expiry = new Date();
+  expiry.setMonth(expiry.getMonth() + 1);
+  return expiry.toISOString();
+}
+
 export default async function PaymentSuccess({ searchParams }: Props) {
   const params = await searchParams;
   const checkoutReference = params.checkoutReference;
@@ -24,47 +30,54 @@ export default async function PaymentSuccess({ searchParams }: Props) {
     .select("*")
     .eq("checkout_reference", checkoutReference)
     .single();
-    if (purchase.payment_status === "paid") {
-  return (
-    <main className="min-h-screen bg-[#050505] text-white flex items-center justify-center">
-      <div className="text-center">
-        <h1 className="text-5xl font-bold">Payment Already Processed</h1>
-
-        <p className="mt-4">
-          Your minutes have already been added to your account.
-        </p>
-
-        <a
-          href="/my-minutes"
-          className="mt-8 inline-block rounded-full bg-[#d6a84f] px-8 py-4 font-bold text-black"
-        >
-          View My Minutes
-        </a>
-      </div>
-    </main>
-  );
-}
 
   if (!purchase) {
     return <h1>Purchase not found</h1>;
   }
 
-  if (purchase.payment_status !== "paid") {
-    await supabaseAdmin
-      .from("purchases")
-      .update({
-        payment_status: "paid",
-        paid_at: new Date().toISOString(),
-      })
-      .eq("checkout_reference", checkoutReference);
+  if (purchase.payment_status === "paid") {
+    return (
+      <main className="min-h-screen bg-[#050505] text-white flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-5xl font-bold">Payment Already Processed</h1>
 
-    await supabaseAdmin.from("minute_transactions").insert({
-      customer_id: purchase.customer_id,
-      minutes: purchase.minutes_added,
-      transaction_type: "purchase",
-      reason: `Online SumUp purchase - ${checkoutReference}`,
-    });
+          <p className="mt-4">
+            Your minutes have already been added to your account.
+          </p>
+
+          <a
+            href="/my-minutes"
+            className="mt-8 inline-block rounded-full bg-[#d6a84f] px-8 py-4 font-bold text-black"
+          >
+            View My Minutes
+          </a>
+        </div>
+      </main>
+    );
   }
+
+  await supabaseAdmin
+    .from("purchases")
+    .update({
+      payment_status: "paid",
+      paid_at: new Date().toISOString(),
+    })
+    .eq("checkout_reference", checkoutReference);
+
+  await supabaseAdmin.from("minute_transactions").insert({
+    customer_id: purchase.customer_id,
+    minutes: purchase.minutes_added,
+    transaction_type: "purchase",
+    reason: `Online SumUp purchase - ${checkoutReference}`,
+  });
+
+  await supabaseAdmin.from("minute_batches").insert({
+    customer_id: purchase.customer_id,
+    purchase_id: purchase.id,
+    minutes_added: purchase.minutes_added,
+    minutes_remaining: purchase.minutes_added,
+    expires_at: getExpiryDate(),
+  });
 
   return (
     <main className="min-h-screen bg-[#050505] px-6 py-16 text-white">
@@ -77,6 +90,10 @@ export default async function PaymentSuccess({ searchParams }: Props) {
 
         <p className="mt-6 text-xl text-zinc-300">
           {purchase.minutes_added} minutes have been added to your account.
+        </p>
+
+        <p className="mt-3 text-zinc-400">
+          These minutes expire one month from today.
         </p>
 
         <a
