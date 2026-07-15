@@ -23,6 +23,7 @@ export type Sale = {
   minutes: number;
   amount: number;
   description: string;
+  payment_method?: "card" | "cash";
 };
 export type Activity = {
   id: string;

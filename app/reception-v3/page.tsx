@@ -1,19 +1,17 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { createClient } from "@supabase/supabase-js";
-import NewCustomer from "./components/NewCustomer";
+import { useRouter } from "next/navigation";
 import EditCustomer from "./components/EditCustomer";
 import ActivityFeed from "./components/ActivityFeed";
 import ReceptionHeader from "./components/ReceptionHeader";
-import CustomerSearch from "./components/CustomerSearch";
-import CustomerCard from "./components/CustomerCard";
-import CustomerHistory from "./components/CustomerHistory";
-import CustomerNotes from "./components/CustomerNotes";
 import BedDashboard from "./components/BedDashboard";
-import OwnerDashboard from "./components/OwnerDashboard";
 import OwnerSettings from "./components/OwnerSettings";
-
+import OwnerTabs, { type OwnerView } from "./components/OwnerTabs";
+import CustomerArea from "./components/CustomerArea";
+import OwnerArea from "./components/OwnerArea";
+import { supabase } from "./lib/supabase";
+import { useDashboard } from "./hooks/useDashboard";
 import type {
   CustomerBalance,
   BedSession,
@@ -27,6 +25,7 @@ type CustomerNote = {
   note: string;
   created_at: string;
 };
+
 type PackageOption = {
   id: number;
   name: string | null;
@@ -36,43 +35,70 @@ type PackageOption = {
   active: boolean;
 };
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+type CashUpSale = {
+  id: string | number;
+  customer_name: string | null;
+  minutes: number;
+  amount: number;
+  payment_method: string | null;
+  created_at: string;
+};
+
+type UserRole = "owner" | "staff" | "customer";
+
+
 
 const RECENT_CUSTOMERS_KEY = "sun-temple-recent-customers-v3";
 const TOTAL_BEDS = 4;
 
 export default function ReceptionV3Page() {
+    const router = useRouter();
   const [search, setSearch] = useState("");
   const [customers, setCustomers] = useState<CustomerBalance[]>([]);
   const [recentCustomers, setRecentCustomers] = useState<CustomerBalance[]>([]);
   const [selectedCustomer, setSelectedCustomer] =
-  
-  
     useState<CustomerBalance | null>(null);
 
   const [customerHistory, setCustomerHistory] =
     useState<CustomerHistoryType | null>(null);
-    const [editingCustomer, setEditingCustomer] = useState(false);
-    const [ownerSettingsOpen, setOwnerSettingsOpen] = useState(false);
-const [packages, setPackages] = useState<PackageOption[]>([]);
-  const [customerNotes, setCustomerNotes] = useState<CustomerNote[]>([]);
 
+  const [editingCustomer, setEditingCustomer] = useState(false);
+  const [ownerSettingsOpen, setOwnerSettingsOpen] = useState(false);
+  const [packages, setPackages] = useState<PackageOption[]>([]);
+  const [customerNotes, setCustomerNotes] = useState<CustomerNote[]>([]);
   const [sessions, setSessions] = useState<BedSession[]>([]);
   const [manualMinutes, setManualMinutes] = useState("");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [activities, setActivities] = useState<Activity[]>([]);
-  const [isOwnerMode, setIsOwnerMode] = useState(true);
-const [userRole, setUserRole] = useState<"owner" | "staff" | "customer">(
-  "customer"
-);
-  const [salesToday, setSalesToday] = useState(0);
-  const [sessionsToday, setSessionsToday] = useState(0);
-  const [customersToday, setCustomersToday] = useState(0);
-  const [revenueToday, setRevenueToday] = useState(0);
+  const [cashUpSales, setCashUpSales] = useState<CashUpSale[]>([]);
+
+  const [authLoaded, setAuthLoaded] = useState(false);
+  const [isOwnerMode, setIsOwnerMode] = useState(false);
+  const [ownerView, setOwnerView] = useState<OwnerView>("dashboard");
+  const [userRole, setUserRole] = useState<UserRole>("customer");
+  const [userName, setUserName] = useState("Staff User");
+
+  const dashboard = useDashboard();
+
+const {
+  salesToday,
+  setSalesToday,
+  sessionsToday,
+  setSessionsToday,
+  customersToday,
+  setCustomersToday,
+  revenueToday,
+  setRevenueToday,
+  cardRevenueToday,
+  setCardRevenueToday,
+  cashRevenueToday,
+  setCashRevenueToday,
+  complimentaryToday,
+  setComplimentaryToday,
+  minutesSoldToday,
+  setMinutesSoldToday,
+} = dashboard;
 
   function getStartOfToday() {
     const today = new Date();
@@ -83,33 +109,80 @@ const [userRole, setUserRole] = useState<"owner" | "staff" | "customer">(
   function showMessage(text: string) {
     setMessage(text);
   }
-  async function loadUserRole() {
+
+  async function logAudit({
+  action,
+  customerName,
+  details,
+}: {
+  action: string;
+  customerName?: string | null;
+  details?: string | null;
+}) {
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
   if (!user) {
-    setUserRole("customer");
-    setIsOwnerMode(false);
+    console.error("Audit log skipped: no authenticated user.");
     return;
   }
 
-  const { data } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .maybeSingle();
+  const { error } = await supabase.from("audit_log").insert({
+    staff_id: user.id,
+    staff_name: userName || "Staff User",
+    action,
+    customer_name: customerName || null,
+    details: details || null,
+  });
 
-  const role = data?.role?.toLowerCase();
-
-  if (role === "owner" || role === "staff") {
-    setUserRole(role);
-    setIsOwnerMode(role === "owner");
-  } else {
-    setUserRole("customer");
-    setIsOwnerMode(false);
+  if (error) {
+    console.error("Audit log failed:", error);
   }
 }
+
+  async function loadUserRole() {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    
+
+    if (!user) {
+      setUserRole("customer");
+      setIsOwnerMode(false);
+      setAuthLoaded(true);
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("role, full_name, email")
+      .eq("id", user.id)
+      .maybeSingle();
+      
+
+
+    if (error) {
+      setUserRole("customer");
+      setIsOwnerMode(false);
+      setAuthLoaded(true);
+      return;
+    }
+
+    const role = data?.role?.toLowerCase();
+    setUserName(data?.full_name || data?.email || "Staff User");
+    
+
+    if (role === "owner" || role === "staff") {
+      setUserRole(role);
+      setIsOwnerMode(role === "owner");
+    } else {
+      setUserRole("customer");
+      setIsOwnerMode(false);
+    }
+
+    setAuthLoaded(true);
+  }
 
   function saveRecentCustomer(customer: CustomerBalance) {
     const updated = [
@@ -129,101 +202,91 @@ const [userRole, setUserRole] = useState<"owner" | "staff" | "customer">(
   }
 
   async function createCustomer(customer: {
-  full_name: string;
-  phone: string;
-  email: string;
-}) {
-  setLoading(true);
-  setMessage("");
+    full_name: string;
+    phone: string;
+    email: string;
+  }) {
+    setLoading(true);
+    setMessage("");
 
-  const { data: newCustomer, error } = await supabase
-    .from("customers")
-    .insert({
-      full_name: customer.full_name,
-      phone: customer.phone || null,
-      email: customer.email || null,
-    })
-    .select("*")
-    .single();
+    const { data: newCustomer, error } = await supabase
+      .from("customers")
+      .insert({
+        full_name: customer.full_name,
+        phone: customer.phone || null,
+        email: customer.email || null,
+      })
+      .select("*")
+      .single();
 
-  if (error || !newCustomer) {
+    if (error || !newCustomer) {
+      setLoading(false);
+      showMessage(error?.message || "Could not create customer.");
+      return;
+    }
+
+    const customerId = newCustomer.customer_id;
+
+    
+
+    const { data: balance, error: balanceError } = await supabase
+      .from("customer_balances")
+      .select("*")
+      .eq("customer_id", customerId)
+      .maybeSingle();
+
     setLoading(false);
-    showMessage(error?.message || "Could not create customer.");
-    return;
+
+    if (balanceError) {
+      showMessage(balanceError.message);
+      return;
+    }
+
+    const customerToSelect =
+      balance ||
+      ({
+        customer_id: customerId,
+        full_name: customer.full_name,
+        phone: customer.phone || null,
+        email: customer.email || null,
+        total_minutes: 0,
+        next_expiry: null,
+      } as CustomerBalance);
+
+    setCustomers([customerToSelect]);
+    setSearch(customer.full_name);
+    selectCustomer(customerToSelect);
+    showMessage("Customer created successfully.");
   }
 
-  const customerId = newCustomer.customer_id;
+  async function updateCustomer(
+    full_name: string,
+    phone: string,
+    email: string
+  ) {
+    if (!selectedCustomer) return;
 
-  const { error: profileError } = await supabase.from("profiles").upsert({
-    id: customerId,
-    full_name: customer.full_name,
-    phone: customer.phone || null,
-    email: customer.email || null,
-  });
+    const { error } = await supabase
+      .from("customers")
+      .update({
+        full_name,
+        phone,
+        email,
+      })
+      .eq("customer_id", selectedCustomer.customer_id);
 
-  if (profileError) {
-    setLoading(false);
-    showMessage(profileError.message);
-    return;
+    if (error) {
+      showMessage(error.message);
+      return;
+    }
+
+    showMessage("Customer updated successfully.");
+    setEditingCustomer(false);
+
+    await refreshSelectedCustomer(selectedCustomer.customer_id);
+    await searchCustomers();
   }
 
-  const { data: balance, error: balanceError } = await supabase
-    .from("customer_balances")
-    .select("*")
-    .eq("customer_id", customerId)
-    .maybeSingle();
-
-  setLoading(false);
-
-  if (balanceError) {
-    showMessage(balanceError.message);
-    return;
-  }
-
-  const customerToSelect =
-    balance ||
-    ({
-      customer_id: customerId,
-      full_name: customer.full_name,
-      phone: customer.phone || null,
-      email: customer.email || null,
-      total_minutes: 0,
-      next_expiry: null,
-    } as CustomerBalance);
-
-  setCustomers([customerToSelect]);
-  setSearch(customer.full_name);
-  selectCustomer(customerToSelect);
-  showMessage("Customer created successfully.");
-}
-async function updateCustomer(
-  full_name: string,
-  phone: string,
-  email: string
-) {
-  if (!selectedCustomer) return;
-
-  const { error } = await supabase
-    .from("customers")
-    .update({
-      full_name,
-      phone,
-      email,
-    })
-    .eq("customer_id", selectedCustomer.customer_id);
-
-  if (error) {
-    showMessage(error.message);
-    return;
-  }
-
-  showMessage("Customer updated successfully.");
-
-  setEditingCustomer(false);
-
-  await refreshSelectedCustomer(selectedCustomer.customer_id);
-  await searchCustomers();
-}
   async function loadCustomerNotes(customerId: string) {
     const { data, error } = await supabase
       .from("customer_notes")
@@ -331,38 +394,39 @@ async function updateCustomer(
 
     setSessions(data || []);
   }
+
   async function loadPackages() {
-  const { data, error } = await supabase
-    .from("packages")
-    .select("id, name, minutes, price, expiry_days, active")
-    .order("minutes", { ascending: true });
+    const { data, error } = await supabase
+      .from("packages")
+      .select("id, name, minutes, price, expiry_days, active")
+      .order("minutes", { ascending: true });
 
-  if (error) {
-    showMessage(error.message);
-    return;
+    if (error) {
+      showMessage(error.message);
+      return;
+    }
+
+    setPackages(data || []);
   }
 
-  setPackages(data || []);
-}
+  async function savePackage(updatedPackage: PackageOption) {
+    const { error } = await supabase
+      .from("packages")
+      .update({
+        price: updatedPackage.price,
+        expiry_days: updatedPackage.expiry_days,
+        active: updatedPackage.active,
+      })
+      .eq("id", updatedPackage.id);
 
-async function savePackage(updatedPackage: PackageOption) {
-  const { error } = await supabase
-    .from("packages")
-    .update({
-      price: updatedPackage.price,
-      expiry_days: updatedPackage.expiry_days,
-      active: updatedPackage.active,
-    })
-    .eq("id", updatedPackage.id);
+    if (error) {
+      showMessage(error.message);
+      return;
+    }
 
-  if (error) {
-    showMessage(error.message);
-    return;
+    showMessage("Package updated.");
+    await loadPackages();
   }
-
-  showMessage("Package updated.");
-  await loadPackages();
-}
 
   async function loadSessionsToday() {
     const { data, error } = await supabase
@@ -394,61 +458,138 @@ async function savePackage(updatedPackage: PackageOption) {
   }
 
   async function loadRevenueToday() {
-    const { data, error } = await supabase
-      .from("reception_sales")
-      .select("id, amount")
-      .gte("created_at", getStartOfToday());
+  const { data, error } = await supabase
+    .from("reception_sales")
+    .select("id, amount, minutes, payment_method")
+    .gte("created_at", getStartOfToday());
 
-    if (error) {
-      showMessage(error.message);
-      return;
-    }
-
-    const total = (data ?? []).reduce(
-      (sum, row) => sum + Number(row.amount || 0),
-      0
-    );
-
-    setRevenueToday(total);
-    setSalesToday(data?.length ?? 0);
+  if (error) {
+    showMessage(error.message);
+    return;
   }
 
-  async function loadActivities() {
-    const { data, error } = await supabase
-      .from("reception_sales")
-      .select("*")
-      .order("created_at", { ascending: false })
-      .limit(10);
+  const sales = data ?? [];
 
-    if (error) {
-      showMessage(error.message);
-      return;
-    }
+  const totalRevenue = sales.reduce(
+    (sum, row) => sum + Number(row.amount || 0),
+    0
+  );
 
-    setActivities(
-      (data ?? []).map((sale) => ({
-        id: sale.id,
-        text: `💰 ${sale.customer_name || "Customer"} purchased ${
-          sale.minutes
-        } mins (£${sale.amount})`,
-        time: new Date(sale.created_at).toLocaleTimeString([], {
-          hour: "2-digit",
-          minute: "2-digit",
-        }),
-      }))
-    );
+  const cardRevenue = sales
+    .filter((row) => row.payment_method === "card")
+    .reduce((sum, row) => sum + Number(row.amount || 0), 0);
+
+  const cashRevenue = sales
+    .filter((row) => row.payment_method === "cash")
+    .reduce((sum, row) => sum + Number(row.amount || 0), 0);
+
+  const complimentaryRevenue = sales
+    .filter((row) => row.payment_method === "complimentary")
+    .reduce((sum, row) => sum + Number(row.amount || 0), 0);
+
+  const minutesSold = sales.reduce(
+    (sum, row) => sum + Number(row.minutes || 0),
+    0
+  );
+
+  setRevenueToday(totalRevenue);
+  setCardRevenueToday(cardRevenue);
+  setCashRevenueToday(cashRevenue);
+  setComplimentaryToday(complimentaryRevenue);
+  setMinutesSoldToday(minutesSold);
+  setSalesToday(sales.length);
+}
+
+async function loadCashUpSales() {
+  const { data, error } = await supabase
+    .from("reception_sales")
+    .select(
+      "id, customer_name, minutes, amount, payment_method, created_at"
+    )
+    .gte("created_at", getStartOfToday())
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    showMessage(error.message);
+    return;
   }
+
+  setCashUpSales(
+    (data ?? []).map((sale) => ({
+      ...sale,
+      minutes: Number(sale.minutes || 0),
+      amount: Number(sale.amount || 0),
+    }))
+  );
+}
+
+async function saveCashUp({
+  businessDate,
+  revenue,
+  cardRevenue,
+  cashRevenue,
+  complimentaryRevenue,
+  expectedCash,
+  countedCash,
+  difference,
+  packagesSold,
+  minutesSold,
+  customersToday,
+  sessionsToday,
+}: {
+  businessDate: string;
+  revenue: number;
+  cardRevenue: number;
+  cashRevenue: number;
+  complimentaryRevenue: number;
+  expectedCash: number;
+  countedCash: number;
+  difference: number;
+  packagesSold: number;
+  minutesSold: number;
+  customersToday: number;
+  sessionsToday: number;
+}) {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const { error } = await supabase.from("cash_ups").upsert({
+    business_date: businessDate,
+    revenue,
+    card_revenue: cardRevenue,
+    cash_revenue: cashRevenue,
+    complimentary_revenue: complimentaryRevenue,
+    expected_cash: expectedCash,
+    counted_cash: countedCash,
+    difference,
+    packages_sold: packagesSold,
+    minutes_sold: minutesSold,
+    customers_today: customersToday,
+    sessions_today: sessionsToday,
+    closed_by: user?.id ?? null,
+    closed_at: new Date().toISOString(),
+  });
+
+  if (error) {
+    showMessage(error.message);
+    return false;
+  }
+
+  showMessage("Cash-up saved successfully.");
+
+  return true;
+}
 
   async function refreshDashboardStats() {
-    await Promise.all([
-      loadActiveSessions(),
-      loadSessionsToday(),
-      loadCustomersToday(),
-      loadRevenueToday(),
-      loadActivities(),
-      loadUserRole(),
-    ]);
-  }
+  await Promise.all([
+    loadActiveSessions(),
+    loadSessionsToday(),
+    loadCustomersToday(),
+    loadRevenueToday(),
+    loadCashUpSales(),
+  ]);
+}
 
   useEffect(() => {
     const term = search.trim();
@@ -487,8 +628,9 @@ async function savePackage(updatedPackage: PackageOption) {
       }
     }
 
+    loadUserRole();
+    loadPackages();
     refreshDashboardStats();
-    
 
     const channel = supabase
       .channel("reception-v3-live")
@@ -539,29 +681,28 @@ async function savePackage(updatedPackage: PackageOption) {
   }, [message]);
 
   async function searchCustomers() {
-    if (!search.trim()) return;
+  if (!search.trim()) return;
 
-    setLoading(true);
-    setMessage("");
+  setLoading(true);
+  setMessage("");
 
-    const term = search.trim();
+  const term = search.trim();
 
-    const { data, error } = await supabase
-      .from("customer_balances")
-      .select("*")
-      .or(`full_name.ilike.%${term}%,email.ilike.%${term}%,phone.ilike.%${term}%`)
-      .order("full_name", { ascending: true });
+  const { data, error } = await supabase
+    .from("customer_balances")
+    .select("*")
+    .or(`full_name.ilike.%${term}%,email.ilike.%${term}%,phone.ilike.%${term}%`)
+    .order("full_name", { ascending: true });
 
-    setLoading(false);
+  setLoading(false);
 
-    if (error) {
-      showMessage(error.message);
-      return;
-    }
-
-    setCustomers(data || []);
+  if (error) {
+    showMessage(error.message);
+    return;
   }
 
+  setCustomers(data || []);
+}
   async function refreshSelectedCustomer(customerId?: string) {
     const id = customerId || selectedCustomer?.customer_id;
     if (!id) return;
@@ -593,23 +734,23 @@ async function savePackage(updatedPackage: PackageOption) {
   }
 
   async function recordSale(sale: Sale) {
-    if (!selectedCustomer) return false;
+  if (!selectedCustomer) return false;
 
-    const { error } = await supabase.from("reception_sales").insert({
-      customer_id: selectedCustomer.customer_id,
-      customer_name: selectedCustomer.full_name || "Customer",
-      minutes: sale.minutes,
-      amount: sale.amount,
-    });
+  const { error } = await supabase.from("reception_sales").insert({
+    customer_id: selectedCustomer.customer_id,
+    customer_name: selectedCustomer.full_name || "Customer",
+    minutes: sale.minutes,
+    amount: sale.amount,
+    payment_method: sale.payment_method || "card",
+  });
 
-    if (error) {
-      showMessage(error.message);
-      return false;
-    }
-
-    return true;
+  if (error) {
+    showMessage(error.message);
+    return false;
   }
 
+  return true;
+}
   async function addMinutes(sale?: Sale) {
     if (!selectedCustomer) {
       showMessage("Please select a customer first.");
@@ -639,19 +780,31 @@ async function savePackage(updatedPackage: PackageOption) {
     }
 
     if (sale) {
-      const recorded = await recordSale(sale);
-      if (!recorded) return;
+  const recorded = await recordSale(sale);
+  if (!recorded) return;
 
-      showMessage(`✓ Sold ${sale.description} (£${sale.amount})`);
-    } else {
-      showMessage(`${minutesToAdd} minutes added.`);
-    }
+  await logAudit({
+    action: "Package Sold",
+    customerName: selectedCustomer.full_name || "Unnamed Customer",
+    details: `${sale.description} (£${Number(sale.amount).toFixed(2)})`,
+  });
+
+  showMessage(`✓ Sold ${sale.description} (£${sale.amount})`);
+} else {
+  await logAudit({
+    action: "Manual Minutes Added",
+    customerName: selectedCustomer.full_name || "Unnamed Customer",
+    details: `${minutesToAdd} minutes added`,
+  });
+
+  showMessage(`${minutesToAdd} minutes added.`);
+}
 
     setManualMinutes("");
 
-await refreshSelectedCustomer(selectedCustomer.customer_id);
-await searchCustomers();
-await refreshDashboardStats();
+    await refreshSelectedCustomer(selectedCustomer.customer_id);
+    await searchCustomers();
+    await refreshDashboardStats();
   }
 
   async function deductMinutes(minutesToUse: number) {
@@ -745,161 +898,94 @@ await refreshDashboardStats();
   const bedsFree = Math.max(0, TOTAL_BEDS - activeBeds.length);
   const occupancy = Math.round((bedsRunning / TOTAL_BEDS) * 100);
 
+  if (!authLoaded) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-slate-950 text-white">
+        <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6 text-center shadow-xl">
+          <p className="text-sm font-bold text-slate-300">
+            Loading Reception...
+          </p>
+        </div>
+      </main>
+    );
+  }
+
+  if (userRole !== "owner" && userRole !== "staff") {
+  router.push("/staff-login");
+  return null;
+}
   return (
     <main className="min-h-screen bg-slate-950 text-white">
-      <ReceptionHeader activeBeds={activeBeds.length} />
+      <ReceptionHeader
+  activeBeds={activeBeds.length}
+  userName={userName}
+  userRole={userRole === "owner" ? "owner" : "staff"}
+/>
 
-      <div className="mx-auto flex max-w-7xl justify-end gap-2 px-4 pt-4 md:px-8">
-        <button
-          type="button"
-          onClick={() => setIsOwnerMode(true)}
-          className={`rounded-full px-4 py-2 text-xs font-black uppercase tracking-wide ${
-            isOwnerMode
-              ? "bg-amber-400 text-black"
-              : "border border-slate-700 bg-slate-900 text-slate-300"
-          }`}
-        >
-          Owner
-        </button>
-        {isOwnerMode && (
-  <button
-    type="button"
-    onClick={() => {
+      {userRole === "owner" && (
+  <OwnerTabs
+    isOwnerMode={isOwnerMode}
+    ownerView={ownerView}
+    onSelectView={(view) => {
+      setIsOwnerMode(true);
+      setOwnerView(view);
+    }}
+    onOpenSettings={() => {
       loadPackages();
       setOwnerSettingsOpen(true);
     }}
-    className="rounded-full border border-slate-700 bg-slate-900 px-4 py-2 text-xs font-black uppercase tracking-wide text-slate-300 hover:border-amber-400"
-  >
-    Settings
-  </button>
+    onEnterStaffMode={() => {
+      setIsOwnerMode(false);
+      setOwnerView("staff");
+    }}
+  />
+)}
+  
+  
+  
+      <div className="mx-auto max-w-7xl space-y-5 p-4 md:p-8">
+        
+  {userRole === "owner" && isOwnerMode && (
+  <OwnerArea
+    ownerView={ownerView}
+    revenueToday={revenueToday}
+    cardRevenueToday={cardRevenueToday}
+    cashRevenueToday={cashRevenueToday}
+    complimentaryToday={complimentaryToday}
+    minutesSoldToday={minutesSoldToday}
+    salesToday={salesToday}
+    customersToday={customersToday}
+    sessionsToday={sessionsToday}
+    bedsRunning={bedsRunning}
+    bedsFree={bedsFree}
+    occupancy={occupancy}
+    cashUpSales={cashUpSales}
+    onSaveCashUp={saveCashUp}
+  />
 )}
 
-        <button
-          type="button"
-          onClick={() => setIsOwnerMode(false)}
-          className={`rounded-full px-4 py-2 text-xs font-black uppercase tracking-wide ${
-            !isOwnerMode
-              ? "bg-amber-400 text-black"
-              : "border border-slate-700 bg-slate-900 text-slate-300"
-          }`}
-        >
-          Staff
-        </button>
-      </div>
-
-      <div className="mx-auto max-w-7xl space-y-5 p-4 md:p-8">
-        {isOwnerMode && (
-        
-          <OwnerDashboard
-            revenueToday={revenueToday}
-            salesToday={salesToday}
-            customersToday={customersToday}
-            sessionsToday={sessionsToday}
-            bedsRunning={bedsRunning}
-            bedsFree={bedsFree}
-            occupancy={occupancy}
-          />
-        )}
-
-        {message && (
-          <div className="rounded-xl border border-slate-700 bg-slate-900 p-4 text-sm text-slate-100">
-            {message}
-          </div>
-        )}
-
-        <div className="grid gap-6 xl:grid-cols-[2fr_1fr]">
-          <div className="space-y-5">
-            <CustomerSearch
-              selectedCustomer={selectedCustomer}
-              customers={customers}
-              loading={loading}
-              onSearch={searchCustomers}
-              onSelectCustomer={selectCustomer}
-              search={search}
-              setSearch={setSearch}
-            />
-
-            <NewCustomer onCreateCustomer={createCustomer} />
-
-            {recentCustomers.length > 0 && (
-              <section className="rounded-2xl border border-slate-800 bg-slate-900 px-4 py-3 shadow-xl">
-                <div className="mb-3 flex items-center justify-between gap-3">
-                  <p className="text-xs font-black uppercase tracking-[0.2em] text-amber-400">
-                    Recently Used
-                  </p>
-
-                  <p className="hidden text-xs font-bold text-slate-500 sm:block">
-                    One-click customer select
-                  </p>
-                </div>
-
-                <div className="flex gap-3 overflow-x-auto pb-1">
-                  {recentCustomers.map((customer) => {
-                    const isSelected =
-                      selectedCustomer?.customer_id === customer.customer_id;
-
-                    return (
-                      <button
-                        key={customer.customer_id}
-                        type="button"
-                        onClick={() => selectCustomer(customer)}
-                        className={`min-w-[210px] rounded-2xl border px-4 py-3 text-left transition active:scale-[0.98] ${
-                          isSelected
-                            ? "border-amber-400 bg-amber-500/10"
-                            : "border-slate-700 bg-slate-950 hover:border-amber-400 hover:bg-slate-800"
-                        }`}
-                      >
-                        <div className="flex items-center justify-between gap-3">
-                          <div className="min-w-0">
-                            <p className="truncate text-base font-black text-white">
-                              {customer.full_name || "Unnamed Customer"}
-                            </p>
-                            <p className="mt-1 truncate text-xs font-medium text-slate-400">
-                              {customer.phone || customer.email || "No contact"}
-                            </p>
-                          </div>
-
-                          <div className="shrink-0 text-right">
-                            <p className="text-2xl font-black leading-none text-emerald-400">
-                              {customer.total_minutes ?? 0}
-                            </p>
-                            <p className="mt-1 text-[10px] font-black uppercase tracking-wide text-slate-500">
-                              mins
-                            </p>
-                          </div>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              </section>
-            )}
-
-            {selectedCustomer && (
-              <>
-                <CustomerCard
+{(!isOwnerMode || ownerView === "staff") && (
+<div className="grid gap-6 xl:grid-cols-[2fr_1fr]">
+  <div className="space-y-5">
+    
+            <CustomerArea
+  search={search}
+  setSearch={setSearch}
+  customers={customers}
+  recentCustomers={recentCustomers}
   selectedCustomer={selectedCustomer}
-  manualAdd={manualMinutes}
-  setManualAdd={setManualMinutes}
+  loading={loading}
+  manualMinutes={manualMinutes}
+  packages={packages}
+  customerHistory={customerHistory}
+  customerNotes={customerNotes}
+  onSearchCustomers={searchCustomers}
+  onSelectCustomer={selectCustomer}
+  onCreateCustomer={createCustomer}
+  onSetManualMinutes={setManualMinutes}
   onAddMinutes={addMinutes}
-  packages={packages.map((pkg) => ({
-    ...pkg,
-    price: Number(pkg.price),
-  }))}
+  onAddCustomerNote={addCustomerNote}
 />
-
-                <CustomerHistory
-                  customer={selectedCustomer}
-                  history={customerHistory}
-                />
-
-                <CustomerNotes
-                  notes={customerNotes}
-                  onAddNote={addCustomerNote}
-                  
-                />
-              </>
-            )}
 
             <BedDashboard
               selectedCustomer={selectedCustomer}
@@ -910,22 +996,27 @@ await refreshDashboardStats();
           </div>
 
           <div className="space-y-5">
-            {isOwnerMode && <ActivityFeed activities={activities} />}
+            {userRole === "owner" && isOwnerMode && (
+              <ActivityFeed activities={activities} />
+            )}
           </div>
         </div>
+      )}
       </div>
-          <EditCustomer
+
+      <EditCustomer
         open={editingCustomer}
         customer={selectedCustomer}
         onClose={() => setEditingCustomer(false)}
         onSave={updateCustomer}
       />
-    <OwnerSettings
-  open={ownerSettingsOpen}
-  packages={packages}
-  onClose={() => setOwnerSettingsOpen(false)}
-  onSave={savePackage}
-/>
+
+      <OwnerSettings
+        open={ownerSettingsOpen}
+        packages={packages}
+        onClose={() => setOwnerSettingsOpen(false)}
+        onSave={savePackage}
+      />
     </main>
   );
 }
