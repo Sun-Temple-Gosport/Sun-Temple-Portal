@@ -12,6 +12,13 @@ import CustomerArea from "./components/CustomerArea";
 import OwnerArea from "./components/OwnerArea";
 import { supabase } from "./lib/supabase";
 import { useDashboard } from "./hooks/useDashboard";
+import {
+  searchCustomers as searchCustomersService,
+  createCustomer as createCustomerService,
+  updateCustomer as updateCustomerService,
+  loadCustomerBalance,
+  loadCustomerBalanceOptional,
+} from "./services/customers";
 import type {
   CustomerBalance,
   BedSession,
@@ -196,66 +203,55 @@ const {
   function selectCustomer(customer: CustomerBalance) {
     setSelectedCustomer(customer);
     saveRecentCustomer(customer);
-  }
+  }async function createCustomer(customer: {
+  full_name: string;
+  phone: string;
+  email: string;
+}) {
+  setLoading(true);
+  setMessage("");
 
-  async function createCustomer(customer: {
-    full_name: string;
-    phone: string;
-    email: string;
-  }) {
-    setLoading(true);
-    setMessage("");
+  const { data: newCustomer, error } =
+    await createCustomerService(customer);
 
-    const { data: newCustomer, error } = await supabase
-      .from("customers")
-      .insert({
-        full_name: customer.full_name,
-        phone: customer.phone || null,
-        email: customer.email || null,
-      })
-      .select("*")
-      .single();
-
-    if (error || !newCustomer) {
-      setLoading(false);
-      showMessage(error?.message || "Could not create customer.");
-      return;
-    }
-
-    const customerId = newCustomer.customer_id;
-
-    
-
-    const { data: balance, error: balanceError } = await supabase
-      .from("customer_balances")
-      .select("*")
-      .eq("customer_id", customerId)
-      .maybeSingle();
-
+  if (error || !newCustomer) {
     setLoading(false);
-
-    if (balanceError) {
-      showMessage(balanceError.message);
-      return;
-    }
-
-    const customerToSelect =
-      balance ||
-      ({
-        customer_id: customerId,
-        full_name: customer.full_name,
-        phone: customer.phone || null,
-        email: customer.email || null,
-        total_minutes: 0,
-        next_expiry: null,
-      } as CustomerBalance);
-
-    setCustomers([customerToSelect]);
-    setSearch(customer.full_name);
-    selectCustomer(customerToSelect);
-    showMessage("Customer created successfully.");
+    showMessage(error?.message || "Could not create customer.");
+    return;
   }
 
+  const customerId = newCustomer.customer_id;
+
+  const {
+    data: balance,
+    error: balanceError,
+  } = await loadCustomerBalanceOptional(customerId);
+
+  setLoading(false);
+
+  if (balanceError) {
+    showMessage(balanceError.message);
+    return;
+  }
+
+  const customerToSelect =
+    balance ||
+    ({
+      customer_id: customerId,
+      full_name: customer.full_name,
+      phone: customer.phone || null,
+      email: customer.email || null,
+      total_minutes: 0,
+      next_expiry: null,
+    } as CustomerBalance);
+
+  setCustomers([customerToSelect]);
+  setSearch(customer.full_name);
+  selectCustomer(customerToSelect);
+  showMessage("Customer created successfully.");
+}
+
+  
   async function updateCustomer(
     full_name: string,
     phone: string,
@@ -263,15 +259,12 @@ const {
   ) {
     if (!selectedCustomer) return;
 
-    const { error } = await supabase
-      .from("customers")
-      .update({
-        full_name,
-        phone,
-        email,
-      })
-      .eq("customer_id", selectedCustomer.customer_id);
-
+    const { error } = await updateCustomerService(
+  selectedCustomer.customer_id,
+  full_name,
+  phone,
+  email
+);
     if (error) {
       showMessage(error.message);
       return;
@@ -622,11 +615,7 @@ async function saveCashUp({
 
   const term = search.trim();
 
-  const { data, error } = await supabase
-    .from("customer_balances")
-    .select("*")
-    .or(`full_name.ilike.%${term}%,email.ilike.%${term}%,phone.ilike.%${term}%`)
-    .order("full_name", { ascending: true });
+  const { data, error } = await searchCustomersService(term);
 
   setLoading(false);
 
@@ -919,6 +908,7 @@ async function saveCashUp({
   onSetManualMinutes={setManualMinutes}
   onAddMinutes={addMinutes}
   onAddCustomerNote={addCustomerNote}
+   onEditCustomer={() => setEditingCustomer(true)}
 />
 
             <BedDashboard

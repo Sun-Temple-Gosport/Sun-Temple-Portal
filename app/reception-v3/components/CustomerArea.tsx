@@ -52,6 +52,7 @@ type Props = {
   onSetManualMinutes: (value: string) => void;
   onAddMinutes: (sale?: Sale) => Promise<void>;
   onAddCustomerNote: (note: string) => Promise<void>;
+  onEditCustomer: () => void;
 };
 
 export default function CustomerArea({
@@ -71,6 +72,7 @@ export default function CustomerArea({
   onSetManualMinutes,
   onAddMinutes,
   onAddCustomerNote,
+  onEditCustomer,
 }: Props) {
   return (
     <>
@@ -99,6 +101,7 @@ export default function CustomerArea({
             manualAdd={manualMinutes}
             setManualAdd={onSetManualMinutes}
             onAddMinutes={onAddMinutes}
+             onEditCustomer={onEditCustomer}
             packages={packages.map((pkg) => ({
               ...pkg,
               price: Number(pkg.price),

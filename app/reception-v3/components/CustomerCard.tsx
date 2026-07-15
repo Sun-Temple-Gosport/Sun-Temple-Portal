@@ -20,6 +20,7 @@ type Props = {
   manualAdd: string;
   setManualAdd: (value: string) => void;
   onAddMinutes: (sale?: Sale) => Promise<void>;
+  onEditCustomer: () => void;
   packages: PackageOption[];
 };
 
@@ -28,6 +29,7 @@ export default function CustomerCard({
   manualAdd,
   setManualAdd,
   onAddMinutes,
+  onEditCustomer,
   packages,
 }: Props) {
   const [pendingPackage, setPendingPackage] =
@@ -134,7 +136,8 @@ export default function CustomerCard({
   return (
     <>
       <section className="rounded-3xl border border-slate-800 bg-slate-950 p-5">
-        <div>
+  <div className="flex items-start justify-between gap-4">
+    <div>
           <p className="text-xs font-black uppercase tracking-[0.25em] text-slate-500">
             Customer Control
           </p>
@@ -158,6 +161,15 @@ export default function CustomerCard({
             </span>
           </div>
         </div>
+        </div>
+
+<button
+  type="button"
+  onClick={onEditCustomer}
+  className="rounded-2xl border border-slate-700 bg-slate-900 px-4 py-2 text-sm font-black text-slate-200 hover:border-amber-400"
+>
+  Edit Customer
+</button>
 
         <div className="mt-6 rounded-3xl border border-slate-800 bg-slate-900 p-4">
           <p className="mb-3 text-xs font-black uppercase tracking-[0.25em] text-slate-500">
