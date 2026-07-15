@@ -1,18 +1,14 @@
 "use client";
 
-import { createClient } from "@supabase/supabase-js";
 import { useRouter } from "next/navigation";
-
+import { supabase } from "../lib/supabase";
 type Props = {
   activeBeds: number;
   userName: string;
   userRole: "owner" | "staff";
 };
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+
 
 export default function ReceptionHeader({
   activeBeds,
