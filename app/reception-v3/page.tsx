@@ -35,14 +35,7 @@ type PackageOption = {
   active: boolean;
 };
 
-type CashUpSale = {
-  id: string | number;
-  customer_name: string | null;
-  minutes: number;
-  amount: number;
-  payment_method: string | null;
-  created_at: string;
-};
+
 
 type UserRole = "owner" | "staff" | "customer";
 
@@ -71,15 +64,16 @@ export default function ReceptionV3Page() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [activities, setActivities] = useState<Activity[]>([]);
-  const [cashUpSales, setCashUpSales] = useState<CashUpSale[]>([]);
-
   const [authLoaded, setAuthLoaded] = useState(false);
   const [isOwnerMode, setIsOwnerMode] = useState(false);
   const [ownerView, setOwnerView] = useState<OwnerView>("dashboard");
   const [userRole, setUserRole] = useState<UserRole>("customer");
   const [userName, setUserName] = useState("Staff User");
 
-  const dashboard = useDashboard();
+  const dashboard = useDashboard({
+  getStartOfToday,
+  showMessage,
+});
 
 const {
   salesToday,
@@ -98,6 +92,9 @@ const {
   setComplimentaryToday,
   minutesSoldToday,
   setMinutesSoldToday,
+  cashUpSales,
+  loadRevenueToday,
+  loadCashUpSales,
 } = dashboard;
 
   function getStartOfToday() {
@@ -457,71 +454,8 @@ const {
     setCustomersToday(uniqueCustomers.size);
   }
 
-  async function loadRevenueToday() {
-  const { data, error } = await supabase
-    .from("reception_sales")
-    .select("id, amount, minutes, payment_method")
-    .gte("created_at", getStartOfToday());
+  
 
-  if (error) {
-    showMessage(error.message);
-    return;
-  }
-
-  const sales = data ?? [];
-
-  const totalRevenue = sales.reduce(
-    (sum, row) => sum + Number(row.amount || 0),
-    0
-  );
-
-  const cardRevenue = sales
-    .filter((row) => row.payment_method === "card")
-    .reduce((sum, row) => sum + Number(row.amount || 0), 0);
-
-  const cashRevenue = sales
-    .filter((row) => row.payment_method === "cash")
-    .reduce((sum, row) => sum + Number(row.amount || 0), 0);
-
-  const complimentaryRevenue = sales
-    .filter((row) => row.payment_method === "complimentary")
-    .reduce((sum, row) => sum + Number(row.amount || 0), 0);
-
-  const minutesSold = sales.reduce(
-    (sum, row) => sum + Number(row.minutes || 0),
-    0
-  );
-
-  setRevenueToday(totalRevenue);
-  setCardRevenueToday(cardRevenue);
-  setCashRevenueToday(cashRevenue);
-  setComplimentaryToday(complimentaryRevenue);
-  setMinutesSoldToday(minutesSold);
-  setSalesToday(sales.length);
-}
-
-async function loadCashUpSales() {
-  const { data, error } = await supabase
-    .from("reception_sales")
-    .select(
-      "id, customer_name, minutes, amount, payment_method, created_at"
-    )
-    .gte("created_at", getStartOfToday())
-    .order("created_at", { ascending: false });
-
-  if (error) {
-    showMessage(error.message);
-    return;
-  }
-
-  setCashUpSales(
-    (data ?? []).map((sale) => ({
-      ...sale,
-      minutes: Number(sale.minutes || 0),
-      amount: Number(sale.amount || 0),
-    }))
-  );
-}
 
 async function saveCashUp({
   businessDate,
