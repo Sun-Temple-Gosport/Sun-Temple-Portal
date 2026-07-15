@@ -13,6 +13,10 @@ import OwnerArea from "./components/OwnerArea";
 import { supabase } from "./lib/supabase";
 import { useDashboard } from "./hooks/useDashboard";
 import {
+  loadPackages as loadPackagesService,
+  savePackage as savePackageService,
+} from "./services/packages";
+import {
   searchCustomers as searchCustomersService,
   createCustomer as createCustomerService,
   updateCustomer as updateCustomerService,
@@ -386,37 +390,27 @@ const {
   }
 
   async function loadPackages() {
-    const { data, error } = await supabase
-      .from("packages")
-      .select("id, name, minutes, price, expiry_days, active")
-      .order("minutes", { ascending: true });
+  const { data, error } = await loadPackagesService();
 
-    if (error) {
-      showMessage(error.message);
-      return;
-    }
-
-    setPackages(data || []);
+  if (error) {
+    showMessage(error.message);
+    return;
   }
+
+  setPackages(data || []);
+}
 
   async function savePackage(updatedPackage: PackageOption) {
-    const { error } = await supabase
-      .from("packages")
-      .update({
-        price: updatedPackage.price,
-        expiry_days: updatedPackage.expiry_days,
-        active: updatedPackage.active,
-      })
-      .eq("id", updatedPackage.id);
+  const { error } = await savePackageService(updatedPackage);
 
-    if (error) {
-      showMessage(error.message);
-      return;
-    }
-
-    showMessage("Package updated.");
-    await loadPackages();
+  if (error) {
+    showMessage(error.message);
+    return;
   }
+
+  showMessage("Package updated.");
+  await loadPackages();
+}
 
   async function loadSessionsToday() {
     const { data, error } = await supabase
