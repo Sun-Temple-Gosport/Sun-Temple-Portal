@@ -9,6 +9,7 @@ import BedDashboard from "./components/BedDashboard";
 import OwnerSettings from "./components/OwnerSettings";
 import OwnerTabs, { type OwnerView } from "./components/OwnerTabs";
 import CustomerArea from "./components/CustomerArea";
+import { loadCustomerBedSessions } from "./services/beds";
 import OwnerArea from "./components/OwnerArea";
 import {
   saveCashUp as saveCashUpService,
@@ -354,17 +355,13 @@ async function deleteCustomerNote(id: string) {
 }
 
   async function loadCustomerHistory(customerId: string) {
-    const { data: visitData, error: visitError } = await supabase
-      .from("bed_sessions")
-      .select("*")
-      .eq("customer_id", customerId)
-      .order("started_at", { ascending: false });
+    const { data: visitData, error: visitError } =
+  await loadCustomerBedSessions(customerId);
 
-    if (visitError) {
-      showMessage(visitError.message);
-      return;
-    }
-
+if (visitError) {
+  showMessage(visitError.message);
+  return;
+}
     const { data: salesData, error: salesError } =
   await loadCustomerSales(customerId);
 
