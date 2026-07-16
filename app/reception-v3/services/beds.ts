@@ -37,3 +37,9 @@ export async function startBedSession(
     status: "active",
   });
 }
+export async function loadCustomersToday(startOfToday: string) {
+  return await supabase
+    .from("bed_sessions")
+    .select("customer_id")
+    .gte("started_at", startOfToday);
+}

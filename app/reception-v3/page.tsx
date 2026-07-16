@@ -14,6 +14,7 @@ import {
   loadSessionsToday as loadSessionsTodayService,
   finishBedSession as finishBedSessionService,
   startBedSession as startBedSessionService,
+  loadCustomersToday as loadCustomersTodayService,
 } from "./services/beds";
 import OwnerArea from "./components/OwnerArea";
 import {
@@ -444,19 +445,21 @@ async function loadSessionsToday() {
 }
 
   async function loadCustomersToday() {
-    const { data, error } = await supabase
-      .from("bed_sessions")
-      .select("customer_id")
-      .gte("started_at", getStartOfToday());
+  const { data, error } = await loadCustomersTodayService(
+    getStartOfToday()
+  );
 
-    if (error) {
-      showMessage(error.message);
-      return;
-    }
-
-    const uniqueCustomers = new Set((data ?? []).map((row) => row.customer_id));
-    setCustomersToday(uniqueCustomers.size);
+  if (error) {
+    showMessage(error.message);
+    return;
   }
+
+  const uniqueCustomers = new Set(
+    (data ?? []).map((row) => row.customer_id)
+  );
+
+  setCustomersToday(uniqueCustomers.size);
+}
 
   
 
