@@ -6,6 +6,7 @@ export async function recordSale(
   customerName: string,
   sale: Sale
 ) {
+    
   return await supabase.from("reception_sales").insert({
     customer_id: customerId,
     customer_name: customerName,
@@ -13,4 +14,11 @@ export async function recordSale(
     amount: sale.amount,
     payment_method: sale.payment_method || "card",
   });
+}
+export async function loadCustomerSales(customerId: string) {
+  return await supabase
+    .from("reception_sales")
+    .select("id, minutes, amount, created_at")
+    .eq("customer_id", customerId)
+    .order("created_at", { ascending: false });
 }

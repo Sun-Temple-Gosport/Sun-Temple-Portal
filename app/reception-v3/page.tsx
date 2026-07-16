@@ -11,7 +11,10 @@ import OwnerTabs, { type OwnerView } from "./components/OwnerTabs";
 import CustomerArea from "./components/CustomerArea";
 import OwnerArea from "./components/OwnerArea";
 import { supabase } from "./lib/supabase";
-import { recordSale as recordSaleService } from "./services/sales";
+import {
+  recordSale as recordSaleService,
+  loadCustomerSales,
+} from "./services/sales";
 import { useDashboard } from "./hooks/useDashboard";
 import {
   loadCustomerNotes as loadCustomerNotesService,
@@ -358,16 +361,13 @@ async function deleteCustomerNote(id: string) {
       return;
     }
 
-    const { data: salesData, error: salesError } = await supabase
-      .from("reception_sales")
-      .select("id, minutes, amount, created_at")
-      .eq("customer_id", customerId)
-      .order("created_at", { ascending: false });
+    const { data: salesData, error: salesError } =
+  await loadCustomerSales(customerId);
 
-    if (salesError) {
-      showMessage(salesError.message);
-      return;
-    }
+if (salesError) {
+  showMessage(salesError.message);
+  return;
+}
 
     const purchases = salesData ?? [];
 
