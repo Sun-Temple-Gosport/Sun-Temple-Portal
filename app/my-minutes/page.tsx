@@ -24,11 +24,15 @@ export default function MyMinutes() {
         .eq("id", user.id)
         .single();
 
-      const { data: balanceData } = await supabase
+      const { data: balanceData, error: balanceError } = await supabase
   .from("customer_balances")
   .select("*")
-  .eq("email", user.email)
-  .single();
+  .eq("customer_id", user.id)
+  .maybeSingle();
+
+if (balanceError) {
+  console.error("Could not load customer balance:", balanceError);
+}
 
 setProfile({
   ...profileData,
