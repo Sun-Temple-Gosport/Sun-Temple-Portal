@@ -12,6 +12,7 @@ import CustomerArea from "./components/CustomerArea";
 import {
   loadCustomerBedSessions,
   loadSessionsToday as loadSessionsTodayService,
+  finishBedSession as finishBedSessionService,
 } from "./services/beds";
 import OwnerArea from "./components/OwnerArea";
 import {
@@ -794,23 +795,20 @@ async function saveCashUp(cashUp: CashUpData) {
   }
 
   async function finishBedSession(sessionId: string) {
-    const { error } = await supabase
-      .from("bed_sessions")
-      .update({ status: "finished" })
-      .eq("id", sessionId);
+  const { error } = await finishBedSessionService(sessionId);
 
-    if (error) {
-      showMessage(error.message);
-      return;
-    }
-
-    showMessage("Bed session finished.");
-    await refreshDashboardStats();
-
-    if (selectedCustomer) {
-      await loadCustomerHistory(selectedCustomer.customer_id);
-    }
+  if (error) {
+    showMessage(error.message);
+    return;
   }
+
+  showMessage("Bed session finished.");
+  await refreshDashboardStats();
+
+  if (selectedCustomer) {
+    await loadCustomerHistory(selectedCustomer.customer_id);
+  }
+}
 
   const activeBeds = sessions.filter((session) => session.status === "active");
 

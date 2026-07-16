@@ -13,3 +13,9 @@ export async function loadSessionsToday(startOfToday: string) {
     .select("id")
     .gte("started_at", startOfToday);
 }
+export async function finishBedSession(sessionId: string) {
+  return await supabase
+    .from("bed_sessions")
+    .update({ status: "finished" })
+    .eq("id", sessionId);
+}
