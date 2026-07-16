@@ -10,6 +10,10 @@ import OwnerSettings from "./components/OwnerSettings";
 import OwnerTabs, { type OwnerView } from "./components/OwnerTabs";
 import CustomerArea from "./components/CustomerArea";
 import OwnerArea from "./components/OwnerArea";
+import {
+  saveCashUp as saveCashUpService,
+  type CashUpData,
+} from "./services/cashup";
 import { supabase } from "./lib/supabase";
 import {
   recordSale as recordSaleService,
@@ -456,53 +460,15 @@ if (salesError) {
   
 
 
-async function saveCashUp({
-  businessDate,
-  revenue,
-  cardRevenue,
-  cashRevenue,
-  complimentaryRevenue,
-  expectedCash,
-  countedCash,
-  difference,
-  packagesSold,
-  minutesSold,
-  customersToday,
-  sessionsToday,
-}: {
-  businessDate: string;
-  revenue: number;
-  cardRevenue: number;
-  cashRevenue: number;
-  complimentaryRevenue: number;
-  expectedCash: number;
-  countedCash: number;
-  difference: number;
-  packagesSold: number;
-  minutesSold: number;
-  customersToday: number;
-  sessionsToday: number;
-}) {
+async function saveCashUp(cashUp: CashUpData) {
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const { error } = await supabase.from("cash_ups").upsert({
-    business_date: businessDate,
-    revenue,
-    card_revenue: cardRevenue,
-    cash_revenue: cashRevenue,
-    complimentary_revenue: complimentaryRevenue,
-    expected_cash: expectedCash,
-    counted_cash: countedCash,
-    difference,
-    packages_sold: packagesSold,
-    minutes_sold: minutesSold,
-    customers_today: customersToday,
-    sessions_today: sessionsToday,
-    closed_by: user?.id ?? null,
-    closed_at: new Date().toISOString(),
-  });
+  const { error } = await saveCashUpService(
+    cashUp,
+    user?.id ?? null
+  );
 
   if (error) {
     showMessage(error.message);
@@ -510,7 +476,6 @@ async function saveCashUp({
   }
 
   showMessage("Cash-up saved successfully.");
-
   return true;
 }
 
