@@ -818,6 +818,13 @@ async function saveCashUp(cashUp: CashUpData) {
 
   const bedsFree = Math.max(0, TOTAL_BEDS - activeBeds.length);
   const occupancy = Math.round((bedsRunning / TOTAL_BEDS) * 100);
+  useEffect(() => {
+  if (!authLoaded) return;
+
+  if (userRole !== "owner" && userRole !== "staff") {
+    router.replace("/staff-login");
+  }
+}, [authLoaded, userRole, router]);
 
   if (!authLoaded) {
     return (
@@ -831,10 +838,7 @@ async function saveCashUp(cashUp: CashUpData) {
     );
   }
 
-  if (userRole !== "owner" && userRole !== "staff") {
-  router.push("/staff-login");
-  return null;
-}
+  
   return (
     <main className="min-h-screen bg-slate-950 text-white">
       <ReceptionHeader
