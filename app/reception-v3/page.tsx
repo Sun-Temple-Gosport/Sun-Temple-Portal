@@ -9,7 +9,10 @@ import BedDashboard from "./components/BedDashboard";
 import OwnerSettings from "./components/OwnerSettings";
 import OwnerTabs, { type OwnerView } from "./components/OwnerTabs";
 import CustomerArea from "./components/CustomerArea";
-import { loadCustomerBedSessions } from "./services/beds";
+import {
+  loadCustomerBedSessions,
+  loadSessionsToday as loadSessionsTodayService,
+} from "./services/beds";
 import OwnerArea from "./components/OwnerArea";
 import {
   saveCashUp as saveCashUpService,
@@ -425,19 +428,18 @@ if (salesError) {
   await loadPackages();
 }
 
-  async function loadSessionsToday() {
-    const { data, error } = await supabase
-      .from("bed_sessions")
-      .select("id")
-      .gte("started_at", getStartOfToday());
+async function loadSessionsToday() {
+  const { data, error } = await loadSessionsTodayService(
+    getStartOfToday()
+  );
 
-    if (error) {
-      showMessage(error.message);
-      return;
-    }
-
-    setSessionsToday(data?.length ?? 0);
+  if (error) {
+    showMessage(error.message);
+    return;
   }
+
+  setSessionsToday(data?.length ?? 0);
+}
 
   async function loadCustomersToday() {
     const { data, error } = await supabase
