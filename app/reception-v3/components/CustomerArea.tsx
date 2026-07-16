@@ -52,6 +52,7 @@ type Props = {
   onSetManualMinutes: (value: string) => void;
   onAddMinutes: (sale?: Sale) => Promise<void>;
   onAddCustomerNote: (note: string) => Promise<void>;
+  onDeleteCustomerNote: (id: string) => Promise<void>;
   onEditCustomer: () => void;
 };
 
@@ -72,6 +73,7 @@ export default function CustomerArea({
   onSetManualMinutes,
   onAddMinutes,
   onAddCustomerNote,
+  onDeleteCustomerNote,
   onEditCustomer,
 }: Props) {
   return (
@@ -114,9 +116,10 @@ export default function CustomerArea({
           />
 
           <CustomerNotes
-            notes={customerNotes}
-            onAddNote={onAddCustomerNote}
-          />
+  notes={customerNotes}
+  onAddNote={onAddCustomerNote}
+  onDeleteNote={onDeleteCustomerNote}
+/>
         </>
       )}
     </>

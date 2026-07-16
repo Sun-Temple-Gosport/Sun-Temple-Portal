@@ -13,6 +13,11 @@ import OwnerArea from "./components/OwnerArea";
 import { supabase } from "./lib/supabase";
 import { useDashboard } from "./hooks/useDashboard";
 import {
+  loadCustomerNotes as loadCustomerNotesService,
+  addCustomerNote as addCustomerNoteService,
+  deleteCustomerNote as deleteCustomerNoteService,
+} from "./services/notes";
+import {
   loadPackages as loadPackagesService,
   savePackage as savePackageService,
 } from "./services/packages";
@@ -282,57 +287,50 @@ const {
   }
 
   async function loadCustomerNotes(customerId: string) {
-    const { data, error } = await supabase
-      .from("customer_notes")
-      .select("id, note, created_at")
-      .eq("customer_id", customerId)
-      .order("created_at", { ascending: false });
+  const { data, error } = await loadCustomerNotesService(customerId);
 
-    if (error) {
-      showMessage(error.message);
-      return;
-    }
-
-    setCustomerNotes(data || []);
+  if (error) {
+    showMessage(error.message);
+    return;
   }
 
-  async function addCustomerNote(note: string) {
-    if (!selectedCustomer) {
-      showMessage("Please select a customer first.");
-      return;
-    }
+  setCustomerNotes(data || []);
+}
 
-    const { error } = await supabase.from("customer_notes").insert({
-      customer_id: selectedCustomer.customer_id,
-      note,
-    });
+async function addCustomerNote(note: string) {
+  if (!selectedCustomer) {
+    showMessage("Please select a customer first.");
+    return;
+  }
 
-    if (error) {
-      showMessage(error.message);
-      return;
-    }
+  const { error } = await addCustomerNoteService(
+    selectedCustomer.customer_id,
+    note
+  );
 
-    showMessage("Customer note saved.");
+  if (error) {
+    showMessage(error.message);
+    return;
+  }
+
+  showMessage("Customer note saved.");
+  await loadCustomerNotes(selectedCustomer.customer_id);
+}
+
+async function deleteCustomerNote(id: string) {
+  const { error } = await deleteCustomerNoteService(id);
+
+  if (error) {
+    showMessage(error.message);
+    return;
+  }
+
+  showMessage("Customer note deleted.");
+
+  if (selectedCustomer) {
     await loadCustomerNotes(selectedCustomer.customer_id);
   }
-
-  async function deleteCustomerNote(id: string) {
-    const { error } = await supabase
-      .from("customer_notes")
-      .delete()
-      .eq("id", id);
-
-    if (error) {
-      showMessage(error.message);
-      return;
-    }
-
-    showMessage("Customer note deleted.");
-
-    if (selectedCustomer) {
-      await loadCustomerNotes(selectedCustomer.customer_id);
-    }
-  }
+}
 
   async function loadCustomerHistory(customerId: string) {
     const { data: visitData, error: visitError } = await supabase
@@ -902,6 +900,7 @@ async function saveCashUp({
   onSetManualMinutes={setManualMinutes}
   onAddMinutes={addMinutes}
   onAddCustomerNote={addCustomerNote}
+  onDeleteCustomerNote={deleteCustomerNote}
    onEditCustomer={() => setEditingCustomer(true)}
 />
 

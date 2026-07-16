@@ -11,6 +11,7 @@ type Note = {
 type Props = {
   notes: Note[];
   onAddNote: (note: string) => Promise<void>;
+  onDeleteNote: (id: string) => Promise<void>;
 };
 
 const quickNotes = [
@@ -34,6 +35,7 @@ function getNoteColour(note: string) {
 export default function CustomerNotes({
   notes,
   onAddNote,
+  onDeleteNote,
 }: Props) {
   const [newNote, setNewNote] = useState("");
 
@@ -106,7 +108,13 @@ export default function CustomerNotes({
                   </p>
                 </div>
 
-                
+                <button
+                  type="button"
+                  onClick={() => onDeleteNote(note.id)}
+                  className="rounded-lg border border-red-500/30 px-3 py-2 text-xs font-bold text-red-400 transition hover:bg-red-500/10"
+                >
+                  Delete
+                </button>
               </div>
             </div>
           ))
