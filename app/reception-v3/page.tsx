@@ -891,7 +891,7 @@ async function saveCashUp(cashUp: CashUpData) {
 
 {(!isOwnerMode || ownerView === "staff") && (
 <div className="grid gap-6 xl:grid-cols-[2fr_1fr]">
-  <div className="space-y-5">
+  <div className="min-w-0 space-y-5">
     
             <CustomerArea
   search={search}
