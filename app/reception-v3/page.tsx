@@ -11,6 +11,7 @@ import OwnerTabs, { type OwnerView } from "./components/OwnerTabs";
 import CustomerArea from "./components/CustomerArea";
 import OwnerArea from "./components/OwnerArea";
 import { supabase } from "./lib/supabase";
+import { recordSale as recordSaleService } from "./services/sales";
 import { useDashboard } from "./hooks/useDashboard";
 import {
   loadCustomerNotes as loadCustomerNotesService,
@@ -58,6 +59,7 @@ type UserRole = "owner" | "staff" | "customer";
 
 
 const RECENT_CUSTOMERS_KEY = "sun-temple-recent-customers-v3";
+const TODAY_ACTIVITY_KEY = "reception-v3-today-activity";
 const TOTAL_BEDS = 4;
 
 export default function ReceptionV3Page() {
@@ -79,7 +81,19 @@ export default function ReceptionV3Page() {
   const [manualMinutes, setManualMinutes] = useState("");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
-  const [activities, setActivities] = useState<Activity[]>([]);
+  const [activities, setActivities] = useState<Activity[]>(() => {
+  if (typeof window === "undefined") return [];
+
+  const stored = localStorage.getItem(TODAY_ACTIVITY_KEY);
+  if (!stored) return [];
+
+  try {
+    return JSON.parse(stored) as Activity[];
+  } catch {
+    localStorage.removeItem(TODAY_ACTIVITY_KEY);
+    return [];
+  }
+});
   const [authLoaded, setAuthLoaded] = useState(false);
   const [isOwnerMode, setIsOwnerMode] = useState(false);
   const [ownerView, setOwnerView] = useState<OwnerView>("dashboard");
@@ -588,6 +602,9 @@ async function saveCashUp({
       supabase.removeChannel(channel);
     };
   }, [selectedCustomer?.customer_id]);
+  useEffect(() => {
+  localStorage.setItem(TODAY_ACTIVITY_KEY, JSON.stringify(activities));
+}, [activities]);
 
   useEffect(() => {
     if (!message) return;
@@ -651,13 +668,11 @@ async function saveCashUp({
   async function recordSale(sale: Sale) {
   if (!selectedCustomer) return false;
 
-  const { error } = await supabase.from("reception_sales").insert({
-    customer_id: selectedCustomer.customer_id,
-    customer_name: selectedCustomer.full_name || "Customer",
-    minutes: sale.minutes,
-    amount: sale.amount,
-    payment_method: sale.payment_method || "card",
-  });
+  const { error } = await recordSaleService(
+    selectedCustomer.customer_id,
+    selectedCustomer.full_name || "Customer",
+    sale
+  );
 
   if (error) {
     showMessage(error.message);
@@ -704,6 +719,20 @@ async function saveCashUp({
     details: `${sale.description} (£${Number(sale.amount).toFixed(2)})`,
   });
 
+  setActivities((current) => [
+    {
+      id: crypto.randomUUID(),
+      text: `✓ Sold ${sale.description} (£${Number(sale.amount).toFixed(2)}) to ${
+        selectedCustomer.full_name || "Customer"
+      }`,
+      time: new Date().toLocaleTimeString("en-GB", {
+        hour: "2-digit",
+        minute: "2-digit",
+      }),
+    },
+    ...current,
+  ]);
+
   showMessage(`✓ Sold ${sale.description} (£${sale.amount})`);
 } else {
   await logAudit({
@@ -711,6 +740,20 @@ async function saveCashUp({
     customerName: selectedCustomer.full_name || "Unnamed Customer",
     details: `${minutesToAdd} minutes added`,
   });
+
+  setActivities((current) => [
+    {
+      id: crypto.randomUUID(),
+      text: `✓ Added ${minutesToAdd} manual minutes to ${
+        selectedCustomer.full_name || "Customer"
+      }`,
+      time: new Date().toLocaleTimeString("en-GB", {
+        hour: "2-digit",
+        minute: "2-digit",
+      }),
+    },
+    ...current,
+  ]);
 
   showMessage(`${minutesToAdd} minutes added.`);
 }
@@ -720,6 +763,7 @@ async function saveCashUp({
     await refreshSelectedCustomer(selectedCustomer.customer_id);
     await searchCustomers();
     await refreshDashboardStats();
+    
   }
 
   async function deductMinutes(minutesToUse: number) {
@@ -913,9 +957,7 @@ async function saveCashUp({
           </div>
 
           <div className="space-y-5">
-            {userRole === "owner" && isOwnerMode && (
-              <ActivityFeed activities={activities} />
-            )}
+            <ActivityFeed activities={activities} />
           </div>
         </div>
       )}
