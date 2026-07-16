@@ -19,3 +19,21 @@ export async function finishBedSession(sessionId: string) {
     .update({ status: "finished" })
     .eq("id", sessionId);
 }
+export async function startBedSession(
+  customerId: string,
+  customerName: string,
+  bedName: string,
+  minutes: number,
+  startedAt: string,
+  endsAt: string
+) {
+  return await supabase.from("bed_sessions").insert({
+    customer_id: customerId,
+    customer_name: customerName,
+    bed_name: bedName,
+    minutes,
+    started_at: startedAt,
+    ends_at: endsAt,
+    status: "active",
+  });
+}

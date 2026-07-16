@@ -13,6 +13,7 @@ import {
   loadCustomerBedSessions,
   loadSessionsToday as loadSessionsTodayService,
   finishBedSession as finishBedSessionService,
+  startBedSession as startBedSessionService,
 } from "./services/beds";
 import OwnerArea from "./components/OwnerArea";
 import {
@@ -773,15 +774,14 @@ async function saveCashUp(cashUp: CashUpData) {
     const startedAt = new Date();
     const endsAt = new Date(startedAt.getTime() + minutes * 60 * 1000);
 
-    const { error } = await supabase.from("bed_sessions").insert({
-      customer_id: selectedCustomer.customer_id,
-      customer_name: selectedCustomer.full_name || "Customer",
-      bed_name: bedName,
-      minutes,
-      started_at: startedAt.toISOString(),
-      ends_at: endsAt.toISOString(),
-      status: "active",
-    });
+    const { error } = await startBedSessionService(
+  selectedCustomer.customer_id,
+  selectedCustomer.full_name || "Customer",
+  bedName,
+  minutes,
+  startedAt.toISOString(),
+  endsAt.toISOString()
+);
 
     if (error) {
       showMessage(error.message);
