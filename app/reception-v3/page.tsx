@@ -15,6 +15,7 @@ import {
   finishBedSession as finishBedSessionService,
   startBedSession as startBedSessionService,
   loadCustomersToday as loadCustomersTodayService,
+  loadActiveSessions as loadActiveSessionsService,
 } from "./services/beds";
 import OwnerArea from "./components/OwnerArea";
 import {
@@ -394,19 +395,15 @@ if (salesError) {
   }
 
   async function loadActiveSessions() {
-    const { data, error } = await supabase
-      .from("bed_sessions")
-      .select("*")
-      .eq("status", "active")
-      .order("started_at", { ascending: false });
+  const { data, error } = await loadActiveSessionsService();
 
-    if (error) {
-      showMessage(error.message);
-      return;
-    }
-
-    setSessions(data || []);
+  if (error) {
+    showMessage(error.message);
+    return;
   }
+
+  setSessions(data || []);
+}
 
   async function loadPackages() {
   const { data, error } = await loadPackagesService();

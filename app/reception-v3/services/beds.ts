@@ -43,3 +43,10 @@ export async function loadCustomersToday(startOfToday: string) {
     .select("customer_id")
     .gte("started_at", startOfToday);
 }
+export async function loadActiveSessions() {
+  return await supabase
+    .from("bed_sessions")
+    .select("*")
+    .eq("status", "active")
+    .order("started_at", { ascending: false });
+}
