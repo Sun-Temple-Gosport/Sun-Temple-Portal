@@ -1,11 +1,18 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabase";
 
 export default function MyMinutes() {
   const [profile, setProfile] = useState<any>(null);
   const [balance, setBalance] = useState<any>(null);
+  const router = useRouter();
+
+async function logout() {
+  await supabase.auth.signOut();
+  router.push("/login");
+}
 
   useEffect(() => {
     async function loadCustomer() {
@@ -83,12 +90,22 @@ setBalance(balanceData);
   </p>
 </div>
 
-          <a
-            href="/buy-minutes"
-            className="mt-10 inline-block rounded-full bg-[#d6a84f] px-8 py-4 font-bold text-black"
-          >
-            Buy More Minutes
-          </a>
+          <div className="mt-10 flex flex-wrap gap-4">
+  <a
+    href="/buy-minutes"
+    className="rounded-full bg-[#d6a84f] px-8 py-4 font-bold text-black"
+  >
+    Buy More Minutes
+  </a>
+
+  <button
+    type="button"
+    onClick={logout}
+    className="rounded-full border border-zinc-700 px-8 py-4 font-bold text-white hover:border-[#d6a84f]"
+  >
+    Logout
+  </button>
+</div>
         </div>
       </section>
     </main>
