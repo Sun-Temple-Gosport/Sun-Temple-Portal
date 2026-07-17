@@ -166,6 +166,42 @@ export default async function PaymentSuccess({ searchParams }: Props) {
   if (updateError) {
     return <ErrorPage message="Minutes were added, but the purchase record could not be completed." />;
   }
+  const { data: customer } = await supabaseAdmin
+  .from("customers")
+  .select("full_name")
+  .eq("customer_id", purchase.customer_id)
+  .maybeSingle();
+
+const { error: saleError } = await supabaseAdmin
+  .from("reception_sales")
+  .insert({
+    customer_id: purchase.customer_id,
+    customer_name: customer?.full_name || "Online Customer",
+    minutes: purchase.minutes_added,
+    amount: purchase.amount_paid,
+    payment_method: "card",
+  });
+
+if (saleError) {
+  return (
+    <ErrorPage message="Your minutes were added, but the online sale could not be added to the Owner Dashboard." />
+  );
+}
+const { error: auditError } = await supabaseAdmin
+  .from("audit_log")
+  .insert({
+    staff_id: null,
+    staff_name: "Online Sale",
+    action: "Package Sold",
+    customer_name: customer?.full_name || "Online Customer",
+    details: `${purchase.minutes_added} Minutes (£${Number(
+      purchase.amount_paid
+    ).toFixed(2)})`,
+  });
+
+if (auditError) {
+  console.error("Online purchase audit log failed:", auditError);
+}
 
   return (
     <main className="min-h-screen bg-[#050505] px-6 py-16 text-white">

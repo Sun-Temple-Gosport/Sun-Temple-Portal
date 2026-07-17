@@ -12,7 +12,9 @@ export async function POST(request: Request) {
   const expiry = new Date();
   expiry.setDate(expiry.getDate() + 30);
 
-  await supabaseAdmin.from("purchases").insert({
+  const { error: purchaseError } = await supabaseAdmin
+  .from("purchases")
+  .insert({
     customer_id: body.customerId,
     package_id: body.packageId,
     minutes_added: body.minutes,
@@ -22,6 +24,18 @@ export async function POST(request: Request) {
     checkout_reference: body.checkoutReference,
     payment_status: "pending",
   });
+
+if (purchaseError) {
+  console.error("Purchase insert failed:", purchaseError);
+
+  return NextResponse.json(
+    {
+      error: "Could not create purchase record.",
+      details: purchaseError.message,
+    },
+    { status: 500 }
+  );
+}
 
   const res = await fetch("https://api.sumup.com/v0.1/checkouts", {
     method: "POST",

@@ -31,10 +31,24 @@ async function logout() {
         .eq("id", user.id)
         .single();
 
-      const { data: balanceData, error: balanceError } = await supabase
+      const { data: customerData, error: customerError } = await supabase
+  .from("customers")
+  .select("customer_id")
+  .eq("email", user.email)
+  .maybeSingle();
+
+if (customerError || !customerData) {
+  console.error(
+    "Could not match customer account:",
+    customerError?.message || "Customer record not found."
+  );
+  return;
+}
+
+const { data: balanceData, error: balanceError } = await supabase
   .from("customer_balances")
   .select("*")
-  .eq("customer_id", user.id)
+  .eq("customer_id", customerData.customer_id)
   .maybeSingle();
 
 if (balanceError) {

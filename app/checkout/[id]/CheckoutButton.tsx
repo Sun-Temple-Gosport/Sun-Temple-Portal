@@ -23,6 +23,19 @@ export default function CheckoutButton({
       window.location.href = "/login";
       return;
     }
+    const { data: customer, error: customerError } = await supabase
+  .from("customers")
+  .select("customer_id")
+  .eq("email", user.email)
+  .maybeSingle();
+
+if (customerError || !customer) {
+  alert(
+    customerError?.message ||
+      "Your customer account could not be matched. Please contact Sun Temple."
+  );
+  return;
+}
 
     const checkoutReference = `suntemple-${Date.now()}`;
 
@@ -36,7 +49,7 @@ export default function CheckoutButton({
         description,
         packageId,
         minutes,
-        customerId: user.id,
+        customerId: customer.customer_id,
         checkoutReference,
       }),
     });
