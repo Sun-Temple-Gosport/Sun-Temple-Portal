@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { supabase } from "../../lib/supabase";
 
 export default function LoginPage() {
@@ -60,7 +61,24 @@ export default function LoginPage() {
             >
               Login
             </button>
+            <div className="flex justify-end">
+  <Link
+    href="/forgot-password"
+    className="text-sm font-medium text-[#d6a84f] hover:underline"
+  >
+    Forgot your password?
+  </Link>
+</div>
           </div>
+          <p className="mt-6 text-center text-sm text-zinc-400">
+  New customer?{" "}
+  <Link
+    href="/register"
+    className="font-semibold text-[#d6a84f] hover:underline"
+  >
+    Create an account
+  </Link>
+</p>
         </div>
       </section>
     </main>
