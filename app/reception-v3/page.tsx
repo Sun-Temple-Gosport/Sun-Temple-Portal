@@ -238,10 +238,13 @@ const {
     localStorage.setItem(RECENT_CUSTOMERS_KEY, JSON.stringify(updated));
   }
 
-  function selectCustomer(customer: CustomerBalance) {
-    setSelectedCustomer(customer);
-    saveRecentCustomer(customer);
-  }async function createCustomer(customer: {
+  async function selectCustomer(customer: CustomerBalance) {
+  setSelectedCustomer(customer);
+  saveRecentCustomer(customer);
+
+  await refreshSelectedCustomer(customer.customer_id);
+}
+  async function createCustomer(customer: {
   full_name: string;
   phone: string;
   email: string;
