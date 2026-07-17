@@ -51,10 +51,20 @@ export default async function BuyMinutes() {
                 <p className="mt-2 text-zinc-400">Minutes</p>
 
                 <p className="mt-6 text-4xl font-bold text-[#d6a84f]">
-                  £{Number(pkg.price)}
-                </p>
+  £{Number(pkg.price)}
+</p>
 
-                <Link
+{pkg.expiry_days && (
+  <p className="mt-3 text-sm text-zinc-400">
+    ⏰ Your minutes are valid for{" "}
+    <strong className="text-zinc-200">
+      {pkg.expiry_days} days
+    </strong>{" "}
+    from the date of purchase.
+  </p>
+)}
+
+<Link
                   href={`/checkout/${pkg.id}`}
                   className="mt-8 inline-block w-full rounded-full bg-[#d6a84f] py-4 text-center font-bold text-black"
                 >

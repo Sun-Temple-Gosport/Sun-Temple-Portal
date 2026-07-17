@@ -1,4 +1,5 @@
 import CheckoutButton from "./CheckoutButton";
+import { supabase } from "@/lib/supabase";
 
 interface Props {
   params: Promise<{
@@ -6,40 +7,68 @@ interface Props {
   }>;
 }
 
-const packages = [
-  { id: 1, minutes: 30, price: 18 },
-  { id: 2, minutes: 60, price: 34 },
-  { id: 3, minutes: 90, price: 47 },
-  { id: 4, minutes: 120, price: 55 },
-  { id: 5, minutes: 240, price: 100 },
-  { id: 6, minutes: 1, price: 1 },
-];
+type PackageOption = {
+  id: number;
+  name: string | null;
+  minutes: number;
+  price: number;
+  expiry_days: number | null;
+  active: boolean | null;
+};
 
 export default async function Checkout({ params }: Props) {
   const { id } = await params;
 
-  const pkg = packages.find((p) => p.id === Number(id));
+  const { data, error } = await supabase
+    .from("packages")
+    .select("id, name, minutes, price, expiry_days, active")
+    .eq("id", Number(id))
+    .eq("active", true)
+    .gte("minutes", 30)
+    .maybeSingle();
+
+  if (error) {
+    console.error("Failed to load package:", error.message);
+  }
+
+  const pkg = data as PackageOption | null;
 
   if (!pkg) {
-    return <h1>Package not found</h1>;
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-[#050505] px-6 text-white">
+        <div className="rounded-3xl border border-[#d6a84f]/30 bg-[#111] p-12 text-center">
+          <h1 className="text-3xl font-bold">Package not found</h1>
+          <p className="mt-4 text-zinc-400">
+            This package is no longer available.
+          </p>
+        </div>
+      </main>
+    );
   }
 
   return (
-    <main className="min-h-screen bg-[#050505] text-white flex items-center justify-center">
-      <div className="rounded-3xl border border-[#d6a84f]/30 bg-[#111] p-12 w-[500px]">
+    <main className="flex min-h-screen items-center justify-center bg-[#050505] px-6 text-white">
+      <div className="w-full max-w-[500px] rounded-3xl border border-[#d6a84f]/30 bg-[#111] p-12">
         <h1 className="text-4xl font-bold">{pkg.minutes} Minutes</h1>
 
         <p className="mt-4 text-5xl font-bold text-[#d6a84f]">
-          £{pkg.price}
+          £{Number(pkg.price)}
         </p>
 
+        {pkg.expiry_days && (
+          <p className="mt-4 text-sm text-zinc-400">
+            ⏰ Valid for{" "}
+            <strong className="text-zinc-200">{pkg.expiry_days} days</strong>{" "}
+            from purchase.
+          </p>
+        )}
+
         <CheckoutButton
-          amount={pkg.price}
+          amount={Number(pkg.price)}
           description={`${pkg.minutes} Minute Package`}
           packageId={pkg.id}
           minutes={pkg.minutes}
         />
-        
       </div>
     </main>
   );

@@ -65,6 +65,18 @@ export default function NewCustomer({ onCreateCustomer }: Props) {
           className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-white outline-none"
         />
 
+        {email.trim() && (
+  <div className="mt-2 rounded-lg border border-sky-500/30 bg-sky-500/10 p-3 text-xs text-sky-200">
+    <p className="font-semibold">📧 Online Account</p>
+    <p className="mt-1">
+      Please ensure the customer's email address is correct.
+      This email will be used by the customer to activate their
+      online account by selecting <strong>"Forgot Password"</strong>
+       on the customer portal.
+    </p>
+  </div>
+)}
+
         <button
           onClick={handleCreate}
           disabled={saving}
