@@ -251,7 +251,7 @@ return (
       purchase_id: purchase.id,
       minutes_added: purchase.minutes_added,
       minutes_remaining: purchase.minutes_added,
-      expires_at: getExpiryDate(),
+      expires_at: purchase.expiry_date,
     });
 
   if (batchError) {
