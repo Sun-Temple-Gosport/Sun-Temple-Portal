@@ -70,10 +70,10 @@ export default function Checkout() {
           .maybeSingle(),
 
         supabase
-          .from("customers")
-          .select("vip_expires_at")
-          .eq("email", user.email)
-          .maybeSingle(),
+  .from("customers")
+  .select("vip_expires_at")
+  .eq("customer_id", user.id)
+  .maybeSingle(),
       ]);
 
       if (packageError) {
