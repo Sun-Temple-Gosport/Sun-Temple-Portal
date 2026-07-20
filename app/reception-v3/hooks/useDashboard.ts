@@ -36,7 +36,7 @@ export function useDashboard({
   async function loadRevenueToday() {
     const { data, error } = await supabase
       .from("reception_sales")
-      .select("id, amount, minutes, payment_method")
+      .select("id, customer_id, amount, minutes, payment_method")
       .gte("created_at", getStartOfToday());
 
     if (error) {
@@ -45,6 +45,11 @@ export function useDashboard({
     }
 
     const sales = data ?? [];
+    const uniqueCustomers = new Set(
+  sales
+    .map((row) => row.customer_id)
+    .filter((customerId): customerId is string => Boolean(customerId))
+);
 
     const totalRevenue = sales.reduce(
       (sum, row) => sum + Number(row.amount || 0),
@@ -74,6 +79,7 @@ export function useDashboard({
     setComplimentaryToday(complimentaryRevenue);
     setMinutesSoldToday(minutesSold);
     setSalesToday(sales.length);
+    setCustomersToday(uniqueCustomers.size);
   }
 
   async function loadCashUpSales() {
