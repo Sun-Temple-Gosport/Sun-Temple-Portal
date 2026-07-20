@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { CustomerBalance, Sale } from "../types";
 import { formatExpiry } from "../utils";
+import { supabase } from "@/lib/supabase";
 
 type PackageOption = {
   id: string | number;
@@ -41,13 +42,33 @@ export default function CustomerCard({
 
   const [paymentMethod, setPaymentMethod] =
     useState<PaymentMethod>("card");
+    const [vipDiscountPercent, setVipDiscountPercent] = useState(0);
+
+useEffect(() => {
+  async function loadVipDiscount() {
+    const { data, error } = await supabase
+      .from("vip_settings")
+      .select("discount_percent")
+      .eq("id", 1)
+      .maybeSingle();
+
+    if (error) {
+      console.error("Failed to load VIP discount:", error.message);
+      return;
+    }
+
+    setVipDiscountPercent(Number(data?.discount_percent ?? 0));
+  }
+
+  loadVipDiscount();
+}, []);
 
   if (!selectedCustomer) return null;
 
   const customerName =
     selectedCustomer.full_name || "Unnamed Customer";
 
-  const visiblePackages =
+  const basePackages =
     packages.length > 0
       ? packages.filter(
           (pack) => pack.active !== false && pack.minutes >= 30
@@ -94,6 +115,22 @@ export default function CustomerCard({
             active: true,
           },
         ];
+        const isVip =
+  !!selectedCustomer.vip_expires_at &&
+  new Date(selectedCustomer.vip_expires_at) > new Date();
+
+const visiblePackages = basePackages.map((pack) => ({
+  ...pack,
+  price:
+    isVip && vipDiscountPercent > 0
+      ? Number(
+          (
+            Number(pack.price) *
+            (1 - vipDiscountPercent / 100)
+          ).toFixed(2)
+        )
+      : Number(pack.price),
+}));
 
   function openPackageConfirmation(pack: PackageOption) {
     if (sellingPackageId !== null) return;
@@ -152,14 +189,26 @@ export default function CustomerCard({
           </p>
 
           <div className="mt-4 flex flex-wrap gap-3">
-            <span className="rounded-2xl bg-emerald-500 px-4 py-2 text-sm font-black text-white">
-              {selectedCustomer.total_minutes} mins Available
-            </span>
+  <span className="rounded-2xl bg-emerald-500 px-4 py-2 text-sm font-black text-white">
+    {selectedCustomer.total_minutes} mins Available
+  </span>
 
-            <span className="rounded-2xl bg-slate-800 px-4 py-2 text-sm font-bold text-slate-200">
-              Expires: {formatExpiry(selectedCustomer.next_expiry)}
-            </span>
-          </div>
+  <span className="rounded-2xl bg-slate-800 px-4 py-2 text-sm font-bold text-slate-200">
+    Expires: {formatExpiry(selectedCustomer.next_expiry)}
+  </span>
+
+  {selectedCustomer.vip_expires_at &&
+    new Date(selectedCustomer.vip_expires_at) > new Date() && (
+      <span className="rounded-2xl border border-emerald-400/40 bg-emerald-500/15 px-4 py-2 text-sm font-black text-emerald-300">
+        VIP Member · Expires{" "}
+        {new Date(selectedCustomer.vip_expires_at).toLocaleDateString("en-GB", {
+          day: "2-digit",
+          month: "short",
+          year: "numeric",
+        })}
+      </span>
+    )}
+</div>
         </div>
         </div>
 

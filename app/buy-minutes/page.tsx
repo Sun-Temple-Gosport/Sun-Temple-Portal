@@ -130,21 +130,41 @@ export default function BuyMinutes() {
           Buy Minutes
         </h1>
 
-        {isVip && vip && (
-          <div className="mt-8 rounded-3xl border border-[#d6a84f]/50 bg-gradient-to-br from-[#1b160d] to-[#111] p-6">
-            <p className="text-sm font-bold uppercase tracking-[0.25em] text-[#d6a84f]">
-              VIP Member
-            </p>
+        {isVip && (
+  <div className="mt-8 rounded-3xl border border-emerald-500/30 bg-gradient-to-r from-emerald-950/30 to-[#111] p-6">
+    <p className="text-xs font-bold uppercase tracking-[0.2em] text-emerald-400">
+      ✓ VIP Membership Active
+    </p>
 
-            <h2 className="mt-2 text-2xl font-bold">
-              Your {vip.discount_percent}% discount is active
-            </h2>
+    <h2 className="mt-2 text-2xl font-bold">
+      You're saving {vip?.discount_percent}% on every package
+    </h2>
 
-            <p className="mt-2 text-zinc-300">
-              Discounted prices are shown below.
-            </p>
-          </div>
-        )}
+    <p className="mt-3 text-zinc-300">
+      Your VIP membership is active until{" "}
+      <strong className="text-white">
+        {customer?.vip_expires_at
+          ? new Date(customer.vip_expires_at).toLocaleDateString("en-GB", {
+              day: "2-digit",
+              month: "long",
+              year: "numeric",
+            })
+          : "Unknown"}
+      </strong>
+      .
+    </p>
+
+    <div className="mt-5 flex flex-wrap gap-3 text-sm">
+      <span className="rounded-full bg-emerald-500/20 px-4 py-2 text-emerald-300">
+        ✓ {vip?.discount_percent}% Discount
+      </span>
+
+      <span className="rounded-full bg-emerald-500/20 px-4 py-2 text-emerald-300">
+        ✓ {vip?.course_expiry_days}-Day Minute Expiry
+      </span>
+    </div>
+  </div>
+)}
 
         {!isVip && vip && (
           <div className="mt-8 overflow-hidden rounded-3xl border border-[#d6a84f]/50 bg-gradient-to-br from-[#1b160d] to-[#111] p-6 md:p-7">

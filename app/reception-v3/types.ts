@@ -5,6 +5,7 @@ export type CustomerBalance = {
   phone: string | null;
   total_minutes: number;
   next_expiry: string | null;
+  vip_expires_at: string | null;
 };
 
 export type BedSession = {

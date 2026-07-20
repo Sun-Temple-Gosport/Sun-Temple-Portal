@@ -608,30 +608,50 @@ async function saveCashUp(cashUp: CashUpData) {
     const id = customerId || selectedCustomer?.customer_id;
     if (!id) return;
 
-    const { data, error } = await supabase
-      .from("customer_balances")
-      .select("*")
-      .eq("customer_id", id)
-      .single();
+    const [
+  { data: balanceData, error: balanceError },
+  { data: vipData, error: vipError },
+] = await Promise.all([
+  supabase
+    .from("customer_balances")
+    .select("*")
+    .eq("customer_id", id)
+    .single(),
 
-    if (error || !data) return;
+  supabase
+    .from("customers")
+    .select("vip_expires_at")
+    .eq("customer_id", id)
+    .maybeSingle(),
+]);
 
-    setSelectedCustomer(data);
-    await loadCustomerHistory(id);
-    await loadCustomerNotes(id);
+if (balanceError || !balanceData) return;
 
-    setCustomers((prev) =>
-      prev.map((customer) => (customer.customer_id === id ? data : customer))
-    );
+if (vipError) {
+  console.error("Failed to load customer VIP status:", vipError.message);
+}
 
-    setRecentCustomers((prev) => {
-      const updated = prev.map((customer) =>
-        customer.customer_id === id ? data : customer
-      );
+const data = {
+  ...balanceData,
+  vip_expires_at: vipData?.vip_expires_at ?? null,
+};
 
-      localStorage.setItem(RECENT_CUSTOMERS_KEY, JSON.stringify(updated));
-      return updated;
-    });
+setSelectedCustomer(data);
+await loadCustomerHistory(id);
+await loadCustomerNotes(id);
+
+setCustomers((prev) =>
+  prev.map((customer) => (customer.customer_id === id ? data : customer))
+);
+
+setRecentCustomers((prev) => {
+  const updated = prev.map((customer) =>
+    customer.customer_id === id ? data : customer
+  );
+
+  localStorage.setItem(RECENT_CUSTOMERS_KEY, JSON.stringify(updated));
+  return updated;
+});
   }
 
   async function recordSale(sale: Sale) {
