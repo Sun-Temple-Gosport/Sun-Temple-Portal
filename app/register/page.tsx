@@ -13,47 +13,57 @@ const [isOver18, setIsOver18] = useState(false);
 const [loading, setLoading] = useState(false);
   
 
-  async function register() {
-    if (!fullName.trim() || !email.trim() || !password) {
-  alert("Please enter your name, email address and password.");
-  return;
-}
 
-if (!isOver18) {
-  alert("You must confirm that you are aged 18 or over.");
-  return;
-}
-
-    setLoading(true);
-
-    const { data, error } = await supabase.auth.signUp({
-      email: email.trim(),
-      password,
-      options: {
-        data: {
-          full_name: fullName.trim(),
-          phone: phone.trim(),
-        },
-      },
-    });
-
-    setLoading(false);
-
-    if (error) {
-      alert(error.message);
-      return;
-    }
-
-    if (!data.session) {
-      alert(
-        "Account created. Please check your email to confirm your account before logging in."
-      );
-      window.location.href = "/login";
-      return;
-    }
-
-    window.location.href = "/my-minutes";
+    async function register() {
+  if (!fullName.trim() || !email.trim() || !password) {
+    alert("Please enter your name, email address and password.");
+    return;
   }
+
+  if (!isOver18) {
+    alert("You must confirm that you are aged 18 or over.");
+    return;
+  }
+
+  setLoading(true);
+
+  const cleanName = fullName.trim();
+  const cleanPhone = phone.trim();
+  const cleanEmail = email.trim().toLowerCase();
+
+  const { data, error } = await supabase.auth.signUp({
+    email: cleanEmail,
+    password,
+    options: {
+      data: {
+        full_name: cleanName,
+        phone: cleanPhone,
+      },
+    },
+  });
+
+  setLoading(false);
+
+  if (error) {
+    alert(error.message);
+    return;
+  }
+
+  if (!data.user) {
+    alert("Your account could not be created. Please try again.");
+    return;
+  }
+
+  if (!data.session) {
+    alert(
+      "Account created. Please check your email to confirm your account before logging in."
+    );
+    window.location.href = "/login";
+    return;
+  }
+
+  window.location.href = "/my-minutes";
+}
 
   return (
     <main className="min-h-screen bg-[#050505] px-6 py-16 text-white">

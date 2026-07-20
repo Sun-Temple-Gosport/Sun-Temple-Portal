@@ -15,56 +15,50 @@ async function logout() {
 }
 
   useEffect(() => {
-    async function loadCustomer() {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+  async function loadCustomer() {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
-      if (!user) {
-        window.location.href = "/login";
-        return;
-      }
-
-      const { data: profileData } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", user.id)
-        .single();
-
-      const { data: customerData, error: customerError } = await supabase
-  .from("customers")
-  .select("customer_id")
-  .eq("email", user.email)
-  .maybeSingle();
-
-if (customerError || !customerData) {
-  console.error(
-    "Could not match customer account:",
-    customerError?.message || "Customer record not found."
-  );
-  return;
-}
-
-const { data: balanceData, error: balanceError } = await supabase
-  .from("customer_balances")
-  .select("*")
-  .eq("customer_id", customerData.customer_id)
-  .maybeSingle();
-
-if (balanceError) {
-  console.error("Could not load customer balance:", balanceError);
-}
-
-setProfile({
-  ...profileData,
-  full_name: profileData?.full_name || balanceData?.full_name || user.email,
-});
-
-setBalance(balanceData);
+    if (!user) {
+      window.location.href = "/login";
+      return;
     }
 
-    loadCustomer();
-  }, []);
+    const { data: profileData, error: profileError } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    if (profileError) {
+      console.error("Could not load customer profile:", profileError.message);
+    }
+
+    const { data: balanceData, error: balanceError } = await supabase
+      .from("customer_balances")
+      .select("*")
+      .eq("customer_id", user.id)
+      .maybeSingle();
+
+    if (balanceError) {
+      console.error("Could not load customer balance:", balanceError.message);
+    }
+
+    setProfile({
+      ...profileData,
+      full_name:
+        profileData?.full_name ||
+        balanceData?.full_name ||
+        user.user_metadata?.full_name ||
+        user.email,
+    });
+
+    setBalance(balanceData);
+  }
+
+  loadCustomer();
+}, []);
 
   return (
     <main className="min-h-screen bg-[#050505] px-6 py-16 text-white">
