@@ -143,6 +143,27 @@ if (customerUpdateError) {
     <ErrorPage message="VIP membership activated, but the customer account could not be updated." />
   );
 }
+const { data: vipCustomer } = await supabaseAdmin
+  .from("customers")
+  .select("full_name")
+  .eq("customer_id", activeVip.customer_id)
+  .maybeSingle();
+
+const { error: vipSaleError } = await supabaseAdmin
+  .from("reception_sales")
+  .insert({
+    customer_id: activeVip.customer_id,
+    customer_name: vipCustomer?.full_name || "Online Customer",
+    minutes: 0,
+    amount: activeVip.amount_paid,
+    payment_method: "card",
+  });
+
+if (vipSaleError) {
+  return (
+    <ErrorPage message="VIP membership activated, but the sale could not be added to the Owner Dashboard." />
+  );
+}
 
 return (
   <main className="min-h-screen bg-[#050505] px-6 py-16 text-white">
