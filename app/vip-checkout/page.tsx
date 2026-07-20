@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 import VipCheckoutButton from "./VipCheckoutButton";
 import { supabase } from "@/lib/supabase";
 

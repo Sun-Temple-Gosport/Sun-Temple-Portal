@@ -34,8 +34,8 @@ export async function POST(request: Request) {
 
     const normalPrice = Number(vipSettings.price);
 
-    const checkoutAmount =
-      process.env.NODE_ENV === "development" ? 1 : normalPrice;
+    
+      const checkoutAmount = normalPrice;
 
     const startedAt = new Date();
 
