@@ -40,6 +40,7 @@ async function logout() {
       .select("*")
       .eq("customer_id", user.id)
       .maybeSingle();
+      
 
     if (balanceError) {
       console.error("Could not load customer balance:", balanceError.message);
