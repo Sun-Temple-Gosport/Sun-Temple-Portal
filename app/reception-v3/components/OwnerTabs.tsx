@@ -32,7 +32,7 @@ export default function OwnerTabs({
   }
 
   return (
-    <div className="mx-auto flex max-w-7xl justify-end gap-2 px-4 pt-4 md:px-8">
+    <div className="mx-auto flex max-w-7xl flex-wrap justify-end gap-2 px-4 pt-4 md:px-8">
       <button
         type="button"
         onClick={() => onSelectView("dashboard")}
@@ -63,6 +63,14 @@ export default function OwnerTabs({
         className={tabClass("audit")}
       >
         Audit
+      </button>
+
+      <button
+        type="button"
+        onClick={() => onSelectView("staff")}
+        className={tabClass("staff")}
+      >
+        Staff Management
       </button>
 
       {isOwnerMode && (

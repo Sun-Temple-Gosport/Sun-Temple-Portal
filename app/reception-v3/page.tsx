@@ -912,7 +912,7 @@ setRecentCustomers((prev) => {
   />
 )}
 
-{(!isOwnerMode || ownerView === "staff") && (
+{!isOwnerMode && (
 <div className="grid gap-6 xl:grid-cols-[2fr_1fr]">
   <div className="min-w-0 space-y-5">
     
