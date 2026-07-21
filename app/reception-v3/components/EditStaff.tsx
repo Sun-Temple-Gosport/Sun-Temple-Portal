@@ -1,5 +1,8 @@
 "use client";
 
+import { useEffect, useState } from "react";
+import { supabase } from "../lib/supabase";
+
 type StaffMember = {
   id: string;
   full_name: string;
@@ -18,7 +21,45 @@ export default function EditStaff({
   staff,
   onClose,
 }: Props) {
+  const [fullName, setFullName] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState("");
+
+  useEffect(() => {
+    if (!staff) return;
+
+    setFullName(staff.full_name);
+    setMessage("");
+  }, [staff]);
+
   if (!open || !staff) return null;
+
+  async function saveChanges() {
+    if (!staff) return;
+    const trimmedName = fullName.trim();
+
+    if (!trimmedName) {
+      setMessage("Please enter the staff member's full name.");
+      return;
+    }
+
+    setSaving(true);
+    setMessage("");
+
+    const { error } = await supabase.rpc("update_staff_name", {
+  p_staff_id: staff.id,
+  p_full_name: trimmedName,
+});
+
+    setSaving(false);
+
+    if (error) {
+      setMessage(error.message);
+      return;
+    }
+
+    setMessage("Staff member updated successfully.");
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end bg-black/60">
@@ -44,9 +85,10 @@ export default function EditStaff({
             </label>
 
             <input
-              disabled
-              className="w-full rounded-xl border border-slate-700 bg-slate-900 p-3 text-white"
-              value={staff.full_name}
+              type="text"
+              value={fullName}
+              onChange={(event) => setFullName(event.target.value)}
+              className="w-full rounded-xl border border-slate-700 bg-slate-900 p-3 text-white outline-none focus:border-amber-400"
             />
           </div>
 
@@ -57,17 +99,24 @@ export default function EditStaff({
 
             <input
               disabled
-              className="w-full rounded-xl border border-slate-700 bg-slate-900 p-3 text-white"
+              className="w-full rounded-xl border border-slate-700 bg-slate-900 p-3 text-slate-400"
               value={staff.email ?? ""}
             />
           </div>
 
+          {message && (
+            <div className="rounded-xl border border-slate-700 bg-slate-900 p-3 text-sm font-semibold text-slate-200">
+              {message}
+            </div>
+          )}
+
           <button
             type="button"
-            disabled
-            className="w-full rounded-xl bg-amber-400 py-3 font-black text-black opacity-50"
+            onClick={saveChanges}
+            disabled={saving}
+            className="w-full rounded-xl bg-amber-400 py-3 font-black text-black hover:bg-amber-300 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            Save Changes
+            {saving ? "Saving..." : "Save Changes"}
           </button>
 
           <hr className="border-slate-800" />
