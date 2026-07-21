@@ -23,6 +23,7 @@ export default function EditStaff({
 }: Props) {
   const [fullName, setFullName] = useState("");
   const [saving, setSaving] = useState(false);
+  const [disabling, setDisabling] = useState(false);
   const [message, setMessage] = useState("");
 
   useEffect(() => {
@@ -36,6 +37,7 @@ export default function EditStaff({
 
   async function saveChanges() {
     if (!staff) return;
+
     const trimmedName = fullName.trim();
 
     if (!trimmedName) {
@@ -47,9 +49,9 @@ export default function EditStaff({
     setMessage("");
 
     const { error } = await supabase.rpc("update_staff_name", {
-  p_staff_id: staff.id,
-  p_full_name: trimmedName,
-});
+      p_staff_id: staff.id,
+      p_full_name: trimmedName,
+    });
 
     setSaving(false);
 
@@ -59,6 +61,61 @@ export default function EditStaff({
     }
 
     setMessage("Staff member updated successfully.");
+  }
+
+  async function disableAccount() {
+    if (!staff) return;
+
+    const confirmed = window.confirm(
+      `Disable ${staff.full_name}?\n\nThey will no longer be able to log in until their account is re-enabled.`
+    );
+
+    if (!confirmed) return;
+
+    setDisabling(true);
+    setMessage("");
+
+    const {
+      data: { session },
+      error: sessionError,
+    } = await supabase.auth.getSession();
+
+    if (sessionError || !session) {
+      setDisabling(false);
+      setMessage("Your login session is invalid. Please log in again.");
+      return;
+    }
+
+    try {
+      const response = await fetch("/api/staff/disable", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          staffId: staff.id,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        setDisabling(false);
+        setMessage(result.error || "Could not disable staff account.");
+        return;
+      }
+
+      setDisabling(false);
+      setMessage("Staff account disabled successfully.");
+
+      window.setTimeout(() => {
+        onClose();
+      }, 1200);
+    } catch {
+      setDisabling(false);
+      setMessage("Could not connect to the server.");
+    }
   }
 
   return (
@@ -72,7 +129,8 @@ export default function EditStaff({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-full border border-slate-700 px-3 py-1 text-sm font-bold text-slate-300 hover:border-amber-400 hover:text-amber-400"
+            disabled={saving || disabling}
+            className="rounded-full border border-slate-700 px-3 py-1 text-sm font-bold text-slate-300 hover:border-amber-400 hover:text-amber-400 disabled:cursor-not-allowed disabled:opacity-50"
           >
             Close
           </button>
@@ -88,7 +146,8 @@ export default function EditStaff({
               type="text"
               value={fullName}
               onChange={(event) => setFullName(event.target.value)}
-              className="w-full rounded-xl border border-slate-700 bg-slate-900 p-3 text-white outline-none focus:border-amber-400"
+              disabled={saving || disabling}
+              className="w-full rounded-xl border border-slate-700 bg-slate-900 p-3 text-white outline-none focus:border-amber-400 disabled:cursor-not-allowed disabled:opacity-50"
             />
           </div>
 
@@ -113,7 +172,7 @@ export default function EditStaff({
           <button
             type="button"
             onClick={saveChanges}
-            disabled={saving}
+            disabled={saving || disabling}
             className="w-full rounded-xl bg-amber-400 py-3 font-black text-black hover:bg-amber-300 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {saving ? "Saving..." : "Save Changes"}
@@ -131,10 +190,11 @@ export default function EditStaff({
 
           <button
             type="button"
-            disabled
-            className="w-full rounded-xl border border-orange-700 py-3 font-black text-orange-400 opacity-50"
+            onClick={disableAccount}
+            disabled={saving || disabling}
+            className="w-full rounded-xl border border-orange-700 py-3 font-black text-orange-400 hover:bg-orange-950/40 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            Disable Account
+            {disabling ? "Disabling Account..." : "Disable Account"}
           </button>
 
           <button
