@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import EditStaff from "./EditStaff";
 import { supabase } from "../lib/supabase";
 
 export default function StaffManagement() {
@@ -12,6 +13,7 @@ export default function StaffManagement() {
 };
 
 const [staff, setStaff] = useState<StaffMember[]>([]);
+const [editOpen, setEditOpen] = useState(false);
 
 useEffect(() => {
   loadStaff();
@@ -91,6 +93,7 @@ async function loadStaff() {
                 <td className="px-6 py-5 text-right">
                   <button
                     type="button"
+                    onClick={() => setEditOpen(true)}
                     className="rounded-full border border-slate-700 px-4 py-2 text-xs font-black uppercase tracking-wide text-slate-300 hover:border-amber-400 hover:text-amber-400"
                   >
                     Edit
@@ -101,6 +104,10 @@ async function loadStaff() {
           </tbody>
         </table>
       </div>
+      <EditStaff
+  open={editOpen}
+  onClose={() => setEditOpen(false)}
+/>
     </section>
   );
 }
