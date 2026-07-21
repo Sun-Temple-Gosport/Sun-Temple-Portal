@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import EditStaff from "./EditStaff";
 import { supabase } from "../lib/supabase";
+import AddStaff from "./AddStaff";
+
 
 export default function StaffManagement() {
   type StaffMember = {
@@ -16,6 +18,7 @@ const [staff, setStaff] = useState<StaffMember[]>([]);
 const [editOpen, setEditOpen] = useState(false);
 const [selectedStaff, setSelectedStaff] =
   useState<StaffMember | null>(null);
+  const [addOpen, setAddOpen] = useState(false);
 useEffect(() => {
   loadStaff();
 }, []);
@@ -45,11 +48,12 @@ async function loadStaff() {
         </div>
 
         <button
-          type="button"
-          className="rounded-full bg-amber-400 px-5 py-3 text-sm font-black text-black hover:bg-amber-300"
-        >
-          Add Staff Member
-        </button>
+  type="button"
+  onClick={() => setAddOpen(true)}
+  className="rounded-full bg-amber-400 px-5 py-3 text-sm font-black text-black hover:bg-amber-300"
+>
+  Add Staff Member
+</button>
       </div>
 
       <div className="overflow-hidden rounded-2xl border border-slate-800">
@@ -108,6 +112,11 @@ async function loadStaff() {
           </tbody>
         </table>
       </div>
+      
+      <AddStaff
+  open={addOpen}
+  onClose={() => setAddOpen(false)}
+/>
       <EditStaff
   open={editOpen}
   staff={selectedStaff}
