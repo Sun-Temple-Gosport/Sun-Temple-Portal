@@ -14,7 +14,8 @@ export default function StaffManagement() {
 
 const [staff, setStaff] = useState<StaffMember[]>([]);
 const [editOpen, setEditOpen] = useState(false);
-
+const [selectedStaff, setSelectedStaff] =
+  useState<StaffMember | null>(null);
 useEffect(() => {
   loadStaff();
 }, []);
@@ -93,7 +94,10 @@ async function loadStaff() {
                 <td className="px-6 py-5 text-right">
                   <button
                     type="button"
-                    onClick={() => setEditOpen(true)}
+                    onClick={() => {
+  setSelectedStaff(member);
+  setEditOpen(true);
+}}
                     className="rounded-full border border-slate-700 px-4 py-2 text-xs font-black uppercase tracking-wide text-slate-300 hover:border-amber-400 hover:text-amber-400"
                   >
                     Edit
@@ -106,7 +110,11 @@ async function loadStaff() {
       </div>
       <EditStaff
   open={editOpen}
-  onClose={() => setEditOpen(false)}
+  staff={selectedStaff}
+  onClose={() => {
+    setEditOpen(false);
+    setSelectedStaff(null);
+  }}
 />
     </section>
   );
