@@ -8,6 +8,7 @@ type StaffMember = {
   full_name: string;
   email: string | null;
   role: string | null;
+  disabled: boolean;
 };
 
 type Props = {
@@ -23,7 +24,7 @@ export default function EditStaff({
 }: Props) {
   const [fullName, setFullName] = useState("");
   const [saving, setSaving] = useState(false);
-  const [disabling, setDisabling] = useState(false);
+  const [updatingStatus, setUpdatingStatus] = useState(false);
   const [message, setMessage] = useState("");
 
   useEffect(() => {
@@ -63,16 +64,21 @@ export default function EditStaff({
     setMessage("Staff member updated successfully.");
   }
 
-  async function disableAccount() {
+  async function updateAccountStatus() {
     if (!staff) return;
 
+    const action = staff.disabled ? "enable" : "disable";
+    const actionLabel = staff.disabled ? "Enable" : "Disable";
+
     const confirmed = window.confirm(
-      `Disable ${staff.full_name}?\n\nThey will no longer be able to log in until their account is re-enabled.`
+      staff.disabled
+        ? `Enable ${staff.full_name}?\n\nThey will be able to log in again immediately.`
+        : `Disable ${staff.full_name}?\n\nThey will no longer be able to log in until their account is re-enabled.`
     );
 
     if (!confirmed) return;
 
-    setDisabling(true);
+    setUpdatingStatus(true);
     setMessage("");
 
     const {
@@ -81,13 +87,13 @@ export default function EditStaff({
     } = await supabase.auth.getSession();
 
     if (sessionError || !session) {
-      setDisabling(false);
+      setUpdatingStatus(false);
       setMessage("Your login session is invalid. Please log in again.");
       return;
     }
 
     try {
-      const response = await fetch("/api/staff/disable", {
+      const response = await fetch(`/api/staff/${action}`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -101,19 +107,22 @@ export default function EditStaff({
       const result = await response.json();
 
       if (!response.ok) {
-        setDisabling(false);
-        setMessage(result.error || "Could not disable staff account.");
+        setUpdatingStatus(false);
+        setMessage(
+          result.error ||
+            `Could not ${action} staff account.`
+        );
         return;
       }
 
-      setDisabling(false);
-      setMessage("Staff account disabled successfully.");
+      setUpdatingStatus(false);
+      setMessage(`Staff account ${action}d successfully.`);
 
       window.setTimeout(() => {
         onClose();
       }, 1200);
     } catch {
-      setDisabling(false);
+      setUpdatingStatus(false);
       setMessage("Could not connect to the server.");
     }
   }
@@ -129,7 +138,7 @@ export default function EditStaff({
           <button
             type="button"
             onClick={onClose}
-            disabled={saving || disabling}
+            disabled={saving || updatingStatus}
             className="rounded-full border border-slate-700 px-3 py-1 text-sm font-bold text-slate-300 hover:border-amber-400 hover:text-amber-400 disabled:cursor-not-allowed disabled:opacity-50"
           >
             Close
@@ -146,7 +155,7 @@ export default function EditStaff({
               type="text"
               value={fullName}
               onChange={(event) => setFullName(event.target.value)}
-              disabled={saving || disabling}
+              disabled={saving || updatingStatus}
               className="w-full rounded-xl border border-slate-700 bg-slate-900 p-3 text-white outline-none focus:border-amber-400 disabled:cursor-not-allowed disabled:opacity-50"
             />
           </div>
@@ -172,7 +181,7 @@ export default function EditStaff({
           <button
             type="button"
             onClick={saveChanges}
-            disabled={saving || disabling}
+            disabled={saving || updatingStatus}
             className="w-full rounded-xl bg-amber-400 py-3 font-black text-black hover:bg-amber-300 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {saving ? "Saving..." : "Save Changes"}
@@ -190,19 +199,21 @@ export default function EditStaff({
 
           <button
             type="button"
-            onClick={disableAccount}
-            disabled={saving || disabling}
-            className="w-full rounded-xl border border-orange-700 py-3 font-black text-orange-400 hover:bg-orange-950/40 disabled:cursor-not-allowed disabled:opacity-50"
+            onClick={updateAccountStatus}
+            disabled={saving || updatingStatus}
+            className={`w-full rounded-xl border py-3 font-black disabled:cursor-not-allowed disabled:opacity-50 ${
+              staff.disabled
+                ? "border-emerald-700 text-emerald-400 hover:bg-emerald-950/40"
+                : "border-orange-700 text-orange-400 hover:bg-orange-950/40"
+            }`}
           >
-            {disabling ? "Disabling Account..." : "Disable Account"}
-          </button>
-
-          <button
-            type="button"
-            disabled
-            className="w-full rounded-xl border border-red-700 py-3 font-black text-red-400 opacity-50"
-          >
-            Delete Staff Member
+            {updatingStatus
+              ? staff.disabled
+                ? "Enabling Account..."
+                : "Disabling Account..."
+              : staff.disabled
+                ? "Enable Account"
+                : "Disable Account"}
           </button>
         </div>
       </div>
