@@ -55,8 +55,9 @@ export default function CustomerSearch({
                     ? "2px solid #f5c542"
                     : "1px solid #334155",
                 }}
-                onClick={() => onSelectCustomer(customer)}
-              >
+                type="button"
+onClick={() => onSelectCustomer(customer)}
+>
                 <div>
                   <strong style={styles.customerName}>
                     {customer.full_name || "No name"}

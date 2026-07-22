@@ -216,9 +216,11 @@ const {
     
 
     if (role === "owner" || role === "staff") {
-      setUserRole(role);
-      setIsOwnerMode(role === "owner");
-    } else {
+  setUserRole(role);
+  setIsOwnerMode((currentMode) =>
+    authLoaded ? currentMode : role === "owner"
+  );
+} else {
       setUserRole("customer");
       setIsOwnerMode(false);
     }
@@ -883,9 +885,9 @@ setRecentCustomers((prev) => {
       setOwnerSettingsOpen(true);
     }}
     onEnterStaffMode={() => {
-      setIsOwnerMode(false);
-      setOwnerView("staff");
-    }}
+  setOwnerView("dashboard");
+  setIsOwnerMode(false);
+}}
   />
 )}
   
