@@ -72,8 +72,13 @@ export default function ReceptionHeader({
     }
 
     setNewPassword("");
-    setConfirmPassword("");
-    setPasswordMessage("Password changed successfully.");
+setConfirmPassword("");
+setPasswordMessage("Password changed successfully.");
+
+window.setTimeout(() => {
+  setPasswordModalOpen(false);
+  setPasswordMessage("");
+}, 1500);
   }
 
   const roleLabel = userRole === "owner" ? "Owner" : "Reception Staff";

@@ -1,13 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { createClient } from "@supabase/supabase-js";
 import { useRouter } from "next/navigation";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+import { supabase } from "@/lib/supabase";
 
 export default function ResetPasswordPage() {
   const router = useRouter();
@@ -20,8 +15,8 @@ export default function ResetPasswordPage() {
   async function updatePassword() {
     setMessage("");
 
-    if (password.length < 6) {
-      setMessage("Password must be at least 6 characters.");
+    if (password.length < 8) {
+      setMessage("Password must be at least 8 characters.");
       return;
     }
 
@@ -43,10 +38,13 @@ export default function ResetPasswordPage() {
       return;
     }
 
+    setPassword("");
+    setConfirmPassword("");
     setMessage("Password updated successfully.");
 
-    setTimeout(() => {
+    window.setTimeout(() => {
       router.push("/login");
+      router.refresh();
     }, 1500);
   }
 
@@ -73,7 +71,9 @@ export default function ResetPasswordPage() {
             placeholder="New password"
             value={password}
             onChange={(event) => setPassword(event.target.value)}
-            className="w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none transition focus:border-amber-400"
+            autoComplete="new-password"
+            disabled={saving}
+            className="w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none transition focus:border-amber-400 disabled:opacity-60"
           />
 
           <input
@@ -81,7 +81,14 @@ export default function ResetPasswordPage() {
             placeholder="Confirm new password"
             value={confirmPassword}
             onChange={(event) => setConfirmPassword(event.target.value)}
-            className="w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none transition focus:border-amber-400"
+            autoComplete="new-password"
+            disabled={saving}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                void updatePassword();
+              }
+            }}
+            className="w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none transition focus:border-amber-400 disabled:opacity-60"
           />
 
           <button
@@ -94,7 +101,13 @@ export default function ResetPasswordPage() {
           </button>
 
           {message && (
-            <p className="text-center text-sm font-semibold text-slate-300">
+            <p
+              className={`rounded-xl border px-4 py-3 text-center text-sm font-semibold ${
+                message === "Password updated successfully."
+                  ? "border-emerald-500/50 bg-emerald-950/40 text-emerald-300"
+                  : "border-red-500/50 bg-red-950/40 text-red-300"
+              }`}
+            >
               {message}
             </p>
           )}
