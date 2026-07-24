@@ -26,12 +26,12 @@ export default function Home() {
             <a href="#gallery" className="hover:text-[#d6a84f]">Gallery</a>
             <a href="#contact" className="hover:text-[#d6a84f]">Contact</a>
 
-            <a
-              href="/buy-minutes"
-              className="rounded-full bg-[#d6a84f] px-6 py-3 font-semibold text-black transition hover:scale-105"
-            >
-              Buy Minutes
-            </a>
+           <a
+  href="/my-minutes"
+  className="rounded-full bg-[#d6a84f] px-6 py-3 font-semibold text-black transition hover:scale-105"
+>
+  Log in/Create account
+</a>
           </div>
         </div>
       </nav>
@@ -54,16 +54,18 @@ export default function Home() {
             </h1>
 
             <p className="mt-8 max-w-xl text-lg text-zinc-300">
-              Buy tanning minutes online, check your balance and manage your account from your phone.
+              Create your account, buy tanning minutes and check your balance from your phone..
             </p>
 
             <div className="mt-10 flex gap-4">
               <a
-                href="/buy-minutes"
-                className="rounded-full bg-[#d6a84f] px-8 py-4 font-bold text-black transition hover:scale-105"
-              >
-                Buy Minutes
-              </a>
+  href="/my-minutes"
+  className="rounded-full border border-[#d6a84f] px-6 py-3 font-semibold text-white transition hover:bg-[#d6a84f] hover:text-black"
+>
+  Log in/Create account
+</a>
+
+
 
               <a
                 href="#gallery"

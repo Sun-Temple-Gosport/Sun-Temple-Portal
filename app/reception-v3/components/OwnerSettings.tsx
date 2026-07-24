@@ -48,10 +48,10 @@ export default function OwnerSettings({
     setSavingId(null);
   }
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-6">
-      <div className="w-full max-w-4xl rounded-3xl border border-slate-700 bg-slate-900 p-6 shadow-2xl">
-        <div className="mb-6 flex items-center justify-between">
+    return (
+    <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/70 p-3 sm:items-center sm:p-6">
+      <div className="flex max-h-[calc(100vh-1.5rem)] w-full max-w-4xl flex-col overflow-hidden rounded-3xl border border-slate-700 bg-slate-900 p-4 shadow-2xl sm:max-h-[calc(100vh-3rem)] sm:p-6">
+        <div className="mb-4 flex shrink-0 items-center justify-between gap-4">
           <div>
             <p className="text-xs font-black uppercase tracking-[0.2em] text-amber-400">
               Owner Settings
@@ -59,6 +59,13 @@ export default function OwnerSettings({
 
             <h2 className="text-3xl font-black text-white">Package Prices</h2>
           </div>
+                <button
+        type="button"
+        onClick={onClose}
+        className="fixed right-3 top-3 z-[100] rounded-xl bg-amber-400 px-5 py-3 font-black text-black shadow-2xl hover:bg-amber-300"
+      >
+        Close Settings
+      </button>
 
           <button
             type="button"
@@ -68,8 +75,9 @@ export default function OwnerSettings({
             Close
           </button>
         </div>
-
-        <div className="space-y-4">
+        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto pr-1">
+        
+    
           {localPackages.map((pkg) => (
             <div
               key={pkg.id}

@@ -126,9 +126,18 @@ export default function BuyMinutes() {
           Sun Temple Gosport
         </p>
 
-        <h1 className="mt-3 text-4xl font-bold md:text-5xl">
-          Buy Minutes
-        </h1>
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-4">
+  <h1 className="text-4xl font-bold md:text-5xl">
+    Buy Minutes
+  </h1>
+
+  <Link
+    href="/my-minutes"
+    className="rounded-full border border-[#d6a84f] px-5 py-2 font-bold text-white transition hover:bg-[#d6a84f] hover:text-black"
+  >
+    My Minutes
+  </Link>
+</div>
 
         {isVip && (
   <div className="mt-8 rounded-3xl border border-emerald-500/30 bg-gradient-to-r from-emerald-950/30 to-[#111] p-6">
