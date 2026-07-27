@@ -92,8 +92,9 @@ export default function ReceptionV3Page() {
   const [ownerSettingsOpen, setOwnerSettingsOpen] = useState(false);
   const [packages, setPackages] = useState<PackageOption[]>([]);
   const [customerNotes, setCustomerNotes] = useState<CustomerNote[]>([]);
-  const [sessions, setSessions] = useState<BedSession[]>([]);
-  const [manualMinutes, setManualMinutes] = useState("");
+const [sessions, setSessions] = useState<BedSession[]>([]);
+const [beds, setBeds] = useState<string[]>([]);
+const [manualMinutes, setManualMinutes] = useState("");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [activities, setActivities] = useState<Activity[]>(() => {
@@ -495,6 +496,10 @@ async function saveCashUp(cashUp: CashUpData) {
   ]);
 }
 
+useEffect(() => {
+  loadBedDefinitions();
+}, []);
+
   useEffect(() => {
     const term = search.trim();
 
@@ -586,6 +591,21 @@ async function saveCashUp(cashUp: CashUpData) {
 
     return () => clearTimeout(timer);
   }, [message]);
+
+  async function loadBedDefinitions() {
+  const { data, error } = await supabase
+    .from("beds")
+    .select("name")
+    .eq("active", true)
+    .order("display_order", { ascending: true });
+
+  if (error) {
+    console.log("Bed definition load error:", error.message);
+    return;
+  }
+
+  setBeds((data ?? []).map((bed) => bed.name));
+}
 
   async function searchCustomers() {
   if (!search.trim()) return;
@@ -942,11 +962,12 @@ setRecentCustomers((prev) => {
 />
 
             <BedDashboard
-              selectedCustomer={selectedCustomer}
-              sessions={sessions}
-              onStartSession={startBedSession}
-              onFinishSession={finishBedSession}
-            />
+  selectedCustomer={selectedCustomer}
+  sessions={sessions}
+  beds={beds}
+  onStartSession={startBedSession}
+  onFinishSession={finishBedSession}
+/>
           </div>
 
           <div className="space-y-5">

@@ -3,16 +3,17 @@
 import { useEffect, useState } from "react";
 import type { BedSession, CustomerBalance } from "../types";
 
-type BedName = "St Lucia" | "Barbados" | "St Kitts" | "Antigua";
+
 
 type Props = {
   selectedCustomer: CustomerBalance | null;
   sessions: BedSession[];
+  beds?: string[];
   onStartSession: (bedName: string, minutes: number) => Promise<boolean>;
   onFinishSession: (sessionId: string) => Promise<void>;
 };
 
-const beds: BedName[] = ["St Lucia", "Barbados", "St Kitts", "Antigua"];
+
 const sessionMinutes = [8, 10, 12, 16];
 
 function formatRemaining(ms: number) {
@@ -31,11 +32,12 @@ function formatRemaining(ms: number) {
 export default function BedDashboard({
   selectedCustomer,
   sessions,
+  beds = ["St Lucia", "Barbados", "St Kitts", "Antigua"],
   onStartSession,
   onFinishSession,
 }: Props) {
   const [now, setNow] = useState(Date.now());
-  const [selectedBed, setSelectedBed] = useState<BedName>("St Lucia");
+  const [selectedBed, setSelectedBed] = useState<string>("St Lucia");
   const [selectedMinutes, setSelectedMinutes] = useState<number>(10);
   const [customMinutes, setCustomMinutes] = useState("");
   const [starting, setStarting] = useState(false);

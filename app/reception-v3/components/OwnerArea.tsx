@@ -5,7 +5,7 @@ import CashUp from "./CashUp";
 import CashUpHistory from "./CashUpHistory";
 import AuditLog from "./AuditLog";
 import StaffManagement from "./StaffManagement";
-
+import BedManagement from "./BedManagement";
 import type { OwnerView } from "./OwnerTabs";
 
 type CashUpSale = {
@@ -152,6 +152,10 @@ export default function OwnerArea({
   if (ownerView === "audit") {
     return <AuditLog />;
   }
+
+  if (ownerView === "beds") {
+  return <BedManagement />;
+}
 
   if (ownerView === "staff") {
   return <StaffManagement />;
