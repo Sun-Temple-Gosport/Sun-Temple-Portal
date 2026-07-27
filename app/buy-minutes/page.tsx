@@ -42,9 +42,11 @@ export default function BuyMinutes() {
       } = await supabase.auth.getUser();
 
       if (!user) {
-        router.push("/login");
-        return;
-      }
+  router.replace("/login");
+  return;
+}
+
+
 
       const [
         { data: packageData, error: packagesError },

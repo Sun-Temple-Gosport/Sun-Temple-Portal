@@ -16,6 +16,8 @@ type PackageOption = {
 
 type PaymentMethod = "card" | "cash";
 
+type DiscountType = "none" | "blue_light" | "military";
+
 type Props = {
   selectedCustomer: CustomerBalance | null;
   manualAdd: string;
@@ -42,6 +44,11 @@ export default function CustomerCard({
 
   const [paymentMethod, setPaymentMethod] =
     useState<PaymentMethod>("card");
+    const [discountsOpen, setDiscountsOpen] = useState(false);
+const [selectedDiscount, setSelectedDiscount] =
+  useState<DiscountType>("none");
+const [discountExpiry, setDiscountExpiry] = useState("");
+const [savingDiscount, setSavingDiscount] = useState(false);
     const [vipDiscountPercent, setVipDiscountPercent] = useState(0);
 
 useEffect(() => {
@@ -62,6 +69,45 @@ useEffect(() => {
 
   loadVipDiscount();
 }, []);
+async function saveDiscount() {
+  if (!selectedCustomer) return;
+
+  if (selectedDiscount !== "none" && !discountExpiry) {
+    window.alert("Please enter the discount expiry date.");
+    return;
+  }
+
+  setSavingDiscount(true);
+
+  const { error } = await supabase
+    .from("customers")
+    .update({
+      discount_type:
+        selectedDiscount === "none" ? null : selectedDiscount,
+      discount_expires_at:
+        selectedDiscount === "none"
+          ? null
+          : `${discountExpiry}T23:59:59`,
+    })
+    .eq("customer_id", selectedCustomer.customer_id);
+
+  setSavingDiscount(false);
+
+  if (error) {
+    window.alert(error.message);
+    return;
+  }
+
+  selectedCustomer.discount_type =
+    selectedDiscount === "none" ? null : selectedDiscount;
+
+  selectedCustomer.discount_expires_at =
+    selectedDiscount === "none"
+      ? null
+      : `${discountExpiry}T23:59:59`;
+
+  setDiscountsOpen(false);
+}
 
   if (!selectedCustomer) return null;
 
@@ -156,7 +202,12 @@ const visiblePackages = basePackages.map((pack) => ({
     try {
       await onAddMinutes({
         minutes: packageToSell.minutes,
-        amount: Number(packageToSell.price),
+        amount:
+  packageToSell.minutes >= 60 &&
+  (selectedCustomer?.discount_type === "blue_light" ||
+    selectedCustomer?.discount_type === "military")
+    ? Number((Number(packageToSell.price) * 0.9).toFixed(2))
+    : Number(packageToSell.price),
         description:
           packageToSell.name ||
           `${packageToSell.minutes} minute package`,
@@ -212,13 +263,23 @@ const visiblePackages = basePackages.map((pack) => ({
         </div>
         </div>
 
-<button
+<div className="flex flex-wrap gap-3">
+  <button
+    type="button"
+    onClick={onEditCustomer}
+    className="rounded-2xl border border-slate-700 bg-slate-900 px-4 py-2 text-sm font-black text-slate-200 hover:border-amber-400"
+  >
+    Edit Customer
+  </button>
+
+ <button
   type="button"
-  onClick={onEditCustomer}
-  className="rounded-2xl border border-slate-700 bg-slate-900 px-4 py-2 text-sm font-black text-slate-200 hover:border-amber-400"
+  onClick={() => setDiscountsOpen(true)}
+  className="rounded-2xl border border-amber-500/60 bg-amber-500/10 px-4 py-2 text-sm font-black text-amber-300 transition hover:border-amber-400 hover:bg-amber-500/20"
 >
-  Edit Customer
+  Discounts
 </button>
+</div>
 
         <div className="mt-6 rounded-3xl border border-slate-800 bg-slate-900 p-4">
           <p className="mb-3 text-xs font-black uppercase tracking-[0.25em] text-slate-500">
@@ -227,9 +288,26 @@ const visiblePackages = basePackages.map((pack) => ({
 
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             {visiblePackages.map((pack) => {
-              const isSelling = sellingPackageId === pack.id;
+  const isSelling = sellingPackageId === pack.id;
 
-              return (
+  const discountPercent =
+  pack.minutes >= 60 &&
+  (selectedCustomer.discount_type === "blue_light" ||
+    selectedCustomer.discount_type === "military")
+    ? 10
+    : 0;
+
+  const displayPrice =
+    discountPercent > 0
+      ? Number(
+          (
+            Number(pack.price) *
+            (1 - discountPercent / 100)
+          ).toFixed(2)
+        )
+      : Number(pack.price);
+
+  return (
                 <button
                   key={pack.id}
                   type="button"
@@ -242,7 +320,7 @@ const visiblePackages = basePackages.map((pack) => ({
                   ) : (
                     <>
                       {pack.minutes} mins
-                      <br />£{Number(pack.price).toFixed(2)}
+                      £{displayPrice.toFixed(2)}
                     </>
                   )}
                 </button>
@@ -340,7 +418,13 @@ const visiblePackages = basePackages.map((pack) => ({
                   </p>
 
                   <p className="mt-1 text-xl font-black text-amber-400">
-                    £{Number(pendingPackage.price).toFixed(2)}
+                    £{
+  pendingPackage.minutes >= 60 &&
+  (selectedCustomer.discount_type === "blue_light" ||
+    selectedCustomer.discount_type === "military")
+    ? Number((Number(pendingPackage.price) * 0.9).toFixed(2)).toFixed(2)
+    : Number(pendingPackage.price).toFixed(2)
+}
                   </p>
                 </div>
               </div>
@@ -424,6 +508,160 @@ const visiblePackages = basePackages.map((pack) => ({
                       paymentMethod === "card" ? "Card" : "Cash"
                     } Sale`}
               </button>
+            </div>
+          </div>
+        </div>
+           )}
+
+      {discountsOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="customer-discounts-title"
+        >
+          <div className="w-full max-w-lg rounded-3xl border border-slate-700 bg-slate-950 p-6 shadow-2xl">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.25em] text-amber-400">
+                  Customer Benefits
+                </p>
+
+                <h2
+                  id="customer-discounts-title"
+                  className="mt-2 text-2xl font-black text-white"
+                >
+                  Customer Discounts
+                </h2>
+
+                <p className="mt-2 text-sm text-slate-400">
+                  Apply a verified staff-only discount for {customerName}.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setDiscountsOpen(false)}
+                className="rounded-full border border-slate-700 bg-slate-900 px-3 py-2 text-sm font-black text-slate-300 hover:border-slate-500"
+                aria-label="Close customer discounts"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="mt-6 space-y-3">
+              <button
+  type="button"
+  onClick={() => {
+    setSelectedDiscount("none");
+    setDiscountExpiry("");
+  }}
+  aria-pressed={selectedDiscount === "none"}
+  className={`w-full rounded-2xl border p-4 text-left transition ${
+    selectedDiscount === "none"
+      ? "border-amber-400 bg-amber-400/10"
+      : "border-slate-700 bg-slate-900 hover:border-amber-400"
+  }`}
+>
+  <div className="flex items-start gap-3">
+    <span className="mt-0.5 text-lg">
+      {selectedDiscount === "none" ? "◉" : "○"}
+    </span>
+
+    <div>
+      <p className="font-black text-white">No discount</p>
+      <p className="mt-1 text-sm text-slate-400">
+        Remove any existing Blue Light or Military discount.
+      </p>
+    </div>
+  </div>
+</button>
+
+              <button
+  type="button"
+  onClick={() => setSelectedDiscount("blue_light")}
+  aria-pressed={selectedDiscount === "blue_light"}
+  className={`w-full rounded-2xl border p-4 text-left transition ${
+    selectedDiscount === "blue_light"
+      ? "border-sky-400 bg-sky-400/10"
+      : "border-slate-700 bg-slate-900 hover:border-sky-400"
+  }`}
+>
+  <div className="flex items-start gap-3">
+    <span className="mt-0.5 text-lg text-sky-300">
+      {selectedDiscount === "blue_light" ? "◉" : "○"}
+    </span>
+
+    <div>
+      <p className="font-black text-white">Blue Light Card — 10%</p>
+      <p className="mt-1 text-sm text-slate-400">
+        Valid Blue Light Card and expiry date required.
+      </p>
+    </div>
+  </div>
+</button>
+
+              <button
+  type="button"
+  onClick={() => setSelectedDiscount("military")}
+  aria-pressed={selectedDiscount === "military"}
+  className={`w-full rounded-2xl border p-4 text-left transition ${
+    selectedDiscount === "military"
+      ? "border-emerald-400 bg-emerald-400/10"
+      : "border-slate-700 bg-slate-900 hover:border-emerald-400"
+  }`}
+>
+  <div className="flex items-start gap-3">
+    <span className="mt-0.5 text-lg text-emerald-300">
+      {selectedDiscount === "military" ? "◉" : "○"}
+    </span>
+
+    <div>
+      <p className="font-black text-white">Military — 10%</p>
+      <p className="mt-1 text-sm text-slate-400">
+        Military identification must be verified in salon.
+      </p>
+    </div>
+  </div>
+</button>
+            </div>
+
+            <div className="mt-6">
+              <label
+                htmlFor="discount-expiry-date"
+                className="text-xs font-black uppercase tracking-[0.2em] text-slate-400"
+              >
+                Expiry Date
+              </label>
+
+              <input
+  id="discount-expiry-date"
+  type="date"
+  value={discountExpiry}
+  onChange={(event) => setDiscountExpiry(event.target.value)}
+  disabled={selectedDiscount === "none"}
+  required={selectedDiscount !== "none"}
+  className="mt-2 w-full rounded-2xl border border-slate-700 bg-slate-900 px-4 py-3 text-white outline-none transition focus:border-amber-400 disabled:cursor-not-allowed disabled:opacity-40"
+/>
+            </div>
+
+            <div className="mt-6 grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => setDiscountsOpen(false)}
+                className="rounded-2xl border border-slate-700 bg-slate-900 px-4 py-3 font-black text-slate-200 transition hover:border-slate-500 hover:bg-slate-800"
+              >
+                Cancel
+              </button>
+
+              <button
+  type="button"
+  onClick={saveDiscount}
+  disabled={savingDiscount}
+  className="rounded-2xl bg-amber-400 px-4 py-3 font-black text-black transition hover:bg-amber-300 disabled:cursor-not-allowed disabled:opacity-60"
+>
+  {savingDiscount ? "Saving..." : "Save Discount"}
+</button>
             </div>
           </div>
         </div>

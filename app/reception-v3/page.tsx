@@ -621,10 +621,10 @@ async function saveCashUp(cashUp: CashUpData) {
     .single(),
 
   supabase
-    .from("customers")
-    .select("vip_expires_at")
-    .eq("customer_id", id)
-    .maybeSingle(),
+  .from("customers")
+  .select("vip_expires_at, discount_type, discount_expires_at")
+  .eq("customer_id", id)
+  .maybeSingle(),
 ]);
 
 if (balanceError || !balanceData) return;
@@ -636,6 +636,8 @@ if (vipError) {
 const data = {
   ...balanceData,
   vip_expires_at: vipData?.vip_expires_at ?? null,
+  discount_type: vipData?.discount_type ?? null,
+  discount_expires_at: vipData?.discount_expires_at ?? null,
 };
 
 setSelectedCustomer(data);

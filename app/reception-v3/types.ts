@@ -6,6 +6,8 @@ export type CustomerBalance = {
   total_minutes: number;
   next_expiry: string | null;
   vip_expires_at: string | null;
+  discount_type?: "blue_light" | "military" | null;
+discount_expires_at?: string | null;
 };
 
 export type BedSession = {
