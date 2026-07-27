@@ -6,51 +6,190 @@ const supabaseAdmin = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
+type SumUpWebhookBody = {
+  event_type?: string;
+  id?: string;
+};
+
+type SumUpCheckout = {
+  id?: string;
+  checkout_reference?: string;
+  status?: "PENDING" | "FAILED" | "PAID" | "EXPIRED";
+  amount?: number;
+  currency?: string;
+};
+
 export async function POST(request: Request) {
-  const body = await request.json();
+  try {
+    const body = (await request.json()) as SumUpWebhookBody;
+    const checkoutId = body.id;
 
-  console.log("SUMUP WEBHOOK:", body);
+    if (
+      body.event_type !== "CHECKOUT_STATUS_CHANGED" ||
+      !checkoutId
+    ) {
+      return new NextResponse(null, { status: 200 });
+    }
 
-  const checkoutReference = body.checkout_reference;
+    const sumUpResponse = await fetch(
+      `https://api.sumup.com/v0.1/checkouts/${checkoutId}`,
+      {
+        headers: {
+          Authorization: `Bearer ${process.env.SUMUP_API_KEY}`,
+        },
+        cache: "no-store",
+      }
+    );
 
-  if (!checkoutReference) {
+    if (!sumUpResponse.ok) {
+      console.error(
+        "Webhook SumUp verification failed:",
+        await sumUpResponse.text()
+      );
+
+      return NextResponse.json(
+        { error: "Unable to verify checkout." },
+        { status: 500 }
+      );
+    }
+
+    const checkout = (await sumUpResponse.json()) as SumUpCheckout;
+
+    if (
+      checkout.status !== "PAID" ||
+      !checkout.checkout_reference
+    ) {
+      return new NextResponse(null, { status: 200 });
+    }
+
+    const { data: purchase, error: purchaseError } = await supabaseAdmin
+      .from("purchases")
+      .select("*")
+      .eq("checkout_reference", checkout.checkout_reference)
+      .maybeSingle();
+
+    if (purchaseError) {
+      console.error("Webhook purchase lookup failed:", purchaseError);
+
+      return NextResponse.json(
+        { error: "Unable to load purchase." },
+        { status: 500 }
+      );
+    }
+
+    if (!purchase || purchase.payment_status === "paid") {
+      return new NextResponse(null, { status: 200 });
+    }
+
+    const paymentMatches =
+      checkout.id === purchase.sumup_checkout_id &&
+      Number(checkout.amount) === Number(purchase.amount_paid) &&
+      checkout.currency === "GBP";
+
+    if (!paymentMatches) {
+      console.error("Webhook payment details did not match purchase.");
+
+      return NextResponse.json(
+        { error: "Payment details did not match." },
+        { status: 400 }
+      );
+    }
+
+    const { data: existingBatch, error: existingBatchError } =
+      await supabaseAdmin
+        .from("minute_batches")
+        .select("id")
+        .eq("purchase_id", purchase.id)
+        .maybeSingle();
+
+    if (existingBatchError) {
+      console.error(
+        "Webhook duplicate check failed:",
+        existingBatchError
+      );
+
+      return NextResponse.json(
+        { error: "Unable to check existing credit." },
+        { status: 500 }
+      );
+    }
+
+    if (!existingBatch) {
+      const { error: transactionError } = await supabaseAdmin
+        .from("minute_transactions")
+        .insert({
+          customer_id: purchase.customer_id,
+          minutes: purchase.minutes_added,
+          transaction_type: "purchase",
+          reason: `Online SumUp purchase - ${checkout.checkout_reference}`,
+        });
+
+      if (transactionError) {
+        console.error(
+          "Webhook minute transaction failed:",
+          transactionError
+        );
+
+        return NextResponse.json(
+          { error: "Unable to record minute transaction." },
+          { status: 500 }
+        );
+      }
+
+      const { error: batchError } = await supabaseAdmin
+        .from("minute_batches")
+        .insert({
+          customer_id: purchase.customer_id,
+          purchase_id: purchase.id,
+          minutes_added: purchase.minutes_added,
+          minutes_remaining: purchase.minutes_added,
+          expires_at: purchase.expiry_date,
+        });
+
+      if (batchError) {
+        await supabaseAdmin
+          .from("minute_transactions")
+          .delete()
+          .eq("customer_id", purchase.customer_id)
+          .eq(
+            "reason",
+            `Online SumUp purchase - ${checkout.checkout_reference}`
+          );
+
+        console.error("Webhook minute batch failed:", batchError);
+
+        return NextResponse.json(
+          { error: "Unable to credit minute batch." },
+          { status: 500 }
+        );
+      }
+    }
+
+    const { error: updateError } = await supabaseAdmin
+      .from("purchases")
+      .update({
+        payment_status: "paid",
+        paid_at: new Date().toISOString(),
+      })
+      .eq("id", purchase.id)
+      .eq("payment_status", "pending");
+
+    if (updateError) {
+      console.error("Webhook purchase update failed:", updateError);
+
+      return NextResponse.json(
+        { error: "Unable to complete purchase." },
+        { status: 500 }
+      );
+    }
+
+    return new NextResponse(null, { status: 200 });
+  } catch (error) {
+    console.error("SumUp webhook failed:", error);
+
     return NextResponse.json(
-      { error: "Missing checkout reference" },
-      { status: 400 }
+      { error: "Unexpected webhook error." },
+      { status: 500 }
     );
   }
-
-  const { data: purchase } = await supabaseAdmin
-    .from("purchases")
-    .select("*")
-    .eq("checkout_reference", checkoutReference)
-    .single();
-
-  if (!purchase) {
-    return NextResponse.json(
-      { error: "Purchase not found" },
-      { status: 404 }
-    );
-  }
-
-  if (purchase.payment_status === "paid") {
-    return NextResponse.json({ ok: true });
-  }
-
-  await supabaseAdmin
-    .from("purchases")
-    .update({
-      payment_status: "paid",
-      paid_at: new Date().toISOString(),
-    })
-    .eq("checkout_reference", checkoutReference);
-
-  await supabaseAdmin.from("minute_transactions").insert({
-    customer_id: purchase.customer_id,
-    minutes: purchase.minutes_added,
-    transaction_type: "purchase",
-    reason: `SumUp ${checkoutReference}`,
-  });
-
-  return NextResponse.json({ success: true });
 }
