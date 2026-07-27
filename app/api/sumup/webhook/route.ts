@@ -183,13 +183,26 @@ if (updateError) {
   );
 }
 
+const { data: customer, error: customerError } = await supabaseAdmin
+  .from("customers")
+  .select("full_name")
+  .eq("customer_id", purchase.customer_id)
+  .maybeSingle();
+
+if (customerError) {
+  console.error(
+    "Webhook customer name lookup failed:",
+    customerError
+  );
+}
+
 const { error: auditError } = await supabaseAdmin
   .from("audit_log")
   .insert({
     staff_id: null,
     staff_name: "Online Sale",
     action: "Package Sold",
-    customer_name: purchase.customer_name,
+    customer_name: customer?.full_name || null,
     details: `${purchase.minutes_added} Minutes (£${Number(
       purchase.amount_paid
     ).toFixed(2)})`,
