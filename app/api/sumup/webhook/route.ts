@@ -166,24 +166,40 @@ export async function POST(request: Request) {
     }
 
     const { error: updateError } = await supabaseAdmin
-      .from("purchases")
-      .update({
-        payment_status: "paid",
-        paid_at: new Date().toISOString(),
-      })
-      .eq("id", purchase.id)
-      .eq("payment_status", "pending");
+  .from("purchases")
+  .update({
+    payment_status: "paid",
+    paid_at: new Date().toISOString(),
+  })
+  .eq("id", purchase.id)
+  .eq("payment_status", "pending");
 
-    if (updateError) {
-      console.error("Webhook purchase update failed:", updateError);
+if (updateError) {
+  console.error("Webhook purchase update failed:", updateError);
 
-      return NextResponse.json(
-        { error: "Unable to complete purchase." },
-        { status: 500 }
-      );
-    }
+  return NextResponse.json(
+    { error: "Unable to complete purchase." },
+    { status: 500 }
+  );
+}
 
-    return new NextResponse(null, { status: 200 });
+const { error: auditError } = await supabaseAdmin
+  .from("audit_log")
+  .insert({
+    staff_id: null,
+    staff_name: "Online Sale",
+    action: "Package Sold",
+    customer_name: purchase.customer_name,
+    details: `${purchase.minutes_added} Minutes (£${Number(
+      purchase.amount_paid
+    ).toFixed(2)})`,
+  });
+
+if (auditError) {
+  console.error("Webhook audit log failed:", auditError);
+}
+
+return new NextResponse(null, { status: 200 });
   } catch (error) {
     console.error("SumUp webhook failed:", error);
 
