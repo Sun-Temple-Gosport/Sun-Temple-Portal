@@ -36,6 +36,7 @@ import {
 import {
   loadPackages as loadPackagesService,
   savePackage as savePackageService,
+  createPackageService,
 } from "./services/packages";
 import {
   searchCustomers as searchCustomersService,
@@ -431,6 +432,24 @@ if (salesError) {
   }
 
   showMessage("Package updated.");
+  await loadPackages();
+}
+
+async function createPackage(newPackage: {
+  name: string;
+  minutes: number;
+  price: number;
+  expiry_days: number;
+  active: boolean;
+}) {
+  const { error } = await createPackageService(newPackage);
+
+  if (error) {
+    showMessage(error.message);
+    return;
+  }
+
+  showMessage("Package created.");
   await loadPackages();
 }
 
@@ -984,12 +1003,13 @@ setRecentCustomers((prev) => {
         onSave={updateCustomer}
       />
 
-      <OwnerSettings
-        open={ownerSettingsOpen}
-        packages={packages}
-        onClose={() => setOwnerSettingsOpen(false)}
-        onSave={savePackage}
-      />
+     <OwnerSettings
+  open={ownerSettingsOpen}
+  packages={packages}
+  onClose={() => setOwnerSettingsOpen(false)}
+  onSave={savePackage}
+  onCreate={createPackage}
+/>
     </main>
   );
 }

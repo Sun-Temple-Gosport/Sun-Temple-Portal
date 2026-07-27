@@ -26,3 +26,20 @@ export async function savePackage(updatedPackage: {
     })
     .eq("id", updatedPackage.id);
 }
+export async function createPackageService(newPackage: {
+  name: string;
+  minutes: number;
+  price: number;
+  expiry_days: number;
+  active: boolean;
+}) {
+  return await supabase
+    .from("packages")
+    .insert({
+      name: newPackage.name,
+      minutes: newPackage.minutes,
+      price: newPackage.price,
+      expiry_days: newPackage.expiry_days,
+      active: newPackage.active,
+    });
+}

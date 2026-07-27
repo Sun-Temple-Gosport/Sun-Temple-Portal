@@ -11,11 +11,20 @@ export type PackageOption = {
   active: boolean;
 };
 
+type NewPackageInput = {
+  name: string;
+  minutes: number;
+  price: number;
+  expiry_days: number;
+  active: boolean;
+};
+
 type Props = {
   open: boolean;
   packages: PackageOption[];
   onClose: () => void;
   onSave: (pkg: PackageOption) => Promise<void>;
+  onCreate: (pkg: NewPackageInput) => Promise<void>;
 };
 
 export default function OwnerSettings({
@@ -23,9 +32,18 @@ export default function OwnerSettings({
   packages,
   onClose,
   onSave,
+  onCreate,
 }: Props) {
   const [localPackages, setLocalPackages] = useState<PackageOption[]>([]);
   const [savingId, setSavingId] = useState<number | null>(null);
+  const [addPackageOpen, setAddPackageOpen] = useState(false);
+  const [newPackage, setNewPackage] = useState({
+  name: "",
+  minutes: 0,
+  price: 0,
+  expiry_days: 0,
+  active: true,
+});
 
   useEffect(() => {
     setLocalPackages(packages.map((pkg) => ({ ...pkg })));
@@ -47,35 +65,168 @@ export default function OwnerSettings({
     await onSave(pkg);
     setSavingId(null);
   }
+  
+  
 
     return (
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/70 p-3 sm:items-center sm:p-6">
       <div className="flex max-h-[calc(100vh-1.5rem)] w-full max-w-4xl flex-col overflow-hidden rounded-3xl border border-slate-700 bg-slate-900 p-4 shadow-2xl sm:max-h-[calc(100vh-3rem)] sm:p-6">
         <div className="mb-4 flex shrink-0 items-center justify-between gap-4">
-          <div>
-            <p className="text-xs font-black uppercase tracking-[0.2em] text-amber-400">
-              Owner Settings
-            </p>
+  <div>
+    <p className="text-xs font-black uppercase tracking-[0.2em] text-amber-400">
+      Owner Settings
+    </p>
 
-            <h2 className="text-3xl font-black text-white">Package Prices</h2>
-          </div>
-                <button
-        type="button"
-        onClick={onClose}
-        className="fixed right-3 top-3 z-[100] rounded-xl bg-amber-400 px-5 py-3 font-black text-black shadow-2xl hover:bg-amber-300"
-      >
-        Close Settings
-      </button>
+    <h2 className="text-3xl font-black text-white">Package Prices</h2>
+  </div>
 
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-xl border border-slate-700 px-5 py-2 font-bold text-slate-300 hover:border-amber-400"
-          >
-            Close
-          </button>
-        </div>
+  <div className="flex gap-2">
+    <button
+      type="button"
+      onClick={() => {
+  setAddPackageOpen(true);
+}}
+      className="rounded-xl bg-amber-400 px-5 py-2 font-black text-black hover:bg-amber-300"
+    >
+      Add Package
+    </button>
+
+    <button
+      type="button"
+      onClick={onClose}
+      className="rounded-xl border border-slate-700 px-5 py-2 font-bold text-slate-300 hover:border-amber-400"
+    >
+      Close
+    </button>
+  </div>
+</div>
         <div className="min-h-0 flex-1 space-y-4 overflow-y-auto pr-1">
+
+          {addPackageOpen && (
+  <div className="rounded-2xl border border-slate-700 bg-slate-950 p-5">
+    <p className="text-lg font-black text-white">
+      New Package
+    </p>
+
+    <div className="grid gap-4 md:grid-cols-2">
+  <label className="space-y-2">
+    <span className="text-xs font-black uppercase tracking-wide text-slate-400">
+      Package Name
+    </span>
+
+    <input
+      value={newPackage.name}
+      onChange={(e) =>
+        setNewPackage({
+          ...newPackage,
+          name: e.target.value,
+        })
+      }
+      placeholder="Package name"
+      className="w-full rounded-xl border border-slate-700 bg-slate-900 p-3 text-white"
+    />
+  </label>
+
+  <label className="space-y-2">
+    <span className="text-xs font-black uppercase tracking-wide text-slate-400">
+      Minutes
+    </span>
+
+    <input
+      type="number"
+      value={newPackage.minutes || ""}
+      onChange={(e) =>
+        setNewPackage({
+          ...newPackage,
+          minutes: Number(e.target.value),
+        })
+      }
+      className="w-full rounded-xl border border-slate-700 bg-slate-900 p-3 text-white"
+    />
+  </label>
+
+  <label className="space-y-2">
+    <span className="text-xs font-black uppercase tracking-wide text-slate-400">
+      Price £
+    </span>
+
+    <input
+      type="number"
+      step="0.01"
+      value={newPackage.price || ""}
+      onChange={(e) =>
+        setNewPackage({
+          ...newPackage,
+          price: Number(e.target.value),
+        })
+      }
+      className="w-full rounded-xl border border-slate-700 bg-slate-900 p-3 text-white"
+    />
+  </label>
+
+  <label className="space-y-2">
+    <span className="text-xs font-black uppercase tracking-wide text-slate-400">
+      Expiry Days
+    </span>
+
+    <input
+      type="number"
+      value={newPackage.expiry_days || ""}
+      onChange={(e) =>
+        setNewPackage({
+          ...newPackage,
+          expiry_days: Number(e.target.value),
+        })
+      }
+      className="w-full rounded-xl border border-slate-700 bg-slate-900 p-3 text-white"
+    />
+  </label>
+</div>
+
+<label className="mt-4 flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-900 p-3 font-bold text-white">
+  <input
+  type="checkbox"
+  checked={newPackage.active}
+  onChange={(e) =>
+    setNewPackage({
+      ...newPackage,
+      active: e.target.checked,
+    })
+  }
+/>
+  Active
+</label>
+
+<div className="mt-4 flex gap-2">
+  <button
+  type="button"
+  onClick={async () => {
+  await onCreate(newPackage);
+}}
+  className="rounded-xl bg-emerald-400 px-5 py-2 font-black text-black"
+>
+  Save Package
+</button>
+
+  <button
+    type="button"
+    onClick={() => {
+  setNewPackage({
+    name: "",
+    minutes: 0,
+price: 0,
+expiry_days: 0,
+    active: true,
+  });
+  setAddPackageOpen(false);
+}}
+    className="rounded-xl border border-slate-700 px-5 py-2 font-bold text-slate-300 hover:border-amber-400"
+  >
+    Cancel
+  </button>
+</div>
+  </div>
+)}
         
     
           {localPackages.map((pkg) => (
