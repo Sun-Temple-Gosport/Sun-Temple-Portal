@@ -89,10 +89,14 @@ export default function OwnerSettings({
                     Name
                   </label>
                   <input
-                    value={pkg.name ?? ""}
-                    readOnly
-                    className="mt-1 w-full rounded-xl border border-slate-800 bg-slate-900 p-3 font-bold text-white"
-                  />
+  value={pkg.name ?? ""}
+  onChange={(e) =>
+    updateLocalPackage(pkg.id, {
+      name: e.target.value,
+    })
+  }
+  className="mt-1 w-full rounded-xl border border-slate-700 bg-slate-900 p-3 font-bold text-white"
+/>
                 </div>
 
                 <div>
@@ -100,11 +104,15 @@ export default function OwnerSettings({
                     Minutes
                   </label>
                   <input
-                    type="number"
-                    value={pkg.minutes}
-                    readOnly
-                    className="mt-1 w-full rounded-xl border border-slate-800 bg-slate-900 p-3 font-bold text-white"
-                  />
+  type="number"
+  value={pkg.minutes}
+  onChange={(e) =>
+    updateLocalPackage(pkg.id, {
+      minutes: Number(e.target.value),
+    })
+  }
+  className="mt-1 w-full rounded-xl border border-slate-700 bg-slate-900 p-3 font-bold text-white"
+/>
                 </div>
 
                 <div>

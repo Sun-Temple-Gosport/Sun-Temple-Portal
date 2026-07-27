@@ -9,6 +9,8 @@ export async function loadPackages() {
 
 export async function savePackage(updatedPackage: {
   id: number;
+  name: string | null;
+  minutes: number;
   price: number;
   expiry_days: number | null;
   active: boolean;
@@ -16,6 +18,8 @@ export async function savePackage(updatedPackage: {
   return await supabase
     .from("packages")
     .update({
+      name: updatedPackage.name,
+      minutes: updatedPackage.minutes,
       price: updatedPackage.price,
       expiry_days: updatedPackage.expiry_days,
       active: updatedPackage.active,
