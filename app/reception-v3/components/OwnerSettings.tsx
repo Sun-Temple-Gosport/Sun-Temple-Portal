@@ -334,7 +334,15 @@ expiry_days: 0,
                 </button>
                 <button
   type="button"
-  onClick={() => onDelete(pkg.id)}
+  onClick={async () => {
+  const confirmed = window.confirm(
+    `Are you sure you want to delete "${pkg.name || "this package"}"?\n\nThis action cannot be undone.`
+  );
+
+  if (!confirmed) return;
+
+  await onDelete(pkg.id);
+}}
   className="rounded-xl border border-red-600 px-4 py-2 font-bold text-red-400 hover:bg-red-600 hover:text-white"
 >
   Delete
