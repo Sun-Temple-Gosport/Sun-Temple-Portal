@@ -35,7 +35,13 @@ type BedSession = {
   } | null;
 };
 
-const beds = ["St Lucia", "Barbados", "St Kitts", "Antigua"];
+type Bed = {
+  id: number;
+  name: string;
+  display_order: number;
+  active: boolean;
+};
+
 const quickMinutes = [7, 10, 12, 15];
 
 export default function ReceptionPage() {
@@ -45,7 +51,13 @@ export default function ReceptionPage() {
     useState<CustomerBalance | null>(null);
 
   const [sessions, setSessions] = useState<BedSession[]>([]);
-  const [selectedBed, setSelectedBed] = useState<string | null>(null);
+const [beds, setBeds] = useState<string[]>([
+  "St Lucia",
+  "Barbados",
+  "St Kitts",
+  "Antigua",
+]);
+const [selectedBed, setSelectedBed] = useState<string | null>(null);
 
   const [customDeduct, setCustomDeduct] = useState("");
   const [manualAdd, setManualAdd] = useState("");
@@ -55,15 +67,16 @@ export default function ReceptionPage() {
   const [tick, setTick] = useState(Date.now());
 
   useEffect(() => {
+  loadBedDefinitions();
+  loadBeds();
+
+  const timer = setInterval(() => {
+    setTick(Date.now());
     loadBeds();
+  }, 1000);
 
-    const timer = setInterval(() => {
-      setTick(Date.now());
-      loadBeds();
-    }, 1000);
-
-    return () => clearInterval(timer);
-  }, []);
+  return () => clearInterval(timer);
+}, []);
 
   async function searchCustomers() {
     if (!search.trim()) return;
@@ -103,6 +116,20 @@ export default function ReceptionPage() {
     }
   }
 
+  async function loadBedDefinitions() {
+  const { data, error } = await supabase
+    .from("beds")
+    .select("name")
+    .eq("active", true)
+    .order("display_order", { ascending: true });
+
+  if (error) {
+    console.log("Bed definition load error:", error.message);
+    return;
+  }
+
+  setBeds((data ?? []).map((bed) => bed.name));
+}
   async function loadBeds() {
     const { data, error } = await supabase
   .from("bed_sessions")
