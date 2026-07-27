@@ -165,18 +165,29 @@ async function saveDiscount() {
   !!selectedCustomer.vip_expires_at &&
   new Date(selectedCustomer.vip_expires_at) > new Date();
 
-const visiblePackages = basePackages.map((pack) => ({
-  ...pack,
-  price:
-    isVip && vipDiscountPercent > 0
-      ? Number(
-          (
-            Number(pack.price) *
-            (1 - vipDiscountPercent / 100)
-          ).toFixed(2)
-        )
-      : Number(pack.price),
-}));
+const staffDiscountIsActive =
+  !!selectedCustomer.discount_expires_at &&
+  new Date(selectedCustomer.discount_expires_at) >= new Date() &&
+  (selectedCustomer.discount_type === "blue_light" ||
+    selectedCustomer.discount_type === "military");
+
+function getPackagePrice(pack: PackageOption) {
+  const basePrice = Number(pack.price);
+
+  const staffDiscountPercent =
+    staffDiscountIsActive && pack.minutes >= 60 ? 10 : 0;
+
+  const appliedDiscountPercent = Math.max(
+    isVip ? vipDiscountPercent : 0,
+    staffDiscountPercent
+  );
+
+  return Number(
+    (basePrice * (1 - appliedDiscountPercent / 100)).toFixed(2)
+  );
+}
+
+const visiblePackages = basePackages;
 
   function openPackageConfirmation(pack: PackageOption) {
     if (sellingPackageId !== null) return;
@@ -202,12 +213,7 @@ const visiblePackages = basePackages.map((pack) => ({
     try {
       await onAddMinutes({
         minutes: packageToSell.minutes,
-        amount:
-  packageToSell.minutes >= 60 &&
-  (selectedCustomer?.discount_type === "blue_light" ||
-    selectedCustomer?.discount_type === "military")
-    ? Number((Number(packageToSell.price) * 0.9).toFixed(2))
-    : Number(packageToSell.price),
+        amount: getPackagePrice(packageToSell),
         description:
           packageToSell.name ||
           `${packageToSell.minutes} minute package`,
@@ -290,8 +296,13 @@ const visiblePackages = basePackages.map((pack) => ({
             {visiblePackages.map((pack) => {
   const isSelling = sellingPackageId === pack.id;
 
-  const discountPercent =
+const discountStillValid =
+  !!selectedCustomer.discount_expires_at &&
+  new Date(selectedCustomer.discount_expires_at) >= new Date();
+
+const discountPercent =
   pack.minutes >= 60 &&
+  discountStillValid &&
   (selectedCustomer.discount_type === "blue_light" ||
     selectedCustomer.discount_type === "military")
     ? 10
@@ -418,13 +429,7 @@ const visiblePackages = basePackages.map((pack) => ({
                   </p>
 
                   <p className="mt-1 text-xl font-black text-amber-400">
-                    £{
-  pendingPackage.minutes >= 60 &&
-  (selectedCustomer.discount_type === "blue_light" ||
-    selectedCustomer.discount_type === "military")
-    ? Number((Number(pendingPackage.price) * 0.9).toFixed(2)).toFixed(2)
-    : Number(pendingPackage.price).toFixed(2)
-}
+                    £{getPackagePrice(pendingPackage).toFixed(2)}
                   </p>
                 </div>
               </div>
