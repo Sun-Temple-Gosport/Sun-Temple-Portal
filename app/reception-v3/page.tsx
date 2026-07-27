@@ -37,6 +37,7 @@ import {
   loadPackages as loadPackagesService,
   savePackage as savePackageService,
   createPackageService,
+  deletePackageService,
 } from "./services/packages";
 import {
   searchCustomers as searchCustomersService,
@@ -311,9 +312,9 @@ const {
   email
 );
     if (error) {
-      showMessage(error.message);
-      return;
-    }
+  showMessage(error.message);
+  throw new Error(error.message);
+}
 
     showMessage("Customer updated successfully.");
     setEditingCustomer(false);
@@ -445,11 +446,23 @@ async function createPackage(newPackage: {
   const { error } = await createPackageService(newPackage);
 
   if (error) {
-    showMessage(error.message);
-    return;
-  }
+  showMessage(error.message);
+  throw new Error(error.message);
+}
 
   showMessage("Package created.");
+  await loadPackages();
+}
+
+async function deletePackage(id: number) {
+  const { error } = await deletePackageService(id);
+
+  if (error) {
+    showMessage(error.message);
+    throw new Error(error.message);
+  }
+
+  showMessage("Package deleted.");
   await loadPackages();
 }
 
@@ -1009,6 +1022,7 @@ setRecentCustomers((prev) => {
   onClose={() => setOwnerSettingsOpen(false)}
   onSave={savePackage}
   onCreate={createPackage}
+  onDelete={deletePackage}
 />
     </main>
   );

@@ -43,3 +43,9 @@ export async function createPackageService(newPackage: {
       active: newPackage.active,
     });
 }
+export async function deletePackageService(id: number) {
+  return await supabase
+    .from("packages")
+    .delete()
+    .eq("id", id);
+}

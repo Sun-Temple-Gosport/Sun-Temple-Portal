@@ -19,12 +19,14 @@ type NewPackageInput = {
   active: boolean;
 };
 
+
 type Props = {
   open: boolean;
   packages: PackageOption[];
   onClose: () => void;
   onSave: (pkg: PackageOption) => Promise<void>;
   onCreate: (pkg: NewPackageInput) => Promise<void>;
+  onDelete: (id: number) => Promise<void>;
 };
 
 export default function OwnerSettings({
@@ -33,6 +35,7 @@ export default function OwnerSettings({
   onClose,
   onSave,
   onCreate,
+  onDelete,
 }: Props) {
   const [localPackages, setLocalPackages] = useState<PackageOption[]>([]);
   const [savingId, setSavingId] = useState<number | null>(null);
@@ -202,6 +205,16 @@ export default function OwnerSettings({
   type="button"
   onClick={async () => {
   await onCreate(newPackage);
+
+  setNewPackage({
+    name: "",
+    minutes: 0,
+    price: 0,
+    expiry_days: 0,
+    active: true,
+  });
+
+  setAddPackageOpen(false);
 }}
   className="rounded-xl bg-emerald-400 px-5 py-2 font-black text-black"
 >
@@ -319,6 +332,13 @@ expiry_days: 0,
                 >
                   {savingId === pkg.id ? "Saving..." : "Save"}
                 </button>
+                <button
+  type="button"
+  onClick={() => onDelete(pkg.id)}
+  className="rounded-xl border border-red-600 px-4 py-2 font-bold text-red-400 hover:bg-red-600 hover:text-white"
+>
+  Delete
+</button>
               </div>
             </div>
           ))}
