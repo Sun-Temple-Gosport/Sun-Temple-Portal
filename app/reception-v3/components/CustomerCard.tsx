@@ -265,6 +265,29 @@ const visiblePackages = basePackages;
         })}
       </span>
     )}
+    {selectedCustomer.discount_type &&
+  selectedCustomer.discount_expires_at &&
+  new Date(selectedCustomer.discount_expires_at) >= new Date() && (
+    <span
+      className={`rounded-2xl border px-4 py-2 text-sm font-black ${
+        selectedCustomer.discount_type === "blue_light"
+          ? "border-sky-400/40 bg-sky-500/15 text-sky-300"
+          : "border-emerald-400/40 bg-emerald-500/15 text-emerald-300"
+      }`}
+    >
+      {selectedCustomer.discount_type === "blue_light"
+        ? "🟦 Blue Light Card"
+        : "🟢 Military Discount"}
+      {" · Expires "}
+      {new Date(
+        selectedCustomer.discount_expires_at
+      ).toLocaleDateString("en-GB", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      })}
+    </span>
+)}
 </div>
         </div>
         </div>
