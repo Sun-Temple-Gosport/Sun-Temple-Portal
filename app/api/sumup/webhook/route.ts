@@ -196,6 +196,23 @@ if (customerError) {
   );
 }
 
+const { error: receptionSaleError } = await supabaseAdmin
+  .from("reception_sales")
+  .insert({
+    customer_id: purchase.customer_id,
+    customer_name: customer?.full_name || null,
+    amount: purchase.amount_paid,
+    minutes: purchase.minutes_added,
+    payment_method: "card",
+  });
+
+if (receptionSaleError) {
+  console.error(
+    "Webhook reception sale failed:",
+    receptionSaleError
+  );
+}
+
 const { error: auditError } = await supabaseAdmin
   .from("audit_log")
   .insert({
