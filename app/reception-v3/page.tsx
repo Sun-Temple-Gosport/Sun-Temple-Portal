@@ -242,7 +242,6 @@ const {
     setRecentCustomers(updated);
     localStorage.setItem(RECENT_CUSTOMERS_KEY, JSON.stringify(updated));
   }
-
   async function selectCustomer(customer: CustomerBalance) {
   setSelectedCustomer(customer);
   saveRecentCustomer(customer);
@@ -261,10 +260,18 @@ const {
     await createCustomerService(customer);
 
   if (error || !newCustomer) {
-    setLoading(false);
-    showMessage(error?.message || "Could not create customer.");
+  setLoading(false);
+
+  if (error?.code === "23505") {
+    showMessage(
+      "A customer with this email address already exists. Please search for and select their existing account."
+    );
     return;
   }
+
+  showMessage(error?.message || "Could not create customer.");
+  return;
+}
 
   const customerId = newCustomer.customer_id;
 
@@ -925,6 +932,12 @@ setRecentCustomers((prev) => {
   userName={userName}
   userRole={userRole === "owner" ? "owner" : "staff"}
 />
+
+{message && (
+  <div className="mx-auto mt-4 max-w-7xl rounded-xl border border-amber-500 bg-amber-500/10 px-4 py-3 text-amber-200">
+    {message}
+  </div>
+)}
 
       {userRole === "owner" && (
   <OwnerTabs
