@@ -77,7 +77,17 @@ type UserRole = "owner" | "staff" | "customer";
 
 const RECENT_CUSTOMERS_KEY = "sun-temple-recent-customers-v3";
 const TODAY_ACTIVITY_KEY = "reception-v3-today-activity";
+const TODAY_ACTIVITY_DATE_KEY = "reception-v3-today-activity-date";
 const TOTAL_BEDS = 4;
+
+function getLocalDateKey() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+}
 
 export default function ReceptionV3Page() {
     const router = useRouter();
@@ -98,9 +108,20 @@ const [sessions, setSessions] = useState<BedSession[]>([]);
 const [beds, setBeds] = useState<string[]>([]);
 const [manualMinutes, setManualMinutes] = useState("");
   const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState("");
-  const [activities, setActivities] = useState<Activity[]>(() => {
+ const [message, setMessage] = useState("");
+const [activityDate, setActivityDate] = useState(getLocalDateKey);
+
+const [activities, setActivities] = useState<Activity[]>(() => {
   if (typeof window === "undefined") return [];
+
+  const savedDate = localStorage.getItem(TODAY_ACTIVITY_DATE_KEY);
+  const today = getLocalDateKey();
+
+  if (savedDate !== today) {
+    localStorage.removeItem(TODAY_ACTIVITY_KEY);
+    localStorage.setItem(TODAY_ACTIVITY_DATE_KEY, today);
+    return [];
+  }
 
   const stored = localStorage.getItem(TODAY_ACTIVITY_KEY);
   if (!stored) return [];
@@ -619,7 +640,28 @@ useEffect(() => {
   }, [selectedCustomer?.customer_id]);
   useEffect(() => {
   localStorage.setItem(TODAY_ACTIVITY_KEY, JSON.stringify(activities));
-}, [activities]);
+  localStorage.setItem(TODAY_ACTIVITY_DATE_KEY, activityDate);
+}, [activities, activityDate]);
+
+useEffect(() => {
+  function checkForNewDay() {
+    const today = getLocalDateKey();
+
+    if (today !== activityDate) {
+      setActivities([]);
+      setActivityDate(today);
+    }
+  }
+
+  const interval = window.setInterval(checkForNewDay, 60_000);
+
+  window.addEventListener("focus", checkForNewDay);
+
+  return () => {
+    window.clearInterval(interval);
+    window.removeEventListener("focus", checkForNewDay);
+  };
+}, [activityDate]);
 
   useEffect(() => {
     if (!message) return;
