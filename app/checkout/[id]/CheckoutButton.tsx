@@ -23,7 +23,19 @@ export default function CheckoutButton({
       window.location.href = "/login";
       return;
     }
-    const customerId = user.id;
+
+    const { data: profileData, error: profileError } = await supabase
+      .from("profiles")
+      .select("customer_id")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    if (profileError) {
+      alert("Could not load your customer account. Please try again.");
+      return;
+    }
+
+    const customerId = profileData?.customer_id || user.id;
 
     const checkoutReference = `suntemple-${Date.now()}`;
 
@@ -54,7 +66,7 @@ export default function CheckoutButton({
   return (
     <button
       onClick={handleCheckout}
-      className="mt-10 w-full rounded-full bg-[#d6a84f] py-4 text-black font-bold"
+      className="mt-10 w-full rounded-full bg-[#d6a84f] py-4 font-bold text-black"
     >
       Pay with SumUp
     </button>

@@ -9,57 +9,65 @@ export default function MyMinutes() {
   const [balance, setBalance] = useState<any>(null);
   const router = useRouter();
 
-async function logout() {
-  await supabase.auth.signOut();
-  router.push("/login");
-}
-
-  useEffect(() => {
-  async function loadCustomer() {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
-      window.location.href = "/login";
-      return;
-    }
-
-    const { data: profileData, error: profileError } = await supabase
-      .from("profiles")
-      .select("*")
-      .eq("id", user.id)
-      .maybeSingle();
-
-    if (profileError) {
-      console.error("Could not load customer profile:", profileError.message);
-    }
-
-    const { data: balanceData, error: balanceError } = await supabase
-      .from("customer_balances")
-      .select("*")
-      .eq("customer_id", user.id)
-      .maybeSingle();
-      
-
-    if (balanceError) {
-      console.error("Could not load customer balance:", balanceError.message);
-    }
-
-    setProfile({
-      ...profileData,
-      full_name:
-        profileData?.full_name ||
-        balanceData?.full_name ||
-        user.user_metadata?.full_name ||
-        user.email,
-    });
-
-    setBalance(balanceData);
+  async function logout() {
+    await supabase.auth.signOut();
+    router.push("/login");
   }
 
-  loadCustomer();
-}, []);
+  useEffect(() => {
+    async function loadCustomer() {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) {
+        window.location.href = "/login";
+        return;
+      }
+
+      const { data: profileData, error: profileError } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      if (profileError) {
+        console.error(
+          "Could not load customer profile:",
+          profileError.message
+        );
+      }
+
+      const customerId = profileData?.customer_id || user.id;
+
+      const { data: balanceData, error: balanceError } = await supabase
+        .from("customer_balances")
+        .select("*")
+        .eq("customer_id", customerId)
+        .maybeSingle();
+        
+
+      if (balanceError) {
+        console.error(
+          "Could not load customer balance:",
+          balanceError.message
+        );
+      }
+
+      setProfile({
+        ...profileData,
+        full_name:
+          profileData?.full_name ||
+          balanceData?.full_name ||
+          user.user_metadata?.full_name ||
+          user.email,
+      });
+
+      setBalance(balanceData);
+    }
+
+    loadCustomer();
+  }, []);
 
   return (
     <main className="min-h-screen bg-[#050505] px-6 py-16 text-white">
@@ -78,43 +86,41 @@ async function logout() {
           </h2>
 
           <div className="mt-8">
-  <p className="text-zinc-400">Minutes remaining</p>
+            <p className="text-zinc-400">Minutes remaining</p>
 
-  <p className="mt-2 text-7xl font-bold text-[#d6a84f]">
-    {balance?.total_minutes ?? 0}
-  </p>
+            <p className="mt-2 text-7xl font-bold text-[#d6a84f]">
+              {balance?.total_minutes ?? 0}
+            </p>
 
-  <p className="mt-6 text-zinc-400">
-    Next expiry
-  </p>
+            <p className="mt-6 text-zinc-400">Next expiry</p>
 
-  <p className="mt-1 text-2xl font-bold text-white">
-    {balance?.next_expiry
-      ? new Date(balance.next_expiry).toLocaleDateString("en-GB", {
-          day: "2-digit",
-          month: "long",
-          year: "numeric",
-        })
-      : "No active expiry"}
-  </p>
-</div>
+            <p className="mt-1 text-2xl font-bold text-white">
+              {balance?.next_expiry
+                ? new Date(balance.next_expiry).toLocaleDateString("en-GB", {
+                    day: "2-digit",
+                    month: "long",
+                    year: "numeric",
+                  })
+                : "No active expiry"}
+            </p>
+          </div>
 
           <div className="mt-10 flex flex-wrap gap-4">
-  <a
-    href="/buy-minutes"
-    className="rounded-full bg-[#d6a84f] px-8 py-4 font-bold text-black"
-  >
-    Buy More Minutes
-  </a>
+            <a
+              href="/buy-minutes"
+              className="rounded-full bg-[#d6a84f] px-8 py-4 font-bold text-black"
+            >
+              Buy More Minutes
+            </a>
 
-  <button
-    type="button"
-    onClick={logout}
-    className="rounded-full border border-zinc-700 px-8 py-4 font-bold text-white hover:border-[#d6a84f]"
-  >
-    Logout
-  </button>
-</div>
+            <button
+              type="button"
+              onClick={logout}
+              className="rounded-full border border-zinc-700 px-8 py-4 font-bold text-white hover:border-[#d6a84f]"
+            >
+              Logout
+            </button>
+          </div>
         </div>
       </section>
     </main>
