@@ -9,21 +9,49 @@ type VipSettings = {
   duration_days: number;
   course_expiry_days: number;
 };
+type SalonBranding = {
+  salon_name: string;
+  tagline: string | null;
+  logo_url: string | null;
+};
 
 export default async function VipCheckoutPage() {
-  const { data, error } = await supabase
+ const [
+  { data: vipData, error: vipError },
+  { data: brandingData, error: brandingError },
+] = await Promise.all([
+  supabase
     .from("vip_settings")
     .select(
       "id, price, discount_percent, duration_days, course_expiry_days"
     )
     .eq("id", 1)
-    .maybeSingle();
+    .maybeSingle(),
 
-  if (error) {
-    console.error("Failed to load VIP settings:", error.message);
-  }
+  supabase
+    .from("salon_settings")
+    .select("salon_name, tagline, logo_url")
+    .eq("id", 1)
+    .maybeSingle(),
+]);
 
-  const vip = data as VipSettings | null;
+if (vipError) {
+  console.error("Failed to load VIP settings:", vipError.message);
+}
+
+if (brandingError) {
+  console.error(
+    "Failed to load salon branding:",
+    brandingError.message
+  );
+}
+
+const vip = vipData as VipSettings | null;
+const branding = brandingData as SalonBranding | null;
+
+const salonName = branding?.salon_name || "Sun Temple Gosport";
+const tagline = branding?.tagline || "";
+const logoUrl = branding?.logo_url || null;
 
   if (!vip) {
     return (
@@ -42,11 +70,31 @@ export default async function VipCheckoutPage() {
   return (
     <main className="flex min-h-screen items-center justify-center bg-[#050505] px-6 py-12 text-white">
       <div className="w-full max-w-[520px] rounded-3xl border border-[#d6a84f]/40 bg-[#111] p-8 md:p-10">
-        <p className="font-semibold uppercase tracking-[0.25em] text-[#d6a84f]">
-          Sun Temple VIP
-        </p>
+        <div className="flex items-center gap-4">
+  {logoUrl ? (
+    <img
+      src={logoUrl}
+      alt={`${salonName} logo`}
+      className="h-24 w-24 rounded-2xl bg-[#111] object-cover"
+    />
+  ) : (
+    <span className="text-5xl">☀️</span>
+  )}
 
-        <h1 className="mt-3 text-4xl font-bold">VIP Membership</h1>
+  <div>
+    <p className="font-semibold uppercase tracking-[0.25em] text-[#d6a84f]">
+      {salonName} VIP
+    </p>
+
+    <h1 className="mt-2 text-4xl font-bold">VIP Membership</h1>
+  </div>
+</div>
+
+{tagline && (
+  <p className="mt-4 text-zinc-400">
+    {tagline}
+  </p>
+)}
 
         <p className="mt-4 text-zinc-300">
           Save {vip.discount_percent}% on every minute package for the next
