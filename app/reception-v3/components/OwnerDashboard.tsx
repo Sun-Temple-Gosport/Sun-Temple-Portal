@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
+import SalonSettings from "./SalonSettings";
 
 type Props = {
   revenueToday: number;

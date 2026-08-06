@@ -8,12 +8,16 @@ type Props = {
   activeBeds: number;
   userName: string;
   userRole: "owner" | "staff";
+  salonName?: string;
+  tagline?: string;
 };
 
 export default function ReceptionHeader({
   activeBeds,
   userName,
   userRole,
+  salonName = "Sun Temple",
+  tagline = "Salon control, customers, minutes and live beds",
 }: Props) {
   const router = useRouter();
 
@@ -87,10 +91,8 @@ window.setTimeout(() => {
     <>
       <header style={styles.header}>
         <div>
-          <h1 style={styles.title}>☀️ Sun Temple Reception</h1>
-          <p style={styles.subtitle}>
-            Salon control, customers, minutes and live beds
-          </p>
+          <h1 style={styles.title}>☀️ {salonName} Reception</h1>
+<p style={styles.subtitle}>{tagline}</p>
         </div>
 
         <div style={styles.right}>

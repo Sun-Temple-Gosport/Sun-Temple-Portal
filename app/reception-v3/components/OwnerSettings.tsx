@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import SalonSettings from "./SalonSettings";
 
 export type PackageOption = {
   id: number;
@@ -104,6 +105,7 @@ export default function OwnerSettings({
   </div>
 </div>
         <div className="min-h-0 flex-1 space-y-4 overflow-y-auto pr-1">
+          <SalonSettings />
 
           {addPackageOpen && (
   <div className="rounded-2xl border border-slate-700 bg-slate-950 p-5">

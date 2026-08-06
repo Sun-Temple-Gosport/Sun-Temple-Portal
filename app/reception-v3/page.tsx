@@ -138,7 +138,10 @@ const [activities, setActivities] = useState<Activity[]>(() => {
   const [ownerView, setOwnerView] = useState<OwnerView>("dashboard");
   const [userRole, setUserRole] = useState<UserRole>("customer");
   const [userName, setUserName] = useState("Staff User");
-
+const [salonName, setSalonName] = useState("Sun Temple");
+const [salonTagline, setSalonTagline] = useState(
+  "Salon control, customers, minutes and live beds"
+);
   const dashboard = useDashboard({
   getStartOfToday,
   showMessage,
@@ -251,6 +254,26 @@ const {
 
     setAuthLoaded(true);
   }
+  async function loadSalonSettings() {
+  const { data, error } = await supabase
+    .from("salon_settings")
+    .select("salon_name, tagline")
+    .eq("id", 1)
+    .maybeSingle();
+
+  if (error) {
+    console.error("Could not load salon settings:", error.message);
+    return;
+  }
+
+  if (data?.salon_name?.trim()) {
+    setSalonName(data.salon_name.trim());
+  }
+
+  if (data?.tagline?.trim()) {
+    setSalonTagline(data.tagline.trim());
+  }
+}
 
   function saveRecentCustomer(customer: CustomerBalance) {
     const updated = [
@@ -597,9 +620,10 @@ useEffect(() => {
       }
     }
 
-    loadUserRole();
-    loadPackages();
-    refreshDashboardStats();
+   loadUserRole();
+loadSalonSettings();
+loadPackages();
+refreshDashboardStats();
 
     const channel = supabase
       .channel("reception-v3-live")
@@ -973,6 +997,8 @@ setRecentCustomers((prev) => {
   activeBeds={activeBeds.length}
   userName={userName}
   userRole={userRole === "owner" ? "owner" : "staff"}
+  salonName={salonName}
+  tagline={salonTagline}
 />
 
 {message && (
