@@ -31,9 +31,25 @@ export default function Checkout() {
   const [vip, setVip] = useState<VipSettings | null>(null);
   const [customer, setCustomer] = useState<CustomerVip | null>(null);
   const [loading, setLoading] = useState(true);
+  const [salonName, setSalonName] = useState("Sun Temple Gosport");
+const [tagline, setTagline] = useState("");
+const [logoUrl, setLogoUrl] = useState<string | null>(null);
 
   useEffect(() => {
     async function loadCheckout() {
+      const { data: brandingData, error: brandingError } = await supabase
+  .from("salon_settings")
+  .select("salon_name, tagline, logo_url")
+  .limit(1)
+  .maybeSingle();
+
+if (brandingError) {
+  console.error("Could not load salon branding:", brandingError.message);
+} else if (brandingData) {
+  setSalonName(brandingData.salon_name || "Sun Temple Gosport");
+  setTagline(brandingData.tagline || "");
+  setLogoUrl(brandingData.logo_url || null);
+}
       const {
         data: { user },
       } = await supabase.auth.getUser();
@@ -142,7 +158,33 @@ export default function Checkout() {
   return (
     <main className="flex min-h-screen items-center justify-center bg-[#050505] px-6 text-white">
       <div className="w-full max-w-[500px] rounded-3xl border border-[#d6a84f]/30 bg-[#111] p-12">
-        <h1 className="text-4xl font-bold">{pkg.minutes} Minutes</h1>
+  <div className="mb-8 flex items-center gap-4">
+    {logoUrl ? (
+      <img
+        src={logoUrl}
+        alt={`${salonName} logo`}
+        className="h-24 w-24 rounded-2xl bg-[#111] object-cover"
+      />
+    ) : (
+      <span className="text-5xl">☀️</span>
+    )}
+
+    <div>
+      <p className="text-sm font-semibold uppercase tracking-[0.3em] text-[#d6a84f]">
+        {salonName}
+      </p>
+
+      <h1 className="mt-2 text-4xl font-bold">
+        {pkg.minutes} Minutes
+      </h1>
+    </div>
+  </div>
+
+  {tagline && (
+    <p className="mb-8 text-zinc-400">
+      {tagline}
+    </p>
+  )}
 
         <p className="mt-4 text-5xl font-bold text-[#d6a84f]">
           £{checkoutPrice.toFixed(2)}

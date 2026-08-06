@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 
 export default function RegisterPage() {
@@ -11,6 +11,32 @@ export default function RegisterPage() {
   const [password, setPassword] = useState("");
 const [isOver18, setIsOver18] = useState(false);
 const [loading, setLoading] = useState(false);
+const [salonName, setSalonName] = useState("Sun Temple Gosport");
+const [tagline, setTagline] = useState("");
+const [logoUrl, setLogoUrl] = useState<string | null>(null);
+
+useEffect(() => {
+  async function loadBranding() {
+    const { data, error } = await supabase
+      .from("salon_settings")
+      .select("salon_name, tagline, logo_url")
+      .limit(1)
+      .maybeSingle();
+
+    if (error) {
+      console.error("Could not load salon branding:", error.message);
+      return;
+    }
+
+    if (!data) return;
+
+    setSalonName(data.salon_name || "Sun Temple Gosport");
+    setTagline(data.tagline || "");
+    setLogoUrl(data.logo_url || null);
+  }
+
+  void loadBranding();
+}, []);
   
 
 
@@ -68,11 +94,31 @@ const [loading, setLoading] = useState(false);
   return (
     <main className="min-h-screen bg-[#050505] px-6 py-16 text-white">
       <section className="mx-auto max-w-md">
-        <p className="text-sm font-semibold uppercase tracking-[0.3em] text-[#d6a84f]">
-          Sun Temple Gosport
-        </p>
+        <div className="flex items-center gap-4">
+  {logoUrl ? (
+    <img
+      src={logoUrl}
+      alt={`${salonName} logo`}
+      className="h-24 w-24 rounded-2xl bg-[#111] object-cover"
+    />
+  ) : (
+    <span className="text-5xl">☀️</span>
+  )}
 
-        <h1 className="mt-4 text-5xl font-bold">Create Account</h1>
+  <div>
+    <p className="text-sm font-semibold uppercase tracking-[0.3em] text-[#d6a84f]">
+      {salonName}
+    </p>
+
+    <h1 className="mt-2 text-5xl font-bold">Create Your Account</h1>
+  </div>
+</div>
+
+{tagline && (
+  <p className="mt-4 text-zinc-400">
+    {tagline}
+  </p>
+)}
 
         <div className="mt-10 rounded-3xl border border-[#d6a84f]/30 bg-[#111] p-8">
           <div className="space-y-4">
@@ -125,7 +171,7 @@ const [loading, setLoading] = useState(false);
               disabled={loading}
               className="w-full rounded-full bg-[#d6a84f] py-3 font-bold text-black hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {loading ? "Creating Account..." : "Create Account"}
+              {loading ? "Creating Account..." : "Create Your Account"}
             </button>
           </div>
 

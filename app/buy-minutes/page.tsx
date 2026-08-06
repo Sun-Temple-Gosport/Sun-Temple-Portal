@@ -34,9 +34,25 @@ export default function BuyMinutes() {
   const [vip, setVip] = useState<VipSettings | null>(null);
   const [customer, setCustomer] = useState<CustomerVip | null>(null);
   const [loading, setLoading] = useState(true);
+  const [salonName, setSalonName] = useState("Sun Temple Gosport");
+const [tagline, setTagline] = useState("");
+const [logoUrl, setLogoUrl] = useState<string | null>(null);
 
   useEffect(() => {
     async function loadPage() {
+      const { data: brandingData, error: brandingError } = await supabase
+  .from("salon_settings")
+  .select("salon_name, tagline, logo_url")
+  .limit(1)
+  .maybeSingle();
+
+if (brandingError) {
+  console.error("Could not load salon branding:", brandingError.message);
+} else if (brandingData) {
+  setSalonName(brandingData.salon_name || "Sun Temple Gosport");
+  setTagline(brandingData.tagline || "");
+  setLogoUrl(brandingData.logo_url || null);
+}
       const {
         data: { user },
       } = await supabase.auth.getUser();
@@ -124,14 +140,33 @@ export default function BuyMinutes() {
   return (
     <main className="min-h-screen bg-[#050505] px-6 py-10 text-white">
       <section className="mx-auto max-w-5xl">
-        <p className="font-semibold uppercase tracking-[0.3em] text-[#d6a84f]">
-          Sun Temple Gosport
-        </p>
+        <div className="flex flex-wrap items-center justify-between gap-4">
+  <div className="flex items-center gap-4">
+    {logoUrl ? (
+      <img
+        src={logoUrl}
+        alt={`${salonName} logo`}
+        className="h-24 w-24 rounded-2xl bg-[#111] object-cover"
+      />
+    ) : (
+      <span className="text-5xl">☀️</span>
+    )}
 
-        <div className="mt-3 flex flex-wrap items-center justify-between gap-4">
-  <h1 className="text-4xl font-bold md:text-5xl">
-    Buy Minutes
-  </h1>
+    <div>
+      <p className="font-semibold uppercase tracking-[0.3em] text-[#d6a84f]">
+        {salonName}
+      </p>
+
+      <h1 className="mt-2 text-4xl font-bold md:text-5xl">
+        Buy Minutes
+      </h1>
+    </div>
+  </div>
+  {tagline && (
+  <p className="mt-4 text-zinc-400">
+    {tagline}
+  </p>
+)}
 
   <Link
     href="/my-minutes"

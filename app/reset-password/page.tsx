@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+
 
 export default function ResetPasswordPage() {
   const router = useRouter();
@@ -11,6 +12,33 @@ export default function ResetPasswordPage() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
+  const [salonName, setSalonName] = useState("Sun Temple Gosport");
+const [tagline, setTagline] = useState("");
+const [logoUrl, setLogoUrl] = useState<string | null>(null);
+
+useEffect(() => {
+  async function loadBranding() {
+    const { data, error } = await supabase
+      .from("salon_settings")
+      .select("salon_name, tagline, logo_url")
+      .limit(1)
+      .maybeSingle();
+
+    if (error) {
+      console.error("Could not load salon branding:", error.message);
+      return;
+    }
+
+    if (!data) return;
+
+    setSalonName(data.salon_name || "Sun Temple Gosport");
+    setTagline(data.tagline || "");
+    setLogoUrl(data.logo_url || null);
+  }
+
+  void loadBranding();
+}, []);
+  
 
   async function updatePassword() {
     setMessage("");
@@ -51,19 +79,39 @@ export default function ResetPasswordPage() {
   return (
     <main className="flex min-h-screen items-center justify-center bg-slate-950 px-4">
       <section className="w-full max-w-md rounded-3xl border border-slate-800 bg-slate-900 p-8 shadow-2xl">
-        <div className="mb-8 text-center">
-          <p className="mb-2 text-xs font-black uppercase tracking-[0.3em] text-amber-400">
-            Sun Temple
-          </p>
+        <div className="mb-8">
+  <div className="flex items-center gap-4">
+    {logoUrl ? (
+      <img
+        src={logoUrl}
+        alt={`${salonName} logo`}
+        className="h-24 w-24 rounded-2xl bg-slate-950 object-cover"
+      />
+    ) : (
+      <span className="text-5xl">☀️</span>
+    )}
 
-          <h1 className="text-3xl font-black text-white">
-            Reset Password
-          </h1>
+    <div>
+      <p className="text-xs font-black uppercase tracking-[0.3em] text-amber-400">
+        {salonName}
+      </p>
 
-          <p className="mt-3 text-sm text-slate-400">
-            Enter your new password below.
-          </p>
-        </div>
+      <h1 className="mt-2 text-4xl font-black text-white">
+        Reset Password
+      </h1>
+    </div>
+  </div>
+
+  {tagline && (
+    <p className="mt-4 text-sm text-slate-400">
+      {tagline}
+    </p>
+  )}
+
+  <p className="mt-4 text-sm text-slate-400">
+    Enter your new password below.
+  </p>
+</div>
 
         <div className="space-y-4">
           <input

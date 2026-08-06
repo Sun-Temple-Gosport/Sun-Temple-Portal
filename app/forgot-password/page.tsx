@@ -1,12 +1,38 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
+  const [salonName, setSalonName] = useState("Sun Temple Gosport");
+const [tagline, setTagline] = useState("");
+const [logoUrl, setLogoUrl] = useState<string | null>(null);
+
+useEffect(() => {
+  async function loadBranding() {
+    const { data, error } = await supabase
+      .from("salon_settings")
+      .select("salon_name, tagline, logo_url")
+      .limit(1)
+      .maybeSingle();
+
+    if (error) {
+      console.error("Could not load salon branding:", error.message);
+      return;
+    }
+
+    if (!data) return;
+
+    setSalonName(data.salon_name || "Sun Temple Gosport");
+    setTagline(data.tagline || "");
+    setLogoUrl(data.logo_url || null);
+  }
+
+  void loadBranding();
+}, []);
 
   async function resetPassword() {
     if (!email.trim()) {
@@ -38,11 +64,31 @@ export default function ForgotPasswordPage() {
   return (
     <main className="min-h-screen bg-[#050505] px-6 py-16 text-white">
       <section className="mx-auto max-w-md">
-        <p className="text-sm font-semibold uppercase tracking-[0.3em] text-[#d6a84f]">
-          Sun Temple Gosport
-        </p>
+        <div className="flex items-center gap-4">
+  {logoUrl ? (
+    <img
+      src={logoUrl}
+      alt={`${salonName} logo`}
+      className="h-24 w-24 rounded-2xl bg-[#111] object-cover"
+    />
+  ) : (
+    <span className="text-5xl">☀️</span>
+  )}
 
-        <h1 className="mt-4 text-5xl font-bold">Forgot Password</h1>
+  <div>
+    <p className="text-sm font-semibold uppercase tracking-[0.3em] text-[#d6a84f]">
+      {salonName}
+    </p>
+
+    <h1 className="mt-2 text-5xl font-bold">Forgot Password</h1>
+  </div>
+</div>
+
+{tagline && (
+  <p className="mt-4 text-zinc-400">
+    {tagline}
+  </p>
+)}
 
         <p className="mt-4 text-zinc-400">
           Enter your email address and we'll send you a password reset link.

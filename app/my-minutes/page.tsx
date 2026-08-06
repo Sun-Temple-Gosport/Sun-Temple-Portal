@@ -7,6 +7,9 @@ import { supabase } from "../../lib/supabase";
 export default function MyMinutes() {
   const [profile, setProfile] = useState<any>(null);
   const [balance, setBalance] = useState<any>(null);
+  const [salonName, setSalonName] = useState("Sun Temple Gosport");
+const [tagline, setTagline] = useState("");
+const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const router = useRouter();
 
   async function logout() {
@@ -16,6 +19,19 @@ export default function MyMinutes() {
 
   useEffect(() => {
     async function loadCustomer() {
+      const { data: brandingData, error: brandingError } = await supabase
+  .from("salon_settings")
+  .select("salon_name, tagline, logo_url")
+  .limit(1)
+  .maybeSingle();
+
+if (brandingError) {
+  console.error("Could not load salon branding:", brandingError.message);
+} else if (brandingData) {
+  setSalonName(brandingData.salon_name || "Sun Temple Gosport");
+  setTagline(brandingData.tagline || "");
+  setLogoUrl(brandingData.logo_url || null);
+}
       const {
         data: { user },
       } = await supabase.auth.getUser();
@@ -72,11 +88,31 @@ export default function MyMinutes() {
   return (
     <main className="min-h-screen bg-[#050505] px-6 py-16 text-white">
       <section className="mx-auto max-w-3xl">
-        <p className="text-sm font-semibold uppercase tracking-[0.3em] text-[#d6a84f]">
-          Sun Temple Gosport
-        </p>
+        <div className="flex items-center gap-4">
+  {logoUrl ? (
+    <img
+      src={logoUrl}
+      alt={`${salonName} logo`}
+      className="h-24 w-24 rounded-2xl bg-[#111] object-cover"
+    />
+  ) : (
+    <span className="text-5xl">☀️</span>
+  )}
 
-        <h1 className="mt-4 text-5xl font-bold">My Minutes</h1>
+  <div>
+    <p className="text-sm font-semibold uppercase tracking-[0.3em] text-[#d6a84f]">
+      {salonName}
+    </p>
+
+    <h1 className="mt-2 text-5xl font-bold">My Minutes</h1>
+  </div>
+</div>
+
+{tagline && (
+  <p className="mt-4 text-zinc-400">
+    {tagline}
+  </p>
+)}
 
         <div className="mt-10 rounded-3xl border border-[#d6a84f]/30 bg-[#111] p-8">
           <p className="text-zinc-400">Welcome back</p>
