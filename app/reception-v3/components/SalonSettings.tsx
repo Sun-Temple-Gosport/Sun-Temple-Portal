@@ -13,6 +13,7 @@ type SalonSettingsData = {
   facebook: string | null;
   instagram: string | null;
   address: string | null;
+  logo_url: string | null;
 };
 
 export default function SalonSettings() {
@@ -20,7 +21,7 @@ export default function SalonSettings() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
-
+const [uploadingLogo, setUploadingLogo] = useState(false);
   useEffect(() => {
     async function loadSettings() {
       setLoading(true);
@@ -29,8 +30,8 @@ export default function SalonSettings() {
       const { data, error } = await supabase
         .from("salon_settings")
         .select(
-          "id, salon_name, tagline, phone, email, website, facebook, instagram, address"
-        )
+  "id, salon_name, tagline, phone, email, website, facebook, instagram, address, logo_url"
+)
         .eq("id", 1)
         .maybeSingle();
 
@@ -61,6 +62,38 @@ export default function SalonSettings() {
     );
   }
 
+  async function uploadLogo(file: File) {
+  if (!settings) return;
+
+  setUploadingLogo(true);
+  setMessage("");
+
+  const extension = file.name.split(".").pop();
+  const fileName = `salon-logo-${Date.now()}.${extension}`;
+
+  const { error: uploadError } = await supabase.storage
+    .from("logos")
+    .upload(fileName, file, {
+      upsert: true,
+    });
+
+  if (uploadError) {
+    setMessage(uploadError.message);
+    setUploadingLogo(false);
+    return;
+  }
+
+  const {
+    data: { publicUrl },
+  } = supabase.storage.from("logos").getPublicUrl(fileName);
+
+  setSettings({
+    ...settings,
+    logo_url: publicUrl,
+  });
+
+  setUploadingLogo(false);
+}
   async function saveSettings() {
     if (!settings) return;
 
@@ -77,8 +110,9 @@ export default function SalonSettings() {
         website: settings.website?.trim() || null,
         facebook: settings.facebook?.trim() || null,
         instagram: settings.instagram?.trim() || null,
-        address: settings.address?.trim() || null,
-        updated_at: new Date().toISOString(),
+       address: settings.address?.trim() || null,
+logo_url: settings.logo_url?.trim() || null,
+updated_at: new Date().toISOString(),
       })
       .eq("id", settings.id);
 
@@ -234,6 +268,49 @@ export default function SalonSettings() {
             className="w-full rounded-xl border border-slate-700 bg-slate-900 p-3 text-white"
           />
         </label>
+        <div className="space-y-3 md:col-span-2">
+  <span className="text-xs font-black uppercase tracking-wide text-slate-400">
+    Salon Logo
+  </span>
+
+  {settings.logo_url?.trim() && (
+    <div className="flex min-h-[220px] items-center justify-center rounded-xl border border-slate-700 bg-slate-900 p-6">
+      <img
+        src={settings.logo_url}
+        alt={`${settings.salon_name} logo preview`}
+        className="max-h-48 w-auto rounded-xl object-contain"
+      />
+    </div>
+  )}
+
+  <label className="inline-flex cursor-pointer items-center rounded-xl bg-amber-400 px-5 py-3 font-black text-black hover:bg-amber-300">
+    {uploadingLogo
+  ? "Uploading..."
+  : settings.logo_url?.trim()
+    ? "Change Logo"
+    : "Choose Logo"}
+
+    <input
+      type="file"
+      accept="image/png,image/jpeg,image/webp"
+      disabled={uploadingLogo}
+      onChange={(event) => {
+        const file = event.target.files?.[0];
+
+        if (file) {
+          void uploadLogo(file);
+        }
+
+        event.target.value = "";
+      }}
+      className="hidden"
+    />
+  </label>
+
+  <p className="text-sm text-slate-400">
+    PNG, JPG or WebP.
+  </p>
+</div>
       </div>
 
       <div className="mt-5 flex flex-wrap items-center gap-3">

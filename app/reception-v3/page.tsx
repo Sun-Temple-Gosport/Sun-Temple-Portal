@@ -141,7 +141,8 @@ const [activities, setActivities] = useState<Activity[]>(() => {
 const [salonName, setSalonName] = useState("Sun Temple");
 const [salonTagline, setSalonTagline] = useState(
   "Salon control, customers, minutes and live beds"
-);
+  );
+  const [salonLogoUrl, setSalonLogoUrl] = useState<string | null>(null);
   const dashboard = useDashboard({
   getStartOfToday,
   showMessage,
@@ -257,9 +258,14 @@ const {
   async function loadSalonSettings() {
   const { data, error } = await supabase
     .from("salon_settings")
-    .select("salon_name, tagline")
+    .select("salon_name, tagline, logo_url")
     .eq("id", 1)
     .maybeSingle();
+    if (data?.logo_url?.trim()) {
+  setSalonLogoUrl(data.logo_url.trim());
+} else {
+  setSalonLogoUrl(null);
+}
 
   if (error) {
     console.error("Could not load salon settings:", error.message);
@@ -999,6 +1005,7 @@ setRecentCustomers((prev) => {
   userRole={userRole === "owner" ? "owner" : "staff"}
   salonName={salonName}
   tagline={salonTagline}
+  logoUrl={salonLogoUrl}
 />
 
 {message && (

@@ -10,6 +10,7 @@ type Props = {
   userRole: "owner" | "staff";
   salonName?: string;
   tagline?: string;
+  logoUrl?: string | null;
 };
 
 export default function ReceptionHeader({
@@ -18,6 +19,7 @@ export default function ReceptionHeader({
   userRole,
   salonName = "Sun Temple",
   tagline = "Salon control, customers, minutes and live beds",
+  logoUrl = null,
 }: Props) {
   const router = useRouter();
 
@@ -90,10 +92,29 @@ window.setTimeout(() => {
   return (
     <>
       <header style={styles.header}>
-        <div>
-          <h1 style={styles.title}>☀️ {salonName} Reception</h1>
-<p style={styles.subtitle}>{tagline}</p>
-        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
+  {logoUrl ? (
+    <img
+      src={logoUrl}
+      alt={`${salonName} logo`}
+      style={{
+        width: "64px",
+        height: "64px",
+        borderRadius: "14px",
+        objectFit: "contain",
+        background: "#111827",
+        padding: "6px",
+      }}
+    />
+  ) : (
+    <span style={{ fontSize: "38px" }}>☀️</span>
+  )}
+
+  <div>
+    <h1 style={styles.title}>{salonName} Reception</h1>
+    <p style={styles.subtitle}>{tagline}</p>
+  </div>
+</div>
 
         <div style={styles.right}>
           <div style={styles.userBox}>

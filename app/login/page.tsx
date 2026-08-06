@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { supabase } from "../../lib/supabase";
 
@@ -9,6 +9,27 @@ export default function LoginPage() {
   console.log(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [salonName, setSalonName] = useState("Sun Temple Gosport");
+const [tagline, setTagline] = useState("");
+const [logoUrl, setLogoUrl] = useState<string | null>(null);
+
+useEffect(() => {
+  async function loadBranding() {
+    const { data } = await supabase
+      .from("salon_settings")
+      .select("salon_name, tagline, logo_url")
+      .limit(1)
+      .maybeSingle();
+
+    if (!data) return;
+
+    setSalonName(data.salon_name || "Sun Temple Gosport");
+    setTagline(data.tagline || "");
+    setLogoUrl(data.logo_url || null);
+  }
+
+  void loadBranding();
+}, []);
 
  async function login() {
   const { data, error } = await supabase.auth.signInWithPassword({
@@ -31,11 +52,31 @@ export default function LoginPage() {
   return (
     <main className="min-h-screen bg-[#050505] px-6 py-16 text-white">
       <section className="mx-auto max-w-md">
-        <p className="text-sm font-semibold uppercase tracking-[0.3em] text-[#d6a84f]">
-          Sun Temple Gosport
-        </p>
+        <div className="flex items-center gap-4">
+  {logoUrl ? (
+    <img
+      src={logoUrl}
+      alt={`${salonName} logo`}
+      className="h-26 w-26 rounded-xl object-cover"
+    />
+  ) : (
+    <span className="text-4xl">☀️</span>
+  )}
 
-        <h1 className="mt-4 text-5xl font-bold">Customer Login</h1>
+  <div>
+    <p className="text-sm font-semibold uppercase tracking-[0.3em] text-[#d6a84f]">
+      {salonName}
+    </p>
+
+    <h1 className="mt-2 text-5xl font-bold">Customer Login</h1>
+  </div>
+</div>
+
+{tagline && (
+  <p className="mt-4 text-zinc-400">
+    {tagline}
+  </p>
+)}
 
         <div className="mt-10 rounded-3xl border border-[#d6a84f]/30 bg-[#111] p-8">
           <div className="space-y-4">
