@@ -14,6 +14,15 @@ type SalonSettingsData = {
   instagram: string | null;
   address: string | null;
   logo_url: string | null;
+  opening_hours: {
+    monday: string;
+    tuesday: string;
+    wednesday: string;
+    thursday: string;
+    friday: string;
+    saturday: string;
+    sunday: string;
+  } | null;
 };
 
 export default function SalonSettings() {
@@ -29,8 +38,8 @@ const [uploadingLogo, setUploadingLogo] = useState(false);
 
       const { data, error } = await supabase
         .from("salon_settings")
-        .select(
-  "id, salon_name, tagline, phone, email, website, facebook, instagram, address, logo_url"
+       .select(
+  "id, salon_name, tagline, phone, email, website, facebook, instagram, address, logo_url, opening_hours"
 )
         .eq("id", 1)
         .maybeSingle();
@@ -112,6 +121,7 @@ const [uploadingLogo, setUploadingLogo] = useState(false);
         instagram: settings.instagram?.trim() || null,
        address: settings.address?.trim() || null,
 logo_url: settings.logo_url?.trim() || null,
+opening_hours: settings.opening_hours,
 updated_at: new Date().toISOString(),
       })
       .eq("id", settings.id);
@@ -268,6 +278,51 @@ updated_at: new Date().toISOString(),
             className="w-full rounded-xl border border-slate-700 bg-slate-900 p-3 text-white"
           />
         </label>
+        <div className="space-y-4 md:col-span-2">
+  <span className="text-xs font-black uppercase tracking-wide text-slate-400">
+    Opening Hours
+  </span>
+
+  {[
+    "monday",
+    "tuesday",
+    "wednesday",
+    "thursday",
+    "friday",
+    "saturday",
+    "sunday",
+  ].map((day) => (
+    <div key={day} className="grid grid-cols-[120px_1fr] items-center gap-3">
+      <label className="font-semibold capitalize text-slate-300">
+        {day}
+      </label>
+
+      <input
+        value={settings.opening_hours?.[
+          day as keyof NonNullable<SalonSettingsData["opening_hours"]>
+        ] ?? ""}
+        onChange={(event) =>
+          setSettings({
+            ...settings,
+            opening_hours: {
+              ...(settings.opening_hours ?? {
+                monday: "",
+                tuesday: "",
+                wednesday: "",
+                thursday: "",
+                friday: "",
+                saturday: "",
+                sunday: "",
+              }),
+              [day]: event.target.value,
+            },
+          })
+        }
+        className="w-full rounded-xl border border-slate-700 bg-slate-900 p-3 text-white"
+      />
+    </div>
+  ))}
+</div>
         <div className="space-y-3 md:col-span-2">
   <span className="text-xs font-black uppercase tracking-wide text-slate-400">
     Salon Logo

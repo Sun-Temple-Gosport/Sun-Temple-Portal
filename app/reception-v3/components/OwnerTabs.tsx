@@ -1,6 +1,7 @@
 "use client";
 
 export type OwnerView =
+  | "launch"
   | "dashboard"
   | "cashup"
   | "history"
@@ -35,12 +36,20 @@ export default function OwnerTabs({
   return (
     <div className="mx-auto flex max-w-7xl flex-wrap justify-end gap-2 px-4 pt-4 md:px-8">
       <button
-        type="button"
-        onClick={() => onSelectView("dashboard")}
-        className={tabClass("dashboard")}
-      >
-        Dashboard
-      </button>
+  type="button"
+  onClick={() => onSelectView("launch")}
+  className={tabClass("launch")}
+>
+  Launch Centre
+</button>
+
+<button
+  type="button"
+  onClick={() => onSelectView("dashboard")}
+  className={tabClass("dashboard")}
+>
+  Dashboard
+</button>
 
       <button
         type="button"

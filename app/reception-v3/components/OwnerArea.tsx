@@ -6,6 +6,7 @@ import CashUpHistory from "./CashUpHistory";
 import AuditLog from "./AuditLog";
 import StaffManagement from "./StaffManagement";
 import BedManagement from "./BedManagement";
+import LaunchCentre from "./LaunchCentre";
 import type { OwnerView } from "./OwnerTabs";
 
 type CashUpSale = {
@@ -52,6 +53,7 @@ type Props = {
   onSaveCashUp: (
     details: SaveCashUpDetails
   ) => Promise<boolean>;
+  onOpenBusinessSettings: () => void;
 };
 
 function StaffManagementPlaceholder() {
@@ -109,7 +111,32 @@ export default function OwnerArea({
   occupancy,
   cashUpSales,
   onSaveCashUp,
+  onOpenBusinessSettings,
 }: Props) {
+if (ownerView === "launch") {
+  return (
+    <LaunchCentre
+      onOpenBusinessSettings={onOpenBusinessSettings}
+      onNavigate={(view) => {
+        if (view === "staff") {
+          window.dispatchEvent(
+            new CustomEvent("launch-centre-navigate", {
+              detail: "staff",
+            })
+          );
+        }
+
+        if (view === "beds") {
+          window.dispatchEvent(
+            new CustomEvent("launch-centre-navigate", {
+              detail: "beds",
+            })
+          );
+        }
+      }}
+    />
+  );
+}
   if (ownerView === "dashboard") {
     return (
       <OwnerDashboard

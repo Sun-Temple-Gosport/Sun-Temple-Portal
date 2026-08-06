@@ -1,3 +1,7 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { supabase } from "@/lib/supabase";
 const gallery = [
   ["/reception.jpg", "Luxury reception"],
   ["/megasunbed.jpg", "MegaSun G800"],
@@ -7,19 +11,78 @@ const gallery = [
 ];
 
 export default function Home() {
+  const [salonName, setSalonName] = useState("Sun Temple Gosport");
+const [tagline, setTagline] = useState(
+  "Luxury tanning salon experience in Gosport."
+);
+const [logoUrl, setLogoUrl] = useState<string | null>(null);
+const [address, setAddress] = useState("");
+const [phone, setPhone] = useState("");
+const [openingHours, setOpeningHours] = useState<{
+  monday: string;
+  tuesday: string;
+  wednesday: string;
+  thursday: string;
+  friday: string;
+  saturday: string;
+  sunday: string;
+} | null>(null);
+
+useEffect(() => {
+  async function loadBranding() {
+    const { data, error } = await supabase
+      .from("salon_settings")
+      .select("salon_name, tagline, logo_url, address, phone, opening_hours")
+      .eq("id", 1)
+      .maybeSingle();
+
+    if (error) {
+      console.error("Could not load salon branding:", error.message);
+      return;
+    }
+
+    if (!data) return;
+
+    setSalonName(data.salon_name || "Sun Temple Gosport");
+    setTagline(
+      data.tagline || "Luxury tanning salon experience in Gosport."
+    );
+    setLogoUrl(data.logo_url || null);
+    setAddress(data.address || "");
+    setPhone(data.phone || "");
+    setOpeningHours(data.opening_hours || null);
+  }
+
+  void loadBranding();
+}, []);
   return (
     <main className="min-h-screen bg-[#050505] text-white">
       {/* Navigation */}
       <nav className="fixed left-0 right-0 top-0 z-50 border-b border-[#d6a84f]/20 bg-black/90 backdrop-blur">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-5">
-          <div>
-            <p className="text-lg font-semibold tracking-[0.3em] text-[#d6a84f]">
-              SUN TEMPLE
-            </p>
-            <p className="text-xs tracking-[0.25em] text-zinc-400">
-              GOSPORT
-            </p>
-          </div>
+          <div className="flex items-center gap-3">
+  {logoUrl ? (
+    <img
+      src={logoUrl}
+      alt={`${salonName} logo`}
+      className="h-14 w-14 rounded-xl bg-[#111] object-cover"
+    />
+  ) : (
+    <span className="text-3xl">☀️</span>
+  )}
+
+  <div>
+    <p className="text-lg font-semibold tracking-[0.2em] text-[#d6a84f]">
+      {salonName}
+    </p>
+
+    {tagline && (
+      <p className="max-w-xs text-xs text-zinc-400">
+        {tagline}
+      </p>
+    )}
+  </div>
+</div>
 
           <div className="hidden items-center gap-8 text-sm md:flex">
             <a href="#packages" className="hover:text-[#d6a84f]">Packages</a>
@@ -44,8 +107,8 @@ export default function Home() {
         <div className="w-full bg-black/60">
           <div className="mx-auto max-w-7xl px-6 py-40">
             <p className="text-sm font-semibold uppercase tracking-[0.4em] text-[#d6a84f]">
-              Sun Temple Gosport
-            </p>
+  {salonName}
+</p>
 
             <h1 className="mt-6 max-w-3xl text-6xl font-bold leading-tight md:text-8xl">
               Luxury tanning,
@@ -113,13 +176,46 @@ export default function Home() {
           Visit Us
         </p>
 
-        <h2 className="text-4xl font-bold">
-          Sun Temple Gosport
-        </h2>
+       <h2 className="text-4xl font-bold">
+  {salonName}
+</h2>
 
         <p className="mt-6 text-lg text-zinc-400">
-          Ultimate tanning salon experience in Gosport.
-        </p>
+  {address || tagline}
+</p>
+{phone && (
+  <a
+    href={`tel:${phone.replace(/\s+/g, "")}`}
+    className="mt-6 mb-6 inline-block text-xl font-bold text-[#d6a84f] hover:underline"
+  >
+    {phone}
+  </a>
+)}
+{openingHours && (
+  <div className="mt-8 max-w-md mx-auto">
+    <h3 className="mb-5 text-center text-xl font-bold text-white">
+      Opening Hours
+    </h3>
+
+    {[
+      ["Monday", openingHours.monday],
+      ["Tuesday", openingHours.tuesday],
+      ["Wednesday", openingHours.wednesday],
+      ["Thursday", openingHours.thursday],
+      ["Friday", openingHours.friday],
+      ["Saturday", openingHours.saturday],
+      ["Sunday", openingHours.sunday],
+    ].map(([day, hours]) => (
+      <div
+        key={day}
+        className="flex items-center justify-between border-b border-white/10 py-2 text-zinc-300"
+      >
+        <span className="font-semibold">{day}</span>
+        <span>{hours}</span>
+      </div>
+    ))}
+  </div>
+)}
       </section>
     </main>
   );

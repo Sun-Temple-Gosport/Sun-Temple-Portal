@@ -977,6 +977,31 @@ setRecentCustomers((prev) => {
   const bedsFree = Math.max(0, TOTAL_BEDS - activeBeds.length);
   const occupancy = Math.round((bedsRunning / TOTAL_BEDS) * 100);
   useEffect(() => {
+  function handleLaunchNavigation(event: Event) {
+    const view = (event as CustomEvent<"staff" | "beds">).detail;
+
+    if (view === "staff") {
+      setOwnerView("staff");
+    }
+
+    if (view === "beds") {
+      setOwnerView("beds");
+    }
+  }
+
+  window.addEventListener(
+    "launch-centre-navigate",
+    handleLaunchNavigation
+  );
+
+  return () => {
+    window.removeEventListener(
+      "launch-centre-navigate",
+      handleLaunchNavigation
+    );
+  };
+}, []);
+  useEffect(() => {
   if (!authLoaded) return;
 
   if (userRole !== "owner" && userRole !== "staff") {
@@ -1053,6 +1078,10 @@ setRecentCustomers((prev) => {
     occupancy={occupancy}
     cashUpSales={cashUpSales}
     onSaveCashUp={saveCashUp}
+    onOpenBusinessSettings={() => {
+  loadPackages();
+  setOwnerSettingsOpen(true);
+}}
   />
 )}
 
