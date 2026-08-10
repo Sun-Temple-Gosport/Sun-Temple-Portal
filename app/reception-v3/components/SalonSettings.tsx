@@ -15,7 +15,6 @@ type SalonSettingsData = {
   address: string | null;
   logo_url: string | null;
   hero_image_url: string | null;
-  reception_image_url: string | null;
   opening_hours: {
     monday: string;
     tuesday: string;
@@ -27,12 +26,20 @@ type SalonSettingsData = {
   } | null;
 };
 
+type SalonImage = {
+  id: number;
+  image_url: string;
+  sort_order: number;
+};
+
 export default function SalonSettings() {
   const [settings, setSettings] = useState<SalonSettingsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
-const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [salonImages, setSalonImages] = useState<SalonImage[]>([]);
+
   useEffect(() => {
     async function loadSettings() {
       setLoading(true);
@@ -40,11 +47,9 @@ const [uploadingLogo, setUploadingLogo] = useState(false);
 
       const { data, error } = await supabase
         .from("salon_settings")
-
-  .select(
-  "id, salon_name, tagline, phone, email, website, facebook, instagram, address, logo_url, hero_image_url, reception_image_url, opening_hours"
-)
-
+        .select(
+          "id, salon_name, tagline, phone, email, website, facebook, instagram, address, logo_url, hero_image_url, opening_hours"
+        )
         .eq("id", 1)
         .maybeSingle();
 
@@ -59,6 +64,25 @@ const [uploadingLogo, setUploadingLogo] = useState(false);
     }
 
     void loadSettings();
+  }, []);
+
+  useEffect(() => {
+    async function loadSalonImages() {
+      const { data, error } = await supabase
+        .from("salon_images")
+        .select("id, image_url, sort_order")
+        .order("sort_order", { ascending: true })
+        .order("created_at", { ascending: true });
+
+      if (error) {
+        console.error("Could not load salon photos:", error.message);
+        return;
+      }
+
+      setSalonImages((data ?? []) as SalonImage[]);
+    }
+
+    void loadSalonImages();
   }, []);
 
   function updateSetting(
@@ -76,95 +100,115 @@ const [uploadingLogo, setUploadingLogo] = useState(false);
   }
 
   async function uploadLogo(file: File) {
-  if (!settings) return;
+    if (!settings) return;
 
-  setUploadingLogo(true);
-  setMessage("");
+    setUploadingLogo(true);
+    setMessage("");
 
-  const extension = file.name.split(".").pop();
-  const fileName = `salon-logo-${Date.now()}.${extension}`;
+    const extension = file.name.split(".").pop();
+    const fileName = `salon-logo-${Date.now()}.${extension}`;
 
-  const { error: uploadError } = await supabase.storage
-    .from("logos")
-    .upload(fileName, file, {
-      upsert: true,
+    const { error: uploadError } = await supabase.storage
+      .from("logos")
+      .upload(fileName, file, {
+        upsert: true,
+      });
+
+    if (uploadError) {
+      setMessage(uploadError.message);
+      setUploadingLogo(false);
+      return;
+    }
+
+    const {
+      data: { publicUrl },
+    } = supabase.storage.from("logos").getPublicUrl(fileName);
+
+    setSettings({
+      ...settings,
+      logo_url: publicUrl,
     });
 
-  if (uploadError) {
-    setMessage(uploadError.message);
     setUploadingLogo(false);
-    return;
   }
 
-  const {
-    data: { publicUrl },
-  } = supabase.storage.from("logos").getPublicUrl(fileName);
+  async function uploadCoverPhoto(file: File) {
+    if (!settings) return;
 
-  setSettings({
-    ...settings,
-    logo_url: publicUrl,
-  });
+    setMessage("");
 
-  setUploadingLogo(false);
-}
+    const extension = file.name.split(".").pop();
+    const fileName = `cover-photo-${Date.now()}.${extension}`;
 
-async function uploadHeroImage(file: File) {
-  if (!settings) return;
+    const { error: uploadError } = await supabase.storage
+      .from("logos")
+      .upload(fileName, file, {
+        upsert: true,
+      });
 
-  setMessage("");
+    if (uploadError) {
+      setMessage(uploadError.message);
+      return;
+    }
 
-  const extension = file.name.split(".").pop();
-  const fileName = `hero-image-${Date.now()}.${extension}`;
+    const {
+      data: { publicUrl },
+    } = supabase.storage.from("logos").getPublicUrl(fileName);
 
-  const { error: uploadError } = await supabase.storage
-    .from("logos")
-    .upload(fileName, file, {
-      upsert: true,
+    setSettings({
+      ...settings,
+      hero_image_url: publicUrl,
     });
-
-  if (uploadError) {
-    setMessage(uploadError.message);
-    return;
   }
 
-  const {
-    data: { publicUrl },
-  } = supabase.storage.from("logos").getPublicUrl(fileName);
+  async function uploadSalonPhotos(files: FileList) {
+    if (!files.length) return;
 
-  setSettings({
-    ...settings,
-    hero_image_url: publicUrl,
-  });
-}
+    setMessage("");
 
-async function uploadReceptionImage(file: File) {
-  if (!settings) return;
+    const newImages: SalonImage[] = [];
 
-  setMessage("");
+    for (let index = 0; index < files.length; index += 1) {
+      const file = files[index];
+      const extension = file.name.split(".").pop();
+      const fileName = `salon-photo-${Date.now()}-${index}.${extension}`;
 
-  const extension = file.name.split(".").pop();
-  const fileName = `reception-image-${Date.now()}.${extension}`;
+      const { error: uploadError } = await supabase.storage
+        .from("logos")
+        .upload(fileName, file, {
+          upsert: true,
+        });
 
-  const { error: uploadError } = await supabase.storage
-    .from("logos")
-    .upload(fileName, file, {
-      upsert: true,
-    });
+      if (uploadError) {
+        setMessage(uploadError.message);
+        return;
+      }
 
-  if (uploadError) {
-    setMessage(uploadError.message);
-    return;
+      const {
+        data: { publicUrl },
+      } = supabase.storage.from("logos").getPublicUrl(fileName);
+
+      const { data, error } = await supabase
+        .from("salon_images")
+        .insert({
+          image_url: publicUrl,
+          sort_order: salonImages.length + newImages.length,
+        })
+        .select("id, image_url, sort_order")
+        .single();
+
+      if (error) {
+        setMessage(error.message);
+        return;
+      }
+
+      newImages.push(data as SalonImage);
+    }
+
+    setSalonImages((current) => [...current, ...newImages]);
+    setMessage("Salon photos added.");
   }
 
-  const {
-    data: { publicUrl },
-  } = supabase.storage.from("logos").getPublicUrl(fileName);
-
-  setSettings({
-    ...settings,
-    reception_image_url: publicUrl,
-  });
-}
   async function saveSettings() {
     if (!settings) return;
 
@@ -181,12 +225,11 @@ async function uploadReceptionImage(file: File) {
         website: settings.website?.trim() || null,
         facebook: settings.facebook?.trim() || null,
         instagram: settings.instagram?.trim() || null,
-       address: settings.address?.trim() || null,
-logo_url: settings.logo_url?.trim() || null,
-hero_image_url: settings.hero_image_url?.trim() || null,
-reception_image_url: settings.reception_image_url?.trim() || null,
-opening_hours: settings.opening_hours,
-updated_at: new Date().toISOString(),
+        address: settings.address?.trim() || null,
+        logo_url: settings.logo_url?.trim() || null,
+        hero_image_url: settings.hero_image_url?.trim() || null,
+        opening_hours: settings.opening_hours,
+        updated_at: new Date().toISOString(),
       })
       .eq("id", settings.id);
 
@@ -218,14 +261,18 @@ updated_at: new Date().toISOString(),
 
   return (
     <div className="rounded-2xl border border-slate-800 bg-slate-950 p-5">
-      <div className="mb-5">
+      <div className="mb-6">
         <p className="text-xs font-black uppercase tracking-[0.2em] text-amber-400">
-          Business Settings
+          SALON SETUP
         </p>
 
         <h3 className="mt-1 text-2xl font-black text-white">
-          Salon Details
+          Business Details
         </h3>
+
+        <p className="mt-2 text-sm text-slate-400">
+          Tell your customers who you are and how they can contact you.
+        </p>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
@@ -233,7 +280,6 @@ updated_at: new Date().toISOString(),
           <span className="text-xs font-black uppercase tracking-wide text-slate-400">
             Salon Name
           </span>
-
           <input
             value={settings.salon_name}
             onChange={(event) =>
@@ -247,12 +293,9 @@ updated_at: new Date().toISOString(),
           <span className="text-xs font-black uppercase tracking-wide text-slate-400">
             Tagline
           </span>
-
           <input
             value={settings.tagline ?? ""}
-            onChange={(event) =>
-              updateSetting("tagline", event.target.value)
-            }
+            onChange={(event) => updateSetting("tagline", event.target.value)}
             className="w-full rounded-xl border border-slate-700 bg-slate-900 p-3 text-white"
           />
         </label>
@@ -261,12 +304,9 @@ updated_at: new Date().toISOString(),
           <span className="text-xs font-black uppercase tracking-wide text-slate-400">
             Phone
           </span>
-
           <input
             value={settings.phone ?? ""}
-            onChange={(event) =>
-              updateSetting("phone", event.target.value)
-            }
+            onChange={(event) => updateSetting("phone", event.target.value)}
             className="w-full rounded-xl border border-slate-700 bg-slate-900 p-3 text-white"
           />
         </label>
@@ -275,55 +315,10 @@ updated_at: new Date().toISOString(),
           <span className="text-xs font-black uppercase tracking-wide text-slate-400">
             Email
           </span>
-
           <input
             type="email"
             value={settings.email ?? ""}
-            onChange={(event) =>
-              updateSetting("email", event.target.value)
-            }
-            className="w-full rounded-xl border border-slate-700 bg-slate-900 p-3 text-white"
-          />
-        </label>
-
-        <label className="space-y-2">
-          <span className="text-xs font-black uppercase tracking-wide text-slate-400">
-            Website
-          </span>
-
-          <input
-            value={settings.website ?? ""}
-            onChange={(event) =>
-              updateSetting("website", event.target.value)
-            }
-            className="w-full rounded-xl border border-slate-700 bg-slate-900 p-3 text-white"
-          />
-        </label>
-
-        <label className="space-y-2">
-          <span className="text-xs font-black uppercase tracking-wide text-slate-400">
-            Facebook
-          </span>
-
-          <input
-            value={settings.facebook ?? ""}
-            onChange={(event) =>
-              updateSetting("facebook", event.target.value)
-            }
-            className="w-full rounded-xl border border-slate-700 bg-slate-900 p-3 text-white"
-          />
-        </label>
-
-        <label className="space-y-2">
-          <span className="text-xs font-black uppercase tracking-wide text-slate-400">
-            Instagram
-          </span>
-
-          <input
-            value={settings.instagram ?? ""}
-            onChange={(event) =>
-              updateSetting("instagram", event.target.value)
-            }
+            onChange={(event) => updateSetting("email", event.target.value)}
             className="w-full rounded-xl border border-slate-700 bg-slate-900 p-3 text-white"
           />
         </label>
@@ -332,189 +327,263 @@ updated_at: new Date().toISOString(),
           <span className="text-xs font-black uppercase tracking-wide text-slate-400">
             Address
           </span>
-
           <textarea
             value={settings.address ?? ""}
-            onChange={(event) =>
-              updateSetting("address", event.target.value)
-            }
+            onChange={(event) => updateSetting("address", event.target.value)}
             rows={3}
             className="w-full rounded-xl border border-slate-700 bg-slate-900 p-3 text-white"
           />
         </label>
-        <div className="space-y-4 md:col-span-2">
-  <span className="text-xs font-black uppercase tracking-wide text-slate-400">
-    Opening Hours
-  </span>
 
-  {[
-    "monday",
-    "tuesday",
-    "wednesday",
-    "thursday",
-    "friday",
-    "saturday",
-    "sunday",
-  ].map((day) => (
-    <div key={day} className="grid grid-cols-[120px_1fr] items-center gap-3">
-      <label className="font-semibold capitalize text-slate-300">
-        {day}
-      </label>
+        <div className="mt-5 md:col-span-2">
+          <p className="text-xs font-black uppercase tracking-[0.2em] text-amber-400">
+            WEBSITE & SOCIALS
+          </p>
+          <h3 className="mt-1 text-xl font-black text-white">
+            Online Presence
+          </h3>
+          <p className="mt-2 text-sm text-slate-400">
+            Add your website and social media links.
+          </p>
+        </div>
 
-      <input
-        value={settings.opening_hours?.[
-          day as keyof NonNullable<SalonSettingsData["opening_hours"]>
-        ] ?? ""}
-        onChange={(event) =>
-          setSettings({
-            ...settings,
-            opening_hours: {
-              ...(settings.opening_hours ?? {
-                monday: "",
-                tuesday: "",
-                wednesday: "",
-                thursday: "",
-                friday: "",
-                saturday: "",
-                sunday: "",
-              }),
-              [day]: event.target.value,
-            },
-          })
-        }
-        className="w-full rounded-xl border border-slate-700 bg-slate-900 p-3 text-white"
-      />
-    </div>
-  ))}
-</div>
+        <label className="space-y-2">
+          <span className="text-xs font-black uppercase tracking-wide text-slate-400">
+            Website
+          </span>
+          <input
+            value={settings.website ?? ""}
+            onChange={(event) => updateSetting("website", event.target.value)}
+            className="w-full rounded-xl border border-slate-700 bg-slate-900 p-3 text-white"
+          />
+        </label>
+
+        <label className="space-y-2">
+          <span className="text-xs font-black uppercase tracking-wide text-slate-400">
+            Facebook
+          </span>
+          <input
+            value={settings.facebook ?? ""}
+            onChange={(event) => updateSetting("facebook", event.target.value)}
+            className="w-full rounded-xl border border-slate-700 bg-slate-900 p-3 text-white"
+          />
+        </label>
+
+        <label className="space-y-2 md:col-span-2">
+          <span className="text-xs font-black uppercase tracking-wide text-slate-400">
+            Instagram
+          </span>
+          <input
+            value={settings.instagram ?? ""}
+            onChange={(event) => updateSetting("instagram", event.target.value)}
+            className="w-full rounded-xl border border-slate-700 bg-slate-900 p-3 text-white"
+          />
+        </label>
+
+        <div className="mt-5 space-y-4 md:col-span-2">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.2em] text-amber-400">
+              OPENING HOURS
+            </p>
+            <p className="mt-2 text-sm text-slate-400">
+              Set the opening hours shown on your customer website.
+            </p>
+          </div>
+
+          {[
+            "monday",
+            "tuesday",
+            "wednesday",
+            "thursday",
+            "friday",
+            "saturday",
+            "sunday",
+          ].map((day) => (
+            <div
+              key={day}
+              className="grid grid-cols-[120px_1fr] items-center gap-3"
+            >
+              <label className="font-semibold capitalize text-slate-300">
+                {day}
+              </label>
+
+              <input
+                value={
+                  settings.opening_hours?.[
+                    day as keyof NonNullable<
+                      SalonSettingsData["opening_hours"]
+                    >
+                  ] ?? ""
+                }
+                onChange={(event) =>
+                  setSettings({
+                    ...settings,
+                    opening_hours: {
+                      ...(settings.opening_hours ?? {
+                        monday: "",
+                        tuesday: "",
+                        wednesday: "",
+                        thursday: "",
+                        friday: "",
+                        saturday: "",
+                        sunday: "",
+                      }),
+                      [day]: event.target.value,
+                    },
+                  })
+                }
+                className="w-full rounded-xl border border-slate-700 bg-slate-900 p-3 text-white"
+              />
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-8 md:col-span-2">
+          <p className="text-xs font-black uppercase tracking-[0.2em] text-amber-400">
+            WEBSITE IMAGES
+          </p>
+          <h3 className="mt-1 text-xl font-black text-white">
+            Branding & Photos
+          </h3>
+          <p className="mt-2 text-sm text-slate-400">
+            Upload your logo and photos to personalise your customer website.
+          </p>
+        </div>
+
         <div className="space-y-3 md:col-span-2">
-  <span className="text-xs font-black uppercase tracking-wide text-slate-400">
-    Salon Logo
-  </span>
+          <span className="text-xs font-black uppercase tracking-wide text-slate-400">
+            LOGO
+          </span>
 
-  {settings.logo_url?.trim() && (
-    <div className="flex min-h-[220px] items-center justify-center rounded-xl border border-slate-700 bg-slate-900 p-6">
-      <img
-        src={settings.logo_url}
-        alt={`${settings.salon_name} logo preview`}
-        className="max-h-48 w-auto rounded-xl object-contain"
-      />
-    </div>
-  )}
+          {settings.logo_url?.trim() && (
+            <div className="flex min-h-[220px] items-center justify-center rounded-xl border border-slate-700 bg-slate-900 p-6">
+              <img
+                src={settings.logo_url}
+                alt={`${settings.salon_name} logo preview`}
+                className="max-h-48 w-auto rounded-xl object-contain"
+              />
+            </div>
+          )}
 
-  <label className="inline-flex cursor-pointer items-center rounded-xl bg-amber-400 px-5 py-3 font-black text-black hover:bg-amber-300">
-    {uploadingLogo
-  ? "Uploading..."
-  : settings.logo_url?.trim()
-    ? "Change Logo"
-    : "Choose Logo"}
+          <label className="inline-flex cursor-pointer items-center rounded-xl bg-amber-400 px-5 py-3 font-black text-black hover:bg-amber-300">
+            {uploadingLogo
+              ? "Uploading..."
+              : settings.logo_url?.trim()
+                ? "Change Logo"
+                : "Choose Logo"}
 
-    <input
-      type="file"
-      accept="image/png,image/jpeg,image/webp"
-      disabled={uploadingLogo}
-      onChange={(event) => {
-        const file = event.target.files?.[0];
+            <input
+              type="file"
+              accept="image/png,image/jpeg,image/webp"
+              disabled={uploadingLogo}
+              onChange={(event) => {
+                const file = event.target.files?.[0];
 
-        if (file) {
-          void uploadLogo(file);
-        }
+                if (file) {
+                  void uploadLogo(file);
+                }
 
-        event.target.value = "";
-      }}
-      className="hidden"
-    />
-  </label>
+                event.target.value = "";
+              }}
+              className="hidden"
+            />
+          </label>
 
-  <p className="text-sm text-slate-400">
-    PNG, JPG or WebP.
-  </p>
-</div>
+          <p className="text-sm text-slate-400">PNG, JPG or WebP.</p>
+        </div>
 
-<div className="space-y-3 md:col-span-2">
-  <span className="text-xs font-black uppercase tracking-wide text-slate-400">
-    Homepage Hero Image
-  </span>
+        <div className="space-y-3 md:col-span-2">
+          <span className="text-xs font-black uppercase tracking-wide text-slate-400">
+            COVER PHOTO
+          </span>
 
-  {settings.hero_image_url?.trim() && (
-    <div className="overflow-hidden rounded-xl border border-slate-700 bg-slate-900">
-      <img
-        src={settings.hero_image_url}
-        alt={`${settings.salon_name} homepage hero`}
-        className="h-64 w-full object-cover"
-      />
-    </div>
-  )}
+          {settings.hero_image_url?.trim() && (
+            <div className="overflow-hidden rounded-xl border border-slate-700 bg-slate-900">
+              <img
+                src={settings.hero_image_url}
+                alt={`${settings.salon_name} cover`}
+                className="h-64 w-full object-cover"
+              />
+            </div>
+          )}
 
-  <label className="inline-flex cursor-pointer items-center rounded-xl bg-amber-400 px-5 py-3 font-black text-black hover:bg-amber-300">
-    {settings.hero_image_url?.trim()
-      ? "Change Hero Image"
-      : "Choose Hero Image"}
+          <label className="inline-flex cursor-pointer items-center rounded-xl bg-amber-400 px-5 py-3 font-black text-black hover:bg-amber-300">
+            {settings.hero_image_url?.trim()
+              ? "Change Cover Photo"
+              : "Choose Cover Photo"}
 
-    <input
-      type="file"
-      accept="image/png,image/jpeg,image/webp"
-      onChange={(event) => {
-        const file = event.target.files?.[0];
+            <input
+              type="file"
+              accept="image/png,image/jpeg,image/webp"
+              onChange={(event) => {
+                const file = event.target.files?.[0];
 
-        if (file) {
-          void uploadHeroImage(file);
-        }
+                if (file) {
+                  void uploadCoverPhoto(file);
+                }
 
-        event.target.value = "";
-      }}
-      className="hidden"
-    />
-  </label>
+                event.target.value = "";
+              }}
+              className="hidden"
+            />
+          </label>
 
-  <p className="text-sm text-slate-400">
-    This image will appear prominently on your customer website.
-  </p>
-</div>
+          <p className="text-sm text-slate-400">
+            This is the large photo shown at the top of your customer website.
+          </p>
+        </div>
 
-<div className="space-y-3 md:col-span-2">
-  <span className="text-xs font-black uppercase tracking-wide text-slate-400">
-    Reception Image
-  </span>
+        <div className="space-y-4 md:col-span-2">
+          <div>
+            <span className="text-xs font-black uppercase tracking-wide text-slate-400">
+              SALON PHOTOS
+            </span>
+            <p className="mt-2 text-sm text-slate-400">
+              Add photos of your salon. These will automatically appear
+              throughout your customer website.
+            </p>
+          </div>
 
-  {settings.reception_image_url?.trim() && (
-    <div className="overflow-hidden rounded-xl border border-slate-700 bg-slate-900">
-      <img
-        src={settings.reception_image_url}
-        alt={`${settings.salon_name} reception`}
-        className="h-64 w-full object-cover"
-      />
-    </div>
-  )}
+          {salonImages.length > 0 && (
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {salonImages.map((image) => (
+                <div
+                  key={image.id}
+                  className="overflow-hidden rounded-2xl border border-slate-700 bg-slate-900"
+                >
+                  <img
+                    src={image.image_url}
+                    alt="Salon photo"
+                    className="h-52 w-full object-cover"
+                  />
+                </div>
+              ))}
+            </div>
+          )}
 
-  <label className="inline-flex cursor-pointer items-center rounded-xl bg-amber-400 px-5 py-3 font-black text-black hover:bg-amber-300">
-    {settings.reception_image_url?.trim()
-      ? "Change Reception Image"
-      : "Choose Reception Image"}
+          <label className="inline-flex cursor-pointer items-center rounded-xl bg-amber-400 px-5 py-3 font-black text-black hover:bg-amber-300">
+            + Add Photos
 
-    <input
-      type="file"
-      accept="image/png,image/jpeg,image/webp"
-      onChange={(event) => {
-        const file = event.target.files?.[0];
+            <input
+              type="file"
+              accept="image/png,image/jpeg,image/webp"
+              multiple
+              onChange={(event) => {
+                const files = event.target.files;
 
-        if (file) {
-          void uploadReceptionImage(file);
-        }
+                if (files?.length) {
+                  void uploadSalonPhotos(files);
+                }
 
-        event.target.value = "";
-      }}
-      className="hidden"
-    />
-  </label>
-
-  <p className="text-sm text-slate-400">
-    This image will appear in your customer website gallery.
-  </p>
-</div>
+                event.target.value = "";
+              }}
+              className="hidden"
+            />
+          </label>
+        </div>
       </div>
 
-      <div className="mt-5 flex flex-wrap items-center gap-3">
+      <div className="mt-6 flex flex-wrap items-center gap-3">
         <button
           type="button"
           onClick={saveSettings}

@@ -9,7 +9,11 @@ const gallery = [
   ["/hero.jpg", "Luxury tanning salon"],
   ["/featurewall.jpg", "Luxury interior"],
 ];
-
+type SalonImage = {
+  id: number;
+  image_url: string;
+  sort_order: number;
+};
 export default function Home() {
   const [salonName, setSalonName] = useState("Your Salon");
 const [tagline, setTagline] = useState(
@@ -17,6 +21,7 @@ const [tagline, setTagline] = useState(
 );
 const [logoUrl, setLogoUrl] = useState<string | null>(null);
 const [heroImageUrl, setHeroImageUrl] = useState<string | null>(null);
+const [salonImages, setSalonImages] = useState<SalonImage[]>([]);
 const [address, setAddress] = useState("");
 const [phone, setPhone] = useState("");
 const [openingHours, setOpeningHours] = useState<{
@@ -58,6 +63,24 @@ useEffect(() => {
   }
 
   void loadBranding();
+}, []);
+useEffect(() => {
+  async function loadSalonImages() {
+    const { data, error } = await supabase
+      .from("salon_images")
+      .select("id, image_url, sort_order")
+      .order("sort_order", { ascending: true })
+      .order("created_at", { ascending: true });
+
+    if (error) {
+      console.error("Could not load salon photos:", error.message);
+      return;
+    }
+
+    setSalonImages((data ?? []) as SalonImage[]);
+  }
+
+  void loadSalonImages();
 }, []);
   return (
     <main className="min-h-screen bg-[#050505] text-white">
@@ -152,25 +175,19 @@ useEffect(() => {
         <h2 className="mb-12 text-4xl font-bold">Our Salon</h2>
 
         <div className="grid gap-8 md:grid-cols-2 xl:grid-cols-3">
-          {gallery.map(([src, title]) => (
-            <div
-              key={src}
-              className="overflow-hidden rounded-3xl border border-[#d6a84f]/20 bg-[#111]"
-            >
-              <img
-                src={src}
-                alt={title}
-                className="h-80 w-full object-cover"
-              />
-
-              <div className="p-6">
-                <h3 className="text-2xl font-semibold text-[#d6a84f]">
-                  {title}
-                </h3>
-              </div>
-            </div>
-          ))}
-        </div>
+  {salonImages.map((image) => (
+    <div
+      key={image.id}
+      className="overflow-hidden rounded-3xl border border-[#d6a84f]/20 bg-[#111]"
+    >
+      <img
+        src={image.image_url}
+        alt="Salon photo"
+        className="h-80 w-full object-cover"
+      />
+    </div>
+  ))}
+</div>
       </section>
 
       {/* Contact */}
