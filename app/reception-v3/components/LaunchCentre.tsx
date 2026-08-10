@@ -19,14 +19,18 @@ type SalonSettings = {
   address: string | null;
   phone: string | null;
   opening_hours: OpeningHours | null;
+  opening_hours_review_complete: boolean;
   payment_provider: string | null;
   website: string | null;
   website_reviewed: boolean;
+  website_review_complete: boolean;
   registration_test_complete: boolean;
   buy_minutes_test_complete: boolean;
+  salon_photos_review_complete: boolean;
   login_test_complete: boolean;
   website_published: boolean;
   my_minutes_test_complete: boolean;
+  contact_details_review_complete: boolean;
   hero_image_url: string | null;
 };
 
@@ -80,13 +84,16 @@ const remainingSections: SetupSection[] = [
   ],
 },
   
-  {
-    title: "Website",
-    description: "Review the customer website before sharing it.",
-    items: [
-      { label: "Review website", complete: false },
-      ],
-  },
+ {
+  title: "Website",
+  description: "Review your public website before launch.",
+  items: [
+    { label: "Review website", complete: false },
+    { label: "Check contact details", complete: false },
+    { label: "Check opening hours", complete: false },
+    { label: "Check salon photos", complete: false },
+  ],
+},
   {
   title: "Launch",
   description: "Take your salon live and start accepting customers online.",
@@ -118,7 +125,7 @@ useEffect(() => {
     const { data, error } = await supabase
       .from("salon_settings")
       .select(
-  "salon_name, logo_url, hero_image_url, address, phone, opening_hours, payment_provider, website, website_reviewed, registration_test_complete, login_test_complete, website_published, buy_minutes_test_complete, my_minutes_test_complete"
+  "salon_name, logo_url, hero_image_url, address, phone, opening_hours, payment_provider, website, website_reviewed, registration_test_complete, login_test_complete, website_published, buy_minutes_test_complete, my_minutes_test_complete, website_review_complete, contact_details_review_complete, contact_details_review_complete, opening_hours_review_complete, salon_photos_review_complete"
 )
       .eq("id", 1)
       .maybeSingle();
@@ -361,6 +368,107 @@ async function markMyMinutesTestComplete() {
       : current
   );
 }
+async function markWebsiteReviewComplete() {
+  const { error } = await supabase
+    .from("salon_settings")
+    .update({
+      website_review_complete: true,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", 1);
+
+  if (error) {
+    console.error("Could not mark website review complete:", error.message);
+    return;
+  }
+
+  setSalonSettings((current) =>
+    current
+      ? {
+          ...current,
+          website_review_complete: true,
+        }
+      : current
+  );
+}
+async function markContactDetailsReviewComplete() {
+  const { error } = await supabase
+    .from("salon_settings")
+    .update({
+      contact_details_review_complete: true,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", 1);
+
+  if (error) {
+    console.error(
+      "Could not mark contact details review complete:",
+      error.message
+    );
+    return;
+  }
+
+  setSalonSettings((current) =>
+    current
+      ? {
+          ...current,
+          contact_details_review_complete: true,
+        }
+      : current
+  );
+}
+async function markOpeningHoursReviewComplete() {
+  const { error } = await supabase
+    .from("salon_settings")
+    .update({
+      opening_hours_review_complete: true,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", 1);
+
+  if (error) {
+    console.error(
+      "Could not mark opening hours review complete:",
+      error.message
+    );
+    return;
+  }
+
+  setSalonSettings((current) =>
+    current
+      ? {
+          ...current,
+          opening_hours_review_complete: true,
+        }
+      : current
+  );
+}
+async function markSalonPhotosReviewComplete() {
+  const { error } = await supabase
+    .from("salon_settings")
+    .update({
+      salon_photos_review_complete: true,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", 1);
+
+  if (error) {
+    console.error(
+      "Could not mark salon photos review complete:",
+      error.message
+    );
+    return;
+  }
+
+  setSalonSettings((current) =>
+    current
+      ? {
+          ...current,
+          salon_photos_review_complete: true,
+        }
+      : current
+  );
+}
 const dynamicRemainingSections = remainingSections.map((section) => {
     if (section.title === "Products") {
   return {
@@ -436,10 +544,21 @@ const dynamicRemainingSections = remainingSections.map((section) => {
     items: [
       {
         label: "Review website",
-        complete:
-          !!salonSettings?.website?.trim() &&
-          salonSettings.website_reviewed,
+        complete: salonSettings?.website_review_complete ?? false,
       },
+      {
+  label: "Check contact details",
+  complete: salonSettings?.contact_details_review_complete ?? false,
+},
+
+      {
+  label: "Check opening hours",
+  complete: salonSettings?.opening_hours_review_complete ?? false,
+},
+      {
+  label: "Check salon photos",
+  complete: salonSettings?.salon_photos_review_complete ?? false,
+},
     ],
   };
 }
@@ -595,6 +714,7 @@ const progress = Math.round((completedItems / allItems.length) * 100);
 
       {section.title === "Customer Portal" &&
         item.label === "Test customer login" && (
+            
           <button
             type="button"
             onClick={() => window.open("/login", "_blank")}
@@ -603,6 +723,55 @@ const progress = Math.round((completedItems / allItems.length) * 100);
             Open
           </button>
         )}
+        {section.title === "Website" &&
+  item.label === "Review website" && (
+    <button
+      type="button"
+      onClick={() => window.open("/", "_blank")}
+      className="rounded-lg border border-amber-400 px-3 py-2 text-xs font-black text-amber-400 hover:bg-amber-400 hover:text-black"
+    >
+      Open
+    </button>
+  )}
+
+{section.title === "Website" &&
+  item.label === "Review website" &&
+  !item.complete && (
+    <button
+      type="button"
+      onClick={() => void markWebsiteReviewComplete()}
+      className="rounded-lg border border-emerald-400 px-3 py-2 text-xs font-black text-emerald-400 hover:bg-emerald-400/10"
+    >
+      Complete
+    </button>
+  )}
+  
+
+
+  
+
+{section.title === "Website" &&
+  item.label === "Check opening hours" &&
+  !item.complete && (
+    <button
+      type="button"
+      onClick={() => void markOpeningHoursReviewComplete()}
+      className="rounded-lg border border-emerald-400 px-3 py-2 text-xs font-black text-emerald-400 hover:bg-emerald-400/10"
+    >
+      Complete
+    </button>
+  )}
+  {section.title === "Website" &&
+  item.label === "Check salon photos" &&
+  !item.complete && (
+    <button
+      type="button"
+      onClick={() => void markSalonPhotosReviewComplete()}
+      className="rounded-lg border border-emerald-400 px-3 py-2 text-xs font-black text-emerald-400 hover:bg-emerald-400/10"
+    >
+      Complete
+    </button>
+  )}
 
       {section.title === "Customer Portal" &&
         item.label === "Test customer login" &&
@@ -659,6 +828,7 @@ const progress = Math.round((completedItems / allItems.length) * 100);
   </div>
 ) : (
   <button
+
     type="button"
     onClick={() => {
       switch (section.title) {
