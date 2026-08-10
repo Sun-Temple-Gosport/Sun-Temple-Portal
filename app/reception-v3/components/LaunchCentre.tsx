@@ -24,6 +24,7 @@ type SalonSettings = {
   website: string | null;
   website_reviewed: boolean;
   website_review_complete: boolean;
+  launch_complete: boolean;
   registration_test_complete: boolean;
   buy_minutes_test_complete: boolean;
   salon_photos_review_complete: boolean;
@@ -125,7 +126,7 @@ useEffect(() => {
     const { data, error } = await supabase
       .from("salon_settings")
       .select(
-  "salon_name, logo_url, hero_image_url, address, phone, opening_hours, payment_provider, website, website_reviewed, registration_test_complete, login_test_complete, website_published, buy_minutes_test_complete, my_minutes_test_complete, website_review_complete, contact_details_review_complete, contact_details_review_complete, opening_hours_review_complete, salon_photos_review_complete"
+  "salon_name, logo_url, hero_image_url, address, phone, opening_hours, payment_provider, website, website_reviewed, registration_test_complete, login_test_complete, website_published, buy_minutes_test_complete, my_minutes_test_complete, website_review_complete, contact_details_review_complete, contact_details_review_complete, opening_hours_review_complete, salon_photos_review_complete, launch_complete"
 )
       .eq("id", 1)
       .maybeSingle();
@@ -469,6 +470,29 @@ async function markSalonPhotosReviewComplete() {
       : current
   );
 }
+async function markLaunchComplete() {
+  const { error } = await supabase
+    .from("salon_settings")
+    .update({
+      launch_complete: true,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", 1);
+
+  if (error) {
+    console.error("Could not launch salon:", error.message);
+    return;
+  }
+
+  setSalonSettings((current) =>
+    current
+      ? {
+          ...current,
+          launch_complete: true,
+        }
+      : current
+  );
+}
 const dynamicRemainingSections = remainingSections.map((section) => {
     if (section.title === "Products") {
   return {
@@ -559,6 +583,17 @@ const dynamicRemainingSections = remainingSections.map((section) => {
   label: "Check salon photos",
   complete: salonSettings?.salon_photos_review_complete ?? false,
 },
+    ],
+  };
+}
+if (section.title === "Launch") {
+  return {
+    ...section,
+    items: [
+      {
+        label: "Launch your salon",
+        complete: salonSettings?.launch_complete ?? false,
+      },
     ],
   };
 }
@@ -844,6 +879,9 @@ const progress = Math.round((completedItems / allItems.length) * 100);
         case "Payments":
           onNavigate("payments");
           return;
+          case "Launch":
+  void markLaunchComplete();
+  return;
 
         default:
           break;
