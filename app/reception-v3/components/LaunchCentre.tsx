@@ -344,6 +344,16 @@ const progress = Math.round((completedItems / allItems.length) * 100);
           it when you are ready to start receiving registrations and online
           sales.
         </p>
+        <div className="mt-6">
+  <a
+    href="/"
+    target="_blank"
+    rel="noopener noreferrer"
+    className="inline-flex items-center rounded-xl border border-amber-400 px-5 py-3 font-black text-amber-400 transition hover:bg-amber-400 hover:text-black"
+  >
+    View Website ↗
+  </a>
+</div>
 
         <div className="mt-8">
           <div className="mb-3 flex items-center justify-between gap-4">

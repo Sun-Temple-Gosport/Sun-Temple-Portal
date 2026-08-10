@@ -380,6 +380,7 @@ async function reorderSalonPhotos(
   return (
     <div className="rounded-2xl border border-slate-800 bg-slate-950 p-5">
       <div className="mb-6">
+        
         <p className="text-xs font-black uppercase tracking-[0.2em] text-amber-400">
           SALON SETUP
         </p>
