@@ -24,6 +24,7 @@ type SalonSettingsData = {
     saturday: string;
     sunday: string;
   } | null;
+  
 };
 
 type SalonImage = {
@@ -39,6 +40,7 @@ export default function SalonSettings() {
   const [message, setMessage] = useState("");
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [salonImages, setSalonImages] = useState<SalonImage[]>([]);
+  const [draggedImageId, setDraggedImageId] = useState<number | null>(null);
 
   useEffect(() => {
     async function loadSettings() {
@@ -208,6 +210,122 @@ export default function SalonSettings() {
     setSalonImages((current) => [...current, ...newImages]);
     setMessage("Salon photos added.");
   }
+
+  async function replaceSalonPhoto(image: SalonImage, file: File) {
+  setMessage("");
+
+  const extension = file.name.split(".").pop();
+  const fileName = `salon-photo-${Date.now()}.${extension}`;
+
+  const { error: uploadError } = await supabase.storage
+    .from("logos")
+    .upload(fileName, file, {
+      upsert: true,
+    });
+
+  if (uploadError) {
+    setMessage(uploadError.message);
+    return;
+  }
+
+  const {
+    data: { publicUrl },
+  } = supabase.storage.from("logos").getPublicUrl(fileName);
+
+  const { error } = await supabase
+    .from("salon_images")
+    .update({
+      image_url: publicUrl,
+    })
+    .eq("id", image.id);
+
+  if (error) {
+    setMessage(error.message);
+    return;
+  }
+
+  setSalonImages((current) =>
+    current.map((item) =>
+      item.id === image.id
+        ? {
+            ...item,
+            image_url: publicUrl,
+          }
+        : item
+    )
+  );
+
+  setMessage("Photo replaced.");
+}
+
+async function deleteSalonPhoto(imageId: number) {
+  setMessage("");
+
+  const { error } = await supabase
+    .from("salon_images")
+    .delete()
+    .eq("id", imageId);
+
+  if (error) {
+    setMessage(error.message);
+    return;
+  }
+
+  setSalonImages((current) =>
+    current.filter((image) => image.id !== imageId)
+  );
+
+  setMessage("Photo deleted.");
+}
+async function reorderSalonPhotos(
+  draggedId: number,
+  targetId: number
+) {
+  if (draggedId === targetId) return;
+
+  const currentImages = [...salonImages];
+
+  const draggedIndex = currentImages.findIndex(
+    (image) => image.id === draggedId
+  );
+
+  const targetIndex = currentImages.findIndex(
+    (image) => image.id === targetId
+  );
+
+  if (draggedIndex === -1 || targetIndex === -1) return;
+
+  const [draggedImage] = currentImages.splice(draggedIndex, 1);
+
+  currentImages.splice(targetIndex, 0, draggedImage);
+
+  const reorderedImages = currentImages.map((image, index) => ({
+    ...image,
+    sort_order: index,
+  }));
+
+  setSalonImages(reorderedImages);
+
+  const updates = reorderedImages.map((image) =>
+    supabase
+      .from("salon_images")
+      .update({
+        sort_order: image.sort_order,
+      })
+      .eq("id", image.id)
+  );
+
+  const results = await Promise.all(updates);
+
+  const failedUpdate = results.find((result) => result.error);
+
+  if (failedUpdate?.error) {
+    setMessage(failedUpdate.error.message);
+    return;
+  }
+
+  setMessage("Photo order updated.");
+}
 
   async function saveSettings() {
     if (!settings) return;
@@ -545,21 +663,64 @@ export default function SalonSettings() {
           </div>
 
           {salonImages.length > 0 && (
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {salonImages.map((image) => (
-                <div
-                  key={image.id}
-                  className="overflow-hidden rounded-2xl border border-slate-700 bg-slate-900"
-                >
-                  <img
-                    src={image.image_url}
-                    alt="Salon photo"
-                    className="h-52 w-full object-cover"
-                  />
-                </div>
-              ))}
-            </div>
-          )}
+  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+    {salonImages.map((image) => (
+  <div
+    key={image.id}
+    draggable
+    onDragStart={() => setDraggedImageId(image.id)}
+    onDragOver={(event) => event.preventDefault()}
+    onDrop={() => {
+      if (draggedImageId !== null) {
+        void reorderSalonPhotos(draggedImageId, image.id);
+      }
+
+      setDraggedImageId(null);
+    }}
+    onDragEnd={() => setDraggedImageId(null)}
+    className={`cursor-move overflow-hidden rounded-2xl border bg-slate-900 transition ${
+      draggedImageId === image.id
+        ? "border-amber-400 opacity-50"
+        : "border-slate-700"
+    }`}
+  >
+        <img
+          src={image.image_url}
+          alt="Salon photo"
+          className="h-52 w-full object-cover"
+        />
+
+        <div className="flex gap-2 p-3">
+          <label className="flex-1 cursor-pointer rounded-lg bg-amber-400 px-3 py-2 text-center text-sm font-black text-black hover:bg-amber-300">
+            Replace
+            <input
+              type="file"
+              accept="image/png,image/jpeg,image/webp"
+              className="hidden"
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+
+                if (file) {
+                  void replaceSalonPhoto(image, file);
+                }
+
+                event.target.value = "";
+              }}
+            />
+          </label>
+
+          <button
+            type="button"
+            onClick={() => void deleteSalonPhoto(image.id)}
+            className="rounded-lg bg-red-600 px-3 py-2 text-sm font-black text-white hover:bg-red-500"
+          >
+            Delete
+          </button>
+        </div>
+      </div>
+    ))}
+  </div>
+)}
 
           <label className="inline-flex cursor-pointer items-center rounded-xl bg-amber-400 px-5 py-3 font-black text-black hover:bg-amber-300">
             + Add Photos
