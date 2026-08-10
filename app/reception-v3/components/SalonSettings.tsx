@@ -14,6 +14,8 @@ type SalonSettingsData = {
   instagram: string | null;
   address: string | null;
   logo_url: string | null;
+  hero_image_url: string | null;
+  reception_image_url: string | null;
   opening_hours: {
     monday: string;
     tuesday: string;
@@ -38,9 +40,11 @@ const [uploadingLogo, setUploadingLogo] = useState(false);
 
       const { data, error } = await supabase
         .from("salon_settings")
-       .select(
-  "id, salon_name, tagline, phone, email, website, facebook, instagram, address, logo_url, opening_hours"
+
+  .select(
+  "id, salon_name, tagline, phone, email, website, facebook, instagram, address, logo_url, hero_image_url, reception_image_url, opening_hours"
 )
+
         .eq("id", 1)
         .maybeSingle();
 
@@ -103,6 +107,64 @@ const [uploadingLogo, setUploadingLogo] = useState(false);
 
   setUploadingLogo(false);
 }
+
+async function uploadHeroImage(file: File) {
+  if (!settings) return;
+
+  setMessage("");
+
+  const extension = file.name.split(".").pop();
+  const fileName = `hero-image-${Date.now()}.${extension}`;
+
+  const { error: uploadError } = await supabase.storage
+    .from("logos")
+    .upload(fileName, file, {
+      upsert: true,
+    });
+
+  if (uploadError) {
+    setMessage(uploadError.message);
+    return;
+  }
+
+  const {
+    data: { publicUrl },
+  } = supabase.storage.from("logos").getPublicUrl(fileName);
+
+  setSettings({
+    ...settings,
+    hero_image_url: publicUrl,
+  });
+}
+
+async function uploadReceptionImage(file: File) {
+  if (!settings) return;
+
+  setMessage("");
+
+  const extension = file.name.split(".").pop();
+  const fileName = `reception-image-${Date.now()}.${extension}`;
+
+  const { error: uploadError } = await supabase.storage
+    .from("logos")
+    .upload(fileName, file, {
+      upsert: true,
+    });
+
+  if (uploadError) {
+    setMessage(uploadError.message);
+    return;
+  }
+
+  const {
+    data: { publicUrl },
+  } = supabase.storage.from("logos").getPublicUrl(fileName);
+
+  setSettings({
+    ...settings,
+    reception_image_url: publicUrl,
+  });
+}
   async function saveSettings() {
     if (!settings) return;
 
@@ -121,6 +183,8 @@ const [uploadingLogo, setUploadingLogo] = useState(false);
         instagram: settings.instagram?.trim() || null,
        address: settings.address?.trim() || null,
 logo_url: settings.logo_url?.trim() || null,
+hero_image_url: settings.hero_image_url?.trim() || null,
+reception_image_url: settings.reception_image_url?.trim() || null,
 opening_hours: settings.opening_hours,
 updated_at: new Date().toISOString(),
       })
@@ -364,6 +428,88 @@ updated_at: new Date().toISOString(),
 
   <p className="text-sm text-slate-400">
     PNG, JPG or WebP.
+  </p>
+</div>
+
+<div className="space-y-3 md:col-span-2">
+  <span className="text-xs font-black uppercase tracking-wide text-slate-400">
+    Homepage Hero Image
+  </span>
+
+  {settings.hero_image_url?.trim() && (
+    <div className="overflow-hidden rounded-xl border border-slate-700 bg-slate-900">
+      <img
+        src={settings.hero_image_url}
+        alt={`${settings.salon_name} homepage hero`}
+        className="h-64 w-full object-cover"
+      />
+    </div>
+  )}
+
+  <label className="inline-flex cursor-pointer items-center rounded-xl bg-amber-400 px-5 py-3 font-black text-black hover:bg-amber-300">
+    {settings.hero_image_url?.trim()
+      ? "Change Hero Image"
+      : "Choose Hero Image"}
+
+    <input
+      type="file"
+      accept="image/png,image/jpeg,image/webp"
+      onChange={(event) => {
+        const file = event.target.files?.[0];
+
+        if (file) {
+          void uploadHeroImage(file);
+        }
+
+        event.target.value = "";
+      }}
+      className="hidden"
+    />
+  </label>
+
+  <p className="text-sm text-slate-400">
+    This image will appear prominently on your customer website.
+  </p>
+</div>
+
+<div className="space-y-3 md:col-span-2">
+  <span className="text-xs font-black uppercase tracking-wide text-slate-400">
+    Reception Image
+  </span>
+
+  {settings.reception_image_url?.trim() && (
+    <div className="overflow-hidden rounded-xl border border-slate-700 bg-slate-900">
+      <img
+        src={settings.reception_image_url}
+        alt={`${settings.salon_name} reception`}
+        className="h-64 w-full object-cover"
+      />
+    </div>
+  )}
+
+  <label className="inline-flex cursor-pointer items-center rounded-xl bg-amber-400 px-5 py-3 font-black text-black hover:bg-amber-300">
+    {settings.reception_image_url?.trim()
+      ? "Change Reception Image"
+      : "Choose Reception Image"}
+
+    <input
+      type="file"
+      accept="image/png,image/jpeg,image/webp"
+      onChange={(event) => {
+        const file = event.target.files?.[0];
+
+        if (file) {
+          void uploadReceptionImage(file);
+        }
+
+        event.target.value = "";
+      }}
+      className="hidden"
+    />
+  </label>
+
+  <p className="text-sm text-slate-400">
+    This image will appear in your customer website gallery.
   </p>
 </div>
       </div>

@@ -16,6 +16,7 @@ const [tagline, setTagline] = useState(
   "Luxury tanning salon experience in Gosport."
 );
 const [logoUrl, setLogoUrl] = useState<string | null>(null);
+const [heroImageUrl, setHeroImageUrl] = useState<string | null>(null);
 const [address, setAddress] = useState("");
 const [phone, setPhone] = useState("");
 const [openingHours, setOpeningHours] = useState<{
@@ -32,7 +33,9 @@ useEffect(() => {
   async function loadBranding() {
     const { data, error } = await supabase
       .from("salon_settings")
-      .select("salon_name, tagline, logo_url, address, phone, opening_hours")
+      .select(
+  "salon_name, tagline, logo_url, hero_image_url, reception_image_url, bed_image_1_url, bed_image_2_url, interior_image_url, address, phone, opening_hours"
+)
       .eq("id", 1)
       .maybeSingle();
 
@@ -48,6 +51,7 @@ useEffect(() => {
       data.tagline || "Luxury tanning salon experience in Gosport."
     );
     setLogoUrl(data.logo_url || null);
+    setHeroImageUrl(data.hero_image_url || null);
     setAddress(data.address || "");
     setPhone(data.phone || "");
     setOpeningHours(data.opening_hours || null);
@@ -102,7 +106,9 @@ useEffect(() => {
       {/* Hero */}
       <section
         className="flex min-h-screen items-center bg-cover bg-center"
-        style={{ backgroundImage: "url('/hero.jpg')" }}
+        style={{
+  backgroundImage: `url(${heroImageUrl || "/hero.jpg"})`,
+}}
       >
         <div className="w-full bg-black/60">
           <div className="mx-auto max-w-7xl px-6 py-40">
