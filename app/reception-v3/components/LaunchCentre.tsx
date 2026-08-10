@@ -23,7 +23,10 @@ type SalonSettings = {
   website: string | null;
   website_reviewed: boolean;
   registration_test_complete: boolean;
+  buy_minutes_test_complete: boolean;
+  login_test_complete: boolean;
   website_published: boolean;
+  my_minutes_test_complete: boolean;
   hero_image_url: string | null;
 };
 
@@ -64,14 +67,25 @@ const remainingSections: SetupSection[] = [
     { label: "Connect payment provider", complete: false },
   ],
 },
+{
+  title: "Customer Portal",
+  description: "Test the customer account experience before launch.",
+  items: [
+    {
+  label: "Test customer registration",
+  complete: false, },
+    { label: "Test customer login", complete: false },
+    { label: "Test buying minutes", complete: false },
+    { label: "Test My Minutes", complete: false },
+  ],
+},
   
   {
     title: "Website",
     description: "Review the customer website before sharing it.",
     items: [
       { label: "Review website", complete: false },
-      { label: "Test customer registration", complete: false },
-    ],
+      ],
   },
   {
   title: "Launch",
@@ -104,7 +118,7 @@ useEffect(() => {
     const { data, error } = await supabase
       .from("salon_settings")
       .select(
-  "salon_name, logo_url, hero_image_url, address, phone, opening_hours, payment_provider, website, website_reviewed, registration_test_complete, website_published"
+  "salon_name, logo_url, hero_image_url, address, phone, opening_hours, payment_provider, website, website_reviewed, registration_test_complete, login_test_complete, website_published, buy_minutes_test_complete, my_minutes_test_complete"
 )
       .eq("id", 1)
       .maybeSingle();
@@ -278,6 +292,75 @@ async function markRegistrationTestComplete() {
       : current
   );
 }
+async function markLoginTestComplete() {
+  const { error } = await supabase
+    .from("salon_settings")
+    .update({
+      login_test_complete: true,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", 1);
+
+  if (error) {
+    console.error("Could not mark login test complete:", error.message);
+    return;
+  }
+
+  setSalonSettings((current) =>
+    current
+      ? {
+          ...current,
+          login_test_complete: true,
+        }
+      : current
+  );
+}
+async function markBuyMinutesTestComplete() {
+  const { error } = await supabase
+    .from("salon_settings")
+    .update({
+      buy_minutes_test_complete: true,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", 1);
+
+  if (error) {
+    console.error("Could not mark buy minutes test complete:", error.message);
+    return;
+  }
+
+  setSalonSettings((current) =>
+    current
+      ? {
+          ...current,
+          buy_minutes_test_complete: true,
+        }
+      : current
+  );
+}
+async function markMyMinutesTestComplete() {
+  const { error } = await supabase
+    .from("salon_settings")
+    .update({
+      my_minutes_test_complete: true,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", 1);
+
+  if (error) {
+    console.error("Could not mark My Minutes test complete:", error.message);
+    return;
+  }
+
+  setSalonSettings((current) =>
+    current
+      ? {
+          ...current,
+          my_minutes_test_complete: true,
+        }
+      : current
+  );
+}
 const dynamicRemainingSections = remainingSections.map((section) => {
     if (section.title === "Products") {
   return {
@@ -309,6 +392,29 @@ const dynamicRemainingSections = remainingSections.map((section) => {
     ],
   };
 }
+  if (section.title === "Customer Portal") {
+    return {
+      ...section,
+      items: [
+        {
+          label: "Test customer registration",
+          complete: !!salonSettings?.registration_test_complete,
+        },
+        {
+  label: "Test customer login",
+  complete: !!salonSettings?.login_test_complete,
+},
+        {
+  label: "Test buying minutes",
+  complete: salonSettings?.buy_minutes_test_complete ?? false,
+},
+        {
+  label: "Test My Minutes",
+  complete: salonSettings?.my_minutes_test_complete ?? false,
+},
+      ],
+    };
+  }
     if (section.title === "Payments") {
     return {
       ...section,
@@ -333,10 +439,6 @@ const dynamicRemainingSections = remainingSections.map((section) => {
         complete:
           !!salonSettings?.website?.trim() &&
           salonSettings.website_reviewed,
-      },
-      {
-        label: "Test customer registration",
-        complete: salonSettings?.registration_test_complete ?? false,
       },
     ],
   };
@@ -438,25 +540,103 @@ const progress = Math.round((completedItems / allItems.length) * 100);
 
               <div className="mt-6 space-y-3">
                 {section.items.map((item) => (
-                  <div
-                    key={item.label}
-                    className="flex items-center justify-between gap-4 rounded-2xl border border-slate-800 bg-slate-950 px-4 py-3"
-                  >
-                    <span className="font-semibold text-slate-200">
-                      {item.label}
-                    </span>
+  <div
+    key={item.label}
+    className="flex items-center justify-between gap-4 rounded-2xl border border-slate-800 bg-slate-950 p-4"
+  >
+    <span className="font-semibold text-slate-200">
+      {item.label}
+    </span>
 
-                    <span
-                      className={
-                        item.complete
-                          ? "font-black text-emerald-400"
-                          : "font-black text-slate-500"
-                      }
-                    >
-                      {item.complete ? "✓" : "○"}
-                    </span>
-                  </div>
-                ))}
+    <div className="flex items-center gap-2">
+      {section.title === "Customer Portal" &&
+        item.label === "Test customer registration" && (
+          <button
+            type="button"
+            onClick={() => window.open("/register", "_blank")}
+            className="rounded-lg border border-amber-400 px-3 py-2 text-xs font-black text-amber-400 hover:bg-amber-400 hover:text-black"
+          >
+            Open
+          </button>
+        )}
+        {section.title === "Customer Portal" &&
+  item.label === "Test buying minutes" &&
+  !item.complete && (
+    <button
+      type="button"
+      onClick={() => void markBuyMinutesTestComplete()}
+      className="rounded-lg border border-emerald-400 px-3 py-2 text-xs font-black text-emerald-400 hover:bg-emerald-400/10"
+    >
+      Complete
+    </button>
+  )}
+  {section.title === "Customer Portal" &&
+  item.label === "Test My Minutes" && (
+    <button
+      type="button"
+      onClick={() => window.open("/my-minutes", "_blank")}
+      className="rounded-lg border border-amber-400 px-3 py-2 text-xs font-black text-amber-400 hover:bg-amber-400 hover:text-black"
+    >
+      Open
+    </button>
+  )}
+
+{section.title === "Customer Portal" &&
+  item.label === "Test My Minutes" &&
+  !item.complete && (
+    <button
+      type="button"
+      onClick={() => void markMyMinutesTestComplete()}
+      className="rounded-lg border border-emerald-400 px-3 py-2 text-xs font-black text-emerald-400 hover:bg-emerald-400/10"
+    >
+      Complete
+    </button>
+  )}
+
+      {section.title === "Customer Portal" &&
+        item.label === "Test customer login" && (
+          <button
+            type="button"
+            onClick={() => window.open("/login", "_blank")}
+            className="rounded-lg border border-amber-400 px-3 py-2 text-xs font-black text-amber-400 hover:bg-amber-400 hover:text-black"
+          >
+            Open
+          </button>
+        )}
+
+      {section.title === "Customer Portal" &&
+        item.label === "Test customer login" &&
+        !item.complete && (
+          <button
+            type="button"
+            onClick={() => void markLoginTestComplete()}
+            className="rounded-lg border border-emerald-400 px-3 py-2 text-xs font-black text-emerald-400 hover:bg-emerald-400/10"
+          >
+            Complete
+          </button>
+        )}
+{section.title === "Customer Portal" &&
+  item.label === "Test buying minutes" && (
+    <button
+      type="button"
+      onClick={() => window.open("/buy-minutes", "_blank")}
+      className="rounded-lg border border-amber-400 px-3 py-2 text-xs font-black text-amber-400 hover:bg-amber-400 hover:text-black"
+    >
+      Open
+    </button>
+  )}
+      <span
+        className={
+          item.complete
+            ? "font-black text-emerald-400"
+            : "font-black text-slate-500"
+        }
+      >
+        {item.complete ? "✓" : "○"}
+      </span>
+    </div>
+  </div>
+))}
               </div>
 
               {section.title === "Staff & Equipment" ? (
@@ -475,28 +655,6 @@ const progress = Math.round((completedItems / allItems.length) * 100);
       className="w-full rounded-xl border border-amber-400 px-5 py-3 font-black text-amber-400 transition hover:bg-amber-400 hover:text-black"
     >
       Open Bed Management
-    </button>
-  </div>
-) : section.title === "Website" ? (
-  <div className="mt-6 space-y-3">
-    <button
-      type="button"
-      onClick={() => window.open("/register", "_blank")}
-      className="w-full rounded-xl border border-amber-400 px-5 py-3 font-black text-amber-400 transition hover:bg-amber-400 hover:text-black"
-    >
-      Open Registration Page
-    </button>
-
-    <button
-      type="button"
-      onClick={() => {
-  void markRegistrationTestComplete();
-}}
-      className="w-full rounded-xl border border-emerald-400 px-5 py-3 font-black text-emerald-400 transition hover:bg-emerald-400 hover:text-black"
-    >
-      {salonSettings?.registration_test_complete
-  ? "✓ Registration Test Complete"
-  : "Mark Registration Test Complete"}
     </button>
   </div>
 ) : (
