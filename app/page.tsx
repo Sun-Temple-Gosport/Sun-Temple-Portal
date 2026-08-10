@@ -17,7 +17,7 @@ type SalonImage = {
 export default function Home() {
   const [salonName, setSalonName] = useState("Your Salon");
 const [tagline, setTagline] = useState(
-  "Luxury tanning salon experience in Gosport."
+  "Your local tanning salon."
 );
 const [logoUrl, setLogoUrl] = useState<string | null>(null);
 const [heroImageUrl, setHeroImageUrl] = useState<string | null>(null);
@@ -53,7 +53,7 @@ useEffect(() => {
 
     setSalonName(data.salon_name || "Your Salon");
     setTagline(
-      data.tagline || "Luxury tanning salon experience in Gosport."
+    data.tagline || "Your local tanning salon."
     );
     setLogoUrl(data.logo_url || null);
     setHeroImageUrl(data.hero_image_url || null);

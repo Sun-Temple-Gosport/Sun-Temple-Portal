@@ -32,12 +32,12 @@ function formatRemaining(ms: number) {
 export default function BedDashboard({
   selectedCustomer,
   sessions,
-  beds = ["St Lucia", "Barbados", "St Kitts", "Antigua"],
+  beds = [],
   onStartSession,
   onFinishSession,
 }: Props) {
   const [now, setNow] = useState(Date.now());
-  const [selectedBed, setSelectedBed] = useState<string>("St Lucia");
+  const [selectedBed, setSelectedBed] = useState<string>(beds[0] ?? "");
   const [selectedMinutes, setSelectedMinutes] = useState<number>(10);
   const [customMinutes, setCustomMinutes] = useState("");
   const [starting, setStarting] = useState(false);

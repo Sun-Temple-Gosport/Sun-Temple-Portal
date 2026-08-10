@@ -37,7 +37,7 @@ export default function CheckoutButton({
 
     const customerId = profileData?.customer_id || user.id;
 
-    const checkoutReference = `suntemple-${Date.now()}`;
+    const checkoutReference = `tansalonos-${Date.now()}`;
 
     const res = await fetch("/api/sumup/checkout", {
       method: "POST",
