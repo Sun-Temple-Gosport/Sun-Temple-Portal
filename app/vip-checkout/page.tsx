@@ -49,7 +49,7 @@ if (brandingError) {
 const vip = vipData as VipSettings | null;
 const branding = brandingData as SalonBranding | null;
 
-const salonName = branding?.salon_name || "Sun Temple Gosport";
+const salonName = branding?.salon_name || "Your Salon";
 const tagline = branding?.tagline || "";
 const logoUrl = branding?.logo_url || null;
 

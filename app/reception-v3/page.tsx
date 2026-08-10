@@ -978,15 +978,11 @@ setRecentCustomers((prev) => {
   const occupancy = Math.round((bedsRunning / TOTAL_BEDS) * 100);
   useEffect(() => {
   function handleLaunchNavigation(event: Event) {
-    const view = (event as CustomEvent<"staff" | "beds">).detail;
+    const view = (
+      event as CustomEvent<"staff" | "beds" | "payments">
+    ).detail;
 
-    if (view === "staff") {
-      setOwnerView("staff");
-    }
-
-    if (view === "beds") {
-      setOwnerView("beds");
-    }
+    setOwnerView(view);
   }
 
   window.addEventListener(
@@ -1029,7 +1025,7 @@ setRecentCustomers((prev) => {
   userName={userName}
   userRole={userRole === "owner" ? "owner" : "staff"}
   salonName={salonName}
-  tagline={salonTagline}
+  tagline="Professional tanning salon management platform"
   logoUrl={salonLogoUrl}
 />
 

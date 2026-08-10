@@ -19,6 +19,11 @@ type SalonSettings = {
   address: string | null;
   phone: string | null;
   opening_hours: OpeningHours | null;
+  payment_provider: string | null;
+  website: string | null;
+  website_reviewed: boolean;
+  registration_test_complete: boolean;
+  website_published: boolean;
 };
 
 type SetupItem = {
@@ -51,13 +56,14 @@ const remainingSections: SetupSection[] = [
     ],
   },
   {
-    title: "Payments",
-    description: "Choose how your salon accepts online payments.",
-    items: [
-      { label: "Choose payment provider", complete: false },
-      { label: "Connect payment provider", complete: false },
-    ],
-  },
+  title: "Payments",
+  description: "Choose how your salon accepts online payments.",
+  items: [
+    { label: "Choose payment provider", complete: false },
+    { label: "Connect payment provider", complete: false },
+  ],
+},
+  
   {
     title: "Website",
     description: "Review the customer website before sharing it.",
@@ -67,18 +73,17 @@ const remainingSections: SetupSection[] = [
     ],
   },
   {
-    title: "Launch",
-    description: "Publish and share your salon website.",
-    items: [
-      { label: "Publish website", complete: false },
-      { label: "Copy and share website link", complete: false },
-    ],
-  },
+  title: "Launch",
+  description: "Take your salon live and start accepting customers online.",
+  items: [
+    { label: "Launch your salon", complete: false },
+  ],
+},
 ];
 
 type Props = {
   onOpenBusinessSettings: () => void;
-  onNavigate: (view: "staff" | "beds") => void;
+  onNavigate: (view: "staff" | "beds" | "payments") => void;
 };
 export default function LaunchCentre({
   onOpenBusinessSettings,
@@ -86,13 +91,19 @@ export default function LaunchCentre({
 }: Props) {
     const [salonSettings, setSalonSettings] =
   useState<SalonSettings | null>(null);
+  const [hasStaff, setHasStaff] = useState(false);
+  const [bedsConfigured, setBedsConfigured] = useState(false);
+  const [hasMinutePackages, setHasMinutePackages] = useState(false);
+const [hasVipMembership, setHasVipMembership] = useState(false);
   
 
 useEffect(() => {
   async function loadSalonSettings() {
     const { data, error } = await supabase
       .from("salon_settings")
-      .select("salon_name, logo_url, address, phone, opening_hours")
+      .select(
+  "salon_name, logo_url, address, phone, opening_hours, payment_provider, website, website_reviewed, registration_test_complete, website_published"
+)
       .eq("id", 1)
       .maybeSingle();
 
@@ -108,6 +119,79 @@ useEffect(() => {
   }
 
   void loadSalonSettings();
+}, []);
+useEffect(() => {
+  async function loadStaffStatus() {
+    const { data, error } = await supabase.rpc("list_staff_members");
+
+    if (error) {
+      console.error(
+        "Could not load Launch Centre staff status:",
+        error.message
+      );
+      return;
+    }
+
+    setHasStaff((data ?? []).length > 0);
+  }
+
+  void loadStaffStatus();
+}, []);
+useEffect(() => {
+  async function loadBedStatus() {
+    const { data, error } = await supabase
+      .from("beds")
+      .select("id");
+
+    if (error) {
+      console.error(
+        "Could not load Launch Centre bed status:",
+        error.message
+      );
+      return;
+    }
+
+    setBedsConfigured((data ?? []).length >= 4);
+  }
+
+  void loadBedStatus();
+}, []);
+useEffect(() => {
+  async function loadProductStatus() {
+    const { data: packageData, error: packageError } = await supabase
+      .from("packages")
+      .select("id, minutes, active")
+      .eq("active", true);
+
+    if (packageError) {
+      console.error(
+        "Could not load Launch Centre package status:",
+        packageError.message
+      );
+      return;
+    }
+
+    setHasMinutePackages(
+      (packageData ?? []).some((pkg) => Number(pkg.minutes) > 0)
+    );
+
+   const { data: vipData, error: vipError } = await supabase
+  .from("vip_settings")
+  .select("id")
+  .limit(1);
+
+    if (vipError) {
+      console.error(
+        "Could not load Launch Centre VIP status:",
+        vipError.message
+      );
+      return;
+    }
+
+    setHasVipMembership((vipData ?? []).length > 0);
+  }
+
+  void loadProductStatus();
 }, []);
   const openingHoursComplete =
   !!salonSettings?.opening_hours &&
@@ -142,9 +226,102 @@ const businessDetailsSection: SetupSection = {
   ],
 };
 
+async function markRegistrationTestComplete() {
+  const { error } = await supabase
+    .from("salon_settings")
+    .update({
+      registration_test_complete: true,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", 1);
+
+  if (error) {
+    console.error(
+      "Could not save registration test:",
+      error.message
+    );
+    return;
+  }
+
+  setSalonSettings((current) =>
+    current
+      ? {
+          ...current,
+          registration_test_complete: true,
+        }
+      : current
+  );
+}
+const dynamicRemainingSections = remainingSections.map((section) => {
+    if (section.title === "Products") {
+  return {
+    ...section,
+    items: [
+      {
+        label: "Minute packages",
+        complete: hasMinutePackages,
+      },
+      {
+        label: "VIP membership",
+        complete: hasVipMembership,
+      },
+    ],
+  };
+}
+  if (section.title === "Staff & Equipment") {
+  return {
+    ...section,
+    items: [
+      {
+        label: "Invite staff",
+        complete: hasStaff,
+      },
+      {
+  label: "Configure sunbeds",
+  complete: bedsConfigured,
+},
+    ],
+  };
+}
+    if (section.title === "Payments") {
+    return {
+      ...section,
+      items: [
+        {
+          label: "Choose payment provider",
+          complete: !!salonSettings?.payment_provider,
+        },
+        {
+  label: "Connect payment provider",
+  complete: salonSettings?.payment_provider === "manual",
+},
+      ],
+    };
+  }
+  if (section.title === "Website") {
+  return {
+    ...section,
+    items: [
+      {
+        label: "Review website",
+        complete:
+          !!salonSettings?.website?.trim() &&
+          salonSettings.website_reviewed,
+      },
+      {
+        label: "Test customer registration",
+        complete: salonSettings?.registration_test_complete ?? false,
+      },
+    ],
+  };
+}
+
+  return section;
+});
+
 const sections: SetupSection[] = [
   businessDetailsSection,
-  ...remainingSections,
+  ...dynamicRemainingSections,
 ];
 
 const allItems = sections.flatMap((section) => section.items);
@@ -155,11 +332,11 @@ const progress = Math.round((completedItems / allItems.length) * 100);
     <section className="space-y-6">
       <div className="overflow-hidden rounded-3xl border border-amber-400/30 bg-gradient-to-br from-slate-900 to-slate-950 p-6 shadow-2xl md:p-8">
         <p className="text-xs font-black uppercase tracking-[0.3em] text-amber-400">
-          Launch Centre
+          Salon Setup
         </p>
 
         <h1 className="mt-3 text-4xl font-black text-white md:text-5xl">
-          Let&apos;s get your salon ready.
+          Let's get your tanning salon ready for launch.
         </h1>
 
         <p className="mt-4 max-w-2xl text-slate-300">
@@ -246,37 +423,79 @@ const progress = Math.round((completedItems / allItems.length) * 100);
                 ))}
               </div>
 
-              <button
-  type="button"
-  onClick={() => {
-    switch (section.title) {
-      case "Business Details":
-        onOpenBusinessSettings();
-        break;
-        case "Staff & Equipment":
-  onNavigate("staff");
-  break;
+              {section.title === "Staff & Equipment" ? (
+  <div className="mt-6 space-y-3">
+    <button
+      type="button"
+      onClick={() => onNavigate("staff")}
+      className="w-full rounded-xl border border-amber-400 px-5 py-3 font-black text-amber-400 transition hover:bg-amber-400 hover:text-black"
+    >
+      Open Staff Management
+    </button>
 
-      case "Products":
-        onOpenBusinessSettings();
-        break;
+    <button
+      type="button"
+      onClick={() => onNavigate("beds")}
+      className="w-full rounded-xl border border-amber-400 px-5 py-3 font-black text-amber-400 transition hover:bg-amber-400 hover:text-black"
+    >
+      Open Bed Management
+    </button>
+  </div>
+) : section.title === "Website" ? (
+  <div className="mt-6 space-y-3">
+    <button
+      type="button"
+      onClick={() => window.open("/register", "_blank")}
+      className="w-full rounded-xl border border-amber-400 px-5 py-3 font-black text-amber-400 transition hover:bg-amber-400 hover:text-black"
+    >
+      Open Registration Page
+    </button>
 
-      default:
-        break;
-    }
-  }}
-  className="mt-6 w-full rounded-xl border border-amber-400 px-5 py-3 font-black text-amber-400 transition hover:bg-amber-400 hover:text-black"
->
-  {section.title === "Business Details"
-  ? "Open Business Settings"
-  : section.title === "Products"
-  ? "Open Product Settings"
-  : section.title === "Staff & Equipment"
-  ? "Open Staff Management"
-  : sectionComplete
-  ? "Review"
-  : "Continue Setup"}
-</button>
+    <button
+      type="button"
+      onClick={() => {
+  void markRegistrationTestComplete();
+}}
+      className="w-full rounded-xl border border-emerald-400 px-5 py-3 font-black text-emerald-400 transition hover:bg-emerald-400 hover:text-black"
+    >
+      {salonSettings?.registration_test_complete
+  ? "✓ Registration Test Complete"
+  : "Mark Registration Test Complete"}
+    </button>
+  </div>
+) : (
+  <button
+    type="button"
+    onClick={() => {
+      switch (section.title) {
+        case "Business Details":
+          onOpenBusinessSettings();
+          break;
+
+        case "Products":
+          onOpenBusinessSettings();
+          break;
+
+        case "Payments":
+          onNavigate("payments");
+          return;
+
+        default:
+          break;
+      }
+    }}
+    className="mt-6 w-full rounded-xl border border-amber-400 px-5 py-3 font-black text-amber-400 transition hover:bg-amber-400 hover:text-black"
+  >
+    {section.title === "Business Details"
+      ? "Open Business Settings"
+      : section.title === "Products"
+        ? "Open Product Settings"
+        : sectionComplete
+          ? "Review"
+          : "Continue Setup"}
+  </button>
+)}
+
             </div>
           );
         })}

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 export default function PaymentSuccess() {
-  const [salonName, setSalonName] = useState("Sun Temple Gosport");
+  const [salonName, setSalonName] = useState("Your Salon");
 const [tagline, setTagline] = useState("");
 const [logoUrl, setLogoUrl] = useState<string | null>(null);
 useEffect(() => {
@@ -21,7 +21,7 @@ useEffect(() => {
 
     if (!data) return;
 
-    setSalonName(data.salon_name || "Sun Temple Gosport");
+    setSalonName(data.salon_name || "Your Salon");
     setTagline(data.tagline || "");
     setLogoUrl(data.logo_url || null);
   }

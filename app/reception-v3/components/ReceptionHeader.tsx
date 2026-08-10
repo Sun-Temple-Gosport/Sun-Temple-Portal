@@ -18,7 +18,7 @@ export default function ReceptionHeader({
   userName,
   userRole,
   salonName = "Sun Temple",
-  tagline = "Salon control, customers, minutes and live beds",
+  tagline = "Professional tanning salon management platform",
   logoUrl = null,
 }: Props) {
   const router = useRouter();
@@ -111,8 +111,46 @@ window.setTimeout(() => {
   )}
 
   <div>
-    <h1 style={styles.title}>{salonName} Reception</h1>
-    <p style={styles.subtitle}>{tagline}</p>
+    <>
+  <div
+    style={{
+      color: "#f5c542",
+      fontWeight: 900,
+      fontSize: "18px",
+      letterSpacing: "0.15em",
+      textTransform: "uppercase",
+      marginBottom: "4px",
+    }}
+  >
+    TanSalonOS
+  </div>
+
+  <p
+    style={{
+      margin: "0 0 18px 0",
+      color: "#94a3b8",
+      fontSize: "15px",
+      fontWeight: 500,
+    }}
+  >
+    Professional tanning salon management platform
+  </p>
+
+  <div
+    style={{
+      color: "#64748b",
+      fontSize: "12px",
+      fontWeight: 700,
+      letterSpacing: "0.15em",
+      textTransform: "uppercase",
+    }}
+  >
+    Current Salon
+  </div>
+
+  <h1 style={styles.title}>{salonName}</h1>
+</>
+    
   </div>
 </div>
 

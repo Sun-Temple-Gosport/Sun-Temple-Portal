@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
-import SalonSettings from "./SalonSettings";
 
 type Props = {
   revenueToday: number;
@@ -266,7 +265,7 @@ export default function OwnerDashboard({
     return () => window.clearInterval(timer);
   }, []);
 
-  // Sun Temple currently has four beds.
+  // Current installation supports four beds.
   // Math.max prevents a temporary 0 / 0 display while live statistics load.
   const totalBeds = Math.max(4, bedsRunning + bedsFree);
   const availableBeds = Math.max(0, totalBeds - bedsRunning);

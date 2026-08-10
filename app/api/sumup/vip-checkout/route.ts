@@ -79,7 +79,7 @@ export async function POST(request: Request) {
           amount: checkoutAmount,
           currency: "GBP",
           merchant_code: process.env.SUMUP_MERCHANT_CODE,
-          description: "Sun Temple VIP Membership",
+          description: "VIP Membership",
 
           hosted_checkout: {
             enabled: true,

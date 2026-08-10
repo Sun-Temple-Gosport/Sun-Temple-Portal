@@ -62,7 +62,7 @@ export default function StaffLoginPage() {
     <main className="flex min-h-screen items-center justify-center bg-black px-4 text-white">
       <div className="w-full max-w-md">
         <p className="mb-4 text-xs font-black uppercase tracking-[0.35em] text-amber-400">
-          Sun Temple Gosport
+          Current Salon
         </p>
 
         <h1 className="mb-8 text-5xl font-black">Staff Login</h1>

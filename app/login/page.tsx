@@ -9,7 +9,7 @@ export default function LoginPage() {
   console.log(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [salonName, setSalonName] = useState("Sun Temple Gosport");
+  const [salonName, setSalonName] = useState("Your Salon");
 const [tagline, setTagline] = useState("");
 const [logoUrl, setLogoUrl] = useState<string | null>(null);
 
@@ -23,7 +23,7 @@ useEffect(() => {
 
     if (!data) return;
 
-    setSalonName(data.salon_name || "Sun Temple Gosport");
+    setSalonName(data.salon_name || "Your Salon");
     setTagline(data.tagline || "");
     setLogoUrl(data.logo_url || null);
   }

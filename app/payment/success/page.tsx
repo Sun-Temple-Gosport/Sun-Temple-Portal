@@ -36,8 +36,8 @@ function ErrorPage({ message }: { message: string }) {
         <h1 className="mt-4 text-4xl font-bold">{message}</h1>
 
         <p className="mt-6 text-zinc-400">
-          Your payment will not be credited twice. Please contact Sun Temple if
-          you need assistance.
+          Your payment will not be credited twice. Please contact the salon if
+you need assistance.
         </p>
 
         <a
@@ -177,7 +177,7 @@ return (
 </h1>
 
       <p className="mt-6 text-xl text-zinc-300">
-  Welcome to Sun Temple VIP.
+  Welcome to our VIP membership.
 </p>
 
 <p className="mt-4 text-zinc-400">

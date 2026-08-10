@@ -2,9 +2,10 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Sun Temple Gosport | Luxury Tanning Salon",
+  title: "TanSalonOS | Professional Tanning Salon Management Platform",
   description:
-    "Sun Temple Gosport - luxury tanning salon. Buy tanning minutes online, manage your account and track your remaining minutes.",
+  
+  "Professional tanning salon management platform for customer management, online bookings, memberships, payments and live sunbed control.",
 };
 
 export default function RootLayout({

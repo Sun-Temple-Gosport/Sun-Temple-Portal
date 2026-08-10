@@ -31,7 +31,7 @@ export default function Checkout() {
   const [vip, setVip] = useState<VipSettings | null>(null);
   const [customer, setCustomer] = useState<CustomerVip | null>(null);
   const [loading, setLoading] = useState(true);
-  const [salonName, setSalonName] = useState("Sun Temple Gosport");
+  const [salonName, setSalonName] = useState("Your Salon");
 const [tagline, setTagline] = useState("");
 const [logoUrl, setLogoUrl] = useState<string | null>(null);
 
@@ -46,7 +46,7 @@ const [logoUrl, setLogoUrl] = useState<string | null>(null);
 if (brandingError) {
   console.error("Could not load salon branding:", brandingError.message);
 } else if (brandingData) {
-  setSalonName(brandingData.salon_name || "Sun Temple Gosport");
+  setSalonName(brandingData.salon_name || "Your Salon");
   setTagline(brandingData.tagline || "");
   setLogoUrl(brandingData.logo_url || null);
 }

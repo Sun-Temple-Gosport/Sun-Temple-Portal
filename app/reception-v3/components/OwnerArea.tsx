@@ -8,6 +8,7 @@ import StaffManagement from "./StaffManagement";
 import BedManagement from "./BedManagement";
 import LaunchCentre from "./LaunchCentre";
 import type { OwnerView } from "./OwnerTabs";
+import PaymentProviderManager from "./PaymentProviderManager";
 
 type CashUpSale = {
   id: string | number;
@@ -118,22 +119,12 @@ if (ownerView === "launch") {
     <LaunchCentre
       onOpenBusinessSettings={onOpenBusinessSettings}
       onNavigate={(view) => {
-        if (view === "staff") {
-          window.dispatchEvent(
-            new CustomEvent("launch-centre-navigate", {
-              detail: "staff",
-            })
-          );
-        }
-
-        if (view === "beds") {
-          window.dispatchEvent(
-            new CustomEvent("launch-centre-navigate", {
-              detail: "beds",
-            })
-          );
-        }
-      }}
+  window.dispatchEvent(
+    new CustomEvent("launch-centre-navigate", {
+      detail: view,
+    })
+  );
+}}
     />
   );
 }
@@ -182,6 +173,9 @@ if (ownerView === "launch") {
 
   if (ownerView === "beds") {
   return <BedManagement />;
+}
+if (ownerView === "payments") {
+  return <PaymentProviderManager />;
 }
 
   if (ownerView === "staff") {

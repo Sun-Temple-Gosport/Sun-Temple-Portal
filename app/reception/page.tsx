@@ -293,8 +293,10 @@ if (error) {
     <main style={styles.page}>
       <header style={styles.header}>
         <div>
-          <h1 style={styles.title}>☀️ Sun Temple Reception</h1>
-          <p style={styles.subtitle}>Salon control, minutes and live beds</p>
+          <h1 style={styles.title}>☀️ TanSalonOS Reception</h1>
+          <p style={styles.subtitle}>
+  Reception management for your tanning salon
+</p>
         </div>
 
         <div style={styles.statusPill}>

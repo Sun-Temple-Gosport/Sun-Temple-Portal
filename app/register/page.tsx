@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 
+
 export default function RegisterPage() {
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
@@ -11,7 +12,7 @@ export default function RegisterPage() {
   const [password, setPassword] = useState("");
 const [isOver18, setIsOver18] = useState(false);
 const [loading, setLoading] = useState(false);
-const [salonName, setSalonName] = useState("Sun Temple Gosport");
+const [salonName, setSalonName] = useState("Your Salon");
 const [tagline, setTagline] = useState("");
 const [logoUrl, setLogoUrl] = useState<string | null>(null);
 
@@ -30,7 +31,7 @@ useEffect(() => {
 
     if (!data) return;
 
-    setSalonName(data.salon_name || "Sun Temple Gosport");
+    setSalonName(data.salon_name || "Your Salon");
     setTagline(data.tagline || "");
     setLogoUrl(data.logo_url || null);
   }

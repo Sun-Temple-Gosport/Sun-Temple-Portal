@@ -6,12 +6,12 @@ const gallery = [
   ["/reception.jpg", "Luxury reception"],
   ["/megasunbed.jpg", "MegaSun G800"],
   ["/standupbooth.jpg", "Stand-up booth"],
-  ["/hero.jpg", "Sun Temple Gosport"],
+  ["/hero.jpg", "Luxury tanning salon"],
   ["/featurewall.jpg", "Luxury interior"],
 ];
 
 export default function Home() {
-  const [salonName, setSalonName] = useState("Sun Temple Gosport");
+  const [salonName, setSalonName] = useState("Your Salon");
 const [tagline, setTagline] = useState(
   "Luxury tanning salon experience in Gosport."
 );
@@ -43,7 +43,7 @@ useEffect(() => {
 
     if (!data) return;
 
-    setSalonName(data.salon_name || "Sun Temple Gosport");
+    setSalonName(data.salon_name || "Your Salon");
     setTagline(
       data.tagline || "Luxury tanning salon experience in Gosport."
     );

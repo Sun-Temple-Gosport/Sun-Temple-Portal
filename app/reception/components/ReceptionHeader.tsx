@@ -21,7 +21,7 @@ export default function Header({ activeBeds }: Props) {
             color: "#f5c542",
           }}
         >
-          ☀️ Sun Temple Reception
+          🌞 Current Salon Reception
         </h1>
 
         <p

@@ -82,7 +82,7 @@ export default function StaffSetupPage() {
       <section className="w-full max-w-md rounded-3xl border border-slate-800 bg-slate-900 p-7 shadow-2xl">
         <div className="mb-7 text-center">
           <p className="mb-2 text-xs font-black uppercase tracking-[0.25em] text-amber-400">
-            Sun Temple Gosport
+            Current Salon
           </p>
 
           <h1 className="text-3xl font-black text-white">

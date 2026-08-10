@@ -7,6 +7,7 @@ export type OwnerView =
   | "history"
   | "audit"
   | "beds"
+  | "payments"
   | "settings"
   | "staff";
 
@@ -40,7 +41,7 @@ export default function OwnerTabs({
   onClick={() => onSelectView("launch")}
   className={tabClass("launch")}
 >
-  Launch Centre
+  Salon Setup
 </button>
 
 <button

@@ -7,7 +7,7 @@ import { supabase } from "../../lib/supabase";
 export default function MyMinutes() {
   const [profile, setProfile] = useState<any>(null);
   const [balance, setBalance] = useState<any>(null);
-  const [salonName, setSalonName] = useState("Sun Temple Gosport");
+  const [salonName, setSalonName] = useState("Your Salon");
 const [tagline, setTagline] = useState("");
 const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const router = useRouter();
@@ -28,7 +28,7 @@ const [logoUrl, setLogoUrl] = useState<string | null>(null);
 if (brandingError) {
   console.error("Could not load salon branding:", brandingError.message);
 } else if (brandingData) {
-  setSalonName(brandingData.salon_name || "Sun Temple Gosport");
+  setSalonName(brandingData.salon_name || "Your Salon");
   setTagline(brandingData.tagline || "");
   setLogoUrl(brandingData.logo_url || null);
 }

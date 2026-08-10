@@ -34,7 +34,7 @@ export default function BuyMinutes() {
   const [vip, setVip] = useState<VipSettings | null>(null);
   const [customer, setCustomer] = useState<CustomerVip | null>(null);
   const [loading, setLoading] = useState(true);
-  const [salonName, setSalonName] = useState("Sun Temple Gosport");
+  const [salonName, setSalonName] = useState("Your Salon");
 const [tagline, setTagline] = useState("");
 const [logoUrl, setLogoUrl] = useState<string | null>(null);
 
@@ -49,7 +49,7 @@ const [logoUrl, setLogoUrl] = useState<string | null>(null);
 if (brandingError) {
   console.error("Could not load salon branding:", brandingError.message);
 } else if (brandingData) {
-  setSalonName(brandingData.salon_name || "Sun Temple Gosport");
+  setSalonName(brandingData.salon_name || "Your Salon");
   setTagline(brandingData.tagline || "");
   setLogoUrl(brandingData.logo_url || null);
 }
@@ -217,7 +217,7 @@ if (brandingError) {
             <div className="grid gap-6 md:grid-cols-[1fr_190px] md:items-center">
               <div>
                 <p className="text-sm font-bold uppercase tracking-[0.25em] text-[#d6a84f]">
-                  Sun Temple VIP
+                  VIP Membership
                 </p>
 
                 <h2 className="mt-2 text-2xl font-bold md:text-3xl">
