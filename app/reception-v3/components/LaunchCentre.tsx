@@ -24,6 +24,7 @@ type SalonSettings = {
   website_reviewed: boolean;
   registration_test_complete: boolean;
   website_published: boolean;
+  hero_image_url: string | null;
 };
 
 type SetupItem = {
@@ -95,6 +96,7 @@ export default function LaunchCentre({
   const [bedsConfigured, setBedsConfigured] = useState(false);
   const [hasMinutePackages, setHasMinutePackages] = useState(false);
 const [hasVipMembership, setHasVipMembership] = useState(false);
+const [hasSalonPhotos, setHasSalonPhotos] = useState(false);
   
 
 useEffect(() => {
@@ -102,7 +104,7 @@ useEffect(() => {
     const { data, error } = await supabase
       .from("salon_settings")
       .select(
-  "salon_name, logo_url, address, phone, opening_hours, payment_provider, website, website_reviewed, registration_test_complete, website_published"
+  "salon_name, logo_url, hero_image_url, address, phone, opening_hours, payment_provider, website, website_reviewed, registration_test_complete, website_published"
 )
       .eq("id", 1)
       .maybeSingle();
@@ -119,6 +121,22 @@ useEffect(() => {
   }
 
   void loadSalonSettings();
+}, []);
+useEffect(() => {
+  async function loadSalonPhotos() {
+    const { count, error } = await supabase
+      .from("salon_images")
+      .select("id", { count: "exact", head: true });
+
+    if (error) {
+      console.error("Could not load salon photos:", error.message);
+      return;
+    }
+
+    setHasSalonPhotos((count ?? 0) > 0);
+  }
+
+  void loadSalonPhotos();
 }, []);
 useEffect(() => {
   async function loadStaffStatus() {
@@ -211,6 +229,14 @@ const businessDetailsSection: SetupSection = {
       label: "Logo",
       complete: !!salonSettings?.logo_url?.trim(),
     },
+    {
+  label: "Cover photo",
+  complete: !!salonSettings?.hero_image_url?.trim(),
+},
+{
+  label: "Salon photos",
+  complete: hasSalonPhotos,
+},
     {
       label: "Address",
       complete: !!salonSettings?.address?.trim(),
