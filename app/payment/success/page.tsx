@@ -152,6 +152,7 @@ const { data: vipCustomer } = await supabaseAdmin
 const { error: vipSaleError } = await supabaseAdmin
   .from("reception_sales")
   .insert({
+    salon_id: activeVip.salon_id,
     customer_id: activeVip.customer_id,
     customer_name: vipCustomer?.full_name || "Online Customer",
     minutes: 0,
@@ -252,28 +253,30 @@ return (
     return <ErrorPage message="Payment has not been verified as paid." />;
   }
 
-  const { error: transactionError } = await supabaseAdmin
-    .from("minute_transactions")
-    .insert({
-      customer_id: purchase.customer_id,
-      minutes: purchase.minutes_added,
-      transaction_type: "purchase",
-      reason: `Online SumUp purchase - ${checkoutReference}`,
-    });
+ const { error: transactionError } = await supabaseAdmin
+  .from("minute_transactions")
+  .insert({
+    salon_id: purchase.salon_id,
+    customer_id: purchase.customer_id,
+    minutes: purchase.minutes_added,
+    transaction_type: "purchase",
+    reason: `Online SumUp purchase - ${checkoutReference}`,
+  });
 
   if (transactionError) {
     return <ErrorPage message="The payment was verified, but the minutes could not be recorded." />;
   }
 
   const { error: batchError } = await supabaseAdmin
-    .from("minute_batches")
-    .insert({
-      customer_id: purchase.customer_id,
-      purchase_id: purchase.id,
-      minutes_added: purchase.minutes_added,
-      minutes_remaining: purchase.minutes_added,
-      expires_at: purchase.expiry_date,
-    });
+  .from("minute_batches")
+  .insert({
+    salon_id: purchase.salon_id,
+    customer_id: purchase.customer_id,
+    purchase_id: purchase.id,
+    minutes_added: purchase.minutes_added,
+    minutes_remaining: purchase.minutes_added,
+    expires_at: purchase.expiry_date,
+  });
 
   if (batchError) {
     await supabaseAdmin
@@ -331,6 +334,7 @@ if (!updatedPurchase) {
 const { error: saleError } = await supabaseAdmin
   .from("reception_sales")
   .insert({
+    salon_id: purchase.salon_id,
     customer_id: purchase.customer_id,
     customer_name: customer?.full_name || "Online Customer",
     minutes: purchase.minutes_added,
@@ -346,6 +350,7 @@ if (saleError) {
 const { error: auditError } = await supabaseAdmin
   .from("audit_log")
   .insert({
+    salon_id: purchase.salon_id,
     staff_id: null,
     staff_name: "Online Sale",
     action: "Package Sold",
