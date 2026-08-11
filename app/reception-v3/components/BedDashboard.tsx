@@ -49,8 +49,8 @@ export default function BedDashboard({
   }, []);
 
   const activeSessions = sessions.filter(
-    (session) => session.status === "active"
-  );
+  (session) => session.status === "occupied"
+);
 
   const selectedBedSession = activeSessions.find(
     (session) => session.bed_name === selectedBed
