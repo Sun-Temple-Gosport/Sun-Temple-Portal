@@ -965,7 +965,9 @@ return true;
   }
 }
 
-  const activeBeds = sessions.filter((session) => session.status === "active");
+  const activeBeds = sessions.filter(
+  (session) => session.status === "occupied"
+);
 
   const bedsRunning = activeBeds.filter(
     (session) => new Date(session.ends_at).getTime() > Date.now()
