@@ -27,6 +27,7 @@ export async function POST(request: Request) {
       { data: pkg, error: packageError },
       { data: customer, error: customerError },
       { data: vipSettings, error: vipError },
+      { data: salonSettings, error: salonSettingsError },
     ] = await Promise.all([
       supabaseAdmin
         .from("packages")
@@ -45,6 +46,12 @@ export async function POST(request: Request) {
       supabaseAdmin
         .from("vip_settings")
         .select("discount_percent, course_expiry_days")
+        .eq("id", 1)
+        .maybeSingle(),
+
+      supabaseAdmin
+        .from("salon_settings")
+        .select("salon_id")
         .eq("id", 1)
         .maybeSingle(),
     ]);
@@ -76,6 +83,18 @@ export async function POST(request: Request) {
       );
     }
 
+    if (salonSettingsError) {
+      console.error(
+        "Salon settings lookup failed:",
+        salonSettingsError
+      );
+
+      return NextResponse.json(
+        { error: "Could not load salon settings." },
+        { status: 500 }
+      );
+    }
+
     if (!pkg) {
       return NextResponse.json(
         { error: "Package is unavailable." },
@@ -87,6 +106,13 @@ export async function POST(request: Request) {
       return NextResponse.json(
         { error: "Customer account was not found." },
         { status: 404 }
+      );
+    }
+
+    if (!salonSettings?.salon_id) {
+      return NextResponse.json(
+        { error: "Salon configuration is missing." },
+        { status: 500 }
       );
     }
 
@@ -119,6 +145,7 @@ export async function POST(request: Request) {
     const { error: purchaseError } = await supabaseAdmin
       .from("purchases")
       .insert({
+        salon_id: salonSettings.salon_id,
         customer_id: customer.customer_id,
         package_id: pkg.id,
         minutes_added: pkg.minutes,
