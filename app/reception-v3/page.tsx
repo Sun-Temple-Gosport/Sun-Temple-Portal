@@ -944,9 +944,9 @@ setRecentCustomers((prev) => {
     }
 
     showMessage(`${bedName} started for ${minutes} minutes.`);
-    await refreshSelectedCustomer();
-    await refreshDashboardStats();
-    return true;
+await loadActiveSessions();
+await refreshDashboardStats();
+return true;
   }
 
   async function finishBedSession(sessionId: string) {
