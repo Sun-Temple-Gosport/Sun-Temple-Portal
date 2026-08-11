@@ -926,9 +926,6 @@ setRecentCustomers((prev) => {
       return false;
     }
 
-    const deducted = await deductMinutes(minutes);
-    if (!deducted) return false;
-
     const startedAt = new Date();
     const endsAt = new Date(startedAt.getTime() + minutes * 60 * 1000);
 
