@@ -27,16 +27,13 @@ export async function startBedSession(
   startedAt: string,
   endsAt: string
 ) {
-  return await supabase.from("bed_sessions").insert({
-    customer_id: customerId,
-    customer_name: customerName,
-    bed_name: bedName,
-    minutes,
-    started_at: startedAt,
-    ends_at: endsAt,
-    status: "active",
+  return await supabase.rpc("start_bed_session", {
+    p_customer_id: customerId,
+    p_bed_name: bedName,
+    p_minutes: minutes,
   });
 }
+
 export async function loadCustomersToday(startOfToday: string) {
   return await supabase
     .from("bed_sessions")
