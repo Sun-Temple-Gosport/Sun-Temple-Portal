@@ -44,6 +44,6 @@ export async function loadActiveSessions() {
   return await supabase
     .from("bed_sessions")
     .select("*")
-    .eq("status", "active")
+    .eq("status", "occupied")
     .order("started_at", { ascending: false });
 }
