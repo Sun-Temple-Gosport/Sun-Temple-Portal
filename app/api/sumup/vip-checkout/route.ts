@@ -17,20 +17,37 @@ export async function POST(request: Request) {
       );
     }
 
-    const { data: vipSettings, error: settingsError } = await supabaseAdmin
-      .from("vip_settings")
-      .select("price, duration_days")
-      .eq("id", 1)
-      .single();
+   const { data: customer, error: customerError } = await supabaseAdmin
+  .from("customers")
+  .select("salon_id")
+  .eq("customer_id", body.customerId)
+  .maybeSingle();
 
-    if (settingsError || !vipSettings) {
-      console.error("VIP settings load failed:", settingsError);
+if (customerError || !customer?.salon_id) {
+  console.error("VIP checkout customer lookup failed:", customerError);
 
-      return NextResponse.json(
-        { error: "Could not load VIP membership settings." },
-        { status: 500 }
-      );
-    }
+  return NextResponse.json(
+    {
+      error: "Could not determine customer salon.",
+    },
+    { status: 500 }
+  );
+}
+
+const { data: vipSettings, error: settingsError } = await supabaseAdmin
+  .from("vip_settings")
+  .select("price, duration_days")
+  .eq("salon_id", customer.salon_id)
+  .maybeSingle();
+
+if (settingsError || !vipSettings) {
+  console.error("VIP settings load failed:", settingsError);
+
+  return NextResponse.json(
+    { error: "Could not load VIP membership settings." },
+    { status: 500 }
+  );
+}
 
     const normalPrice = Number(vipSettings.price);
 
@@ -45,14 +62,15 @@ export async function POST(request: Request) {
     );
 
     const { error: membershipError } = await supabaseAdmin
-      .from("vip_memberships")
-      .insert({
-        customer_id: body.customerId,
-        amount_paid: checkoutAmount,
-        checkout_reference: body.checkoutReference,
-        payment_status: "pending",
-        expires_at: expiresAt.toISOString(),
-      });
+  .from("vip_memberships")
+  .insert({
+    customer_id: body.customerId,
+    amount_paid: checkoutAmount,
+    checkout_reference: body.checkoutReference,
+    payment_status: "pending",
+    expires_at: expiresAt.toISOString(),
+    salon_id: customer.salon_id,
+  });
 
     if (membershipError) {
       console.error("VIP membership insert failed:", membershipError);
