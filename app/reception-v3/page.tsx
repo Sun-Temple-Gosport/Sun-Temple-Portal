@@ -198,12 +198,24 @@ const {
     return;
   }
 
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("salon_id")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (profileError || !profile?.salon_id) {
+    console.error("Audit log skipped: salon could not be determined.", profileError);
+    return;
+  }
+
   const { error } = await supabase.from("audit_log").insert({
     staff_id: user.id,
     staff_name: userName || "Staff User",
     action,
     customer_name: customerName || null,
     details: details || null,
+    salon_id: profile.salon_id,
   });
 
   if (error) {
@@ -921,33 +933,36 @@ setRecentCustomers((prev) => {
   }
 
   async function startBedSession(bedName: string, minutes: number) {
-    if (!selectedCustomer) {
-      showMessage("Please select a customer first.");
-      return false;
-    }
-
-    const startedAt = new Date();
-    const endsAt = new Date(startedAt.getTime() + minutes * 60 * 1000);
-
-    const { error } = await startBedSessionService(
-  selectedCustomer.customer_id,
-  selectedCustomer.full_name || "Customer",
-  bedName,
-  minutes,
-  startedAt.toISOString(),
-  endsAt.toISOString()
-);
-
-    if (error) {
-      showMessage(error.message);
-      return false;
-    }
-
-    showMessage(`${bedName} started for ${minutes} minutes.`);
-await loadActiveSessions();
-await refreshDashboardStats();
-return true;
+  if (!selectedCustomer) {
+    showMessage("Please select a customer first.");
+    return false;
   }
+
+  const startedAt = new Date();
+  const endsAt = new Date(startedAt.getTime() + minutes * 60 * 1000);
+
+  const { error } = await startBedSessionService(
+    selectedCustomer.customer_id,
+    selectedCustomer.full_name || "Customer",
+    bedName,
+    minutes,
+    startedAt.toISOString(),
+    endsAt.toISOString()
+  );
+
+  if (error) {
+    showMessage(error.message);
+    return false;
+  }
+
+  showMessage(`${bedName} started for ${minutes} minutes.`);
+
+  await refreshSelectedCustomer();
+  await loadActiveSessions();
+  await refreshDashboardStats();
+
+  return true;
+}
 
   async function finishBedSession(sessionId: string) {
   const { error } = await finishBedSessionService(sessionId);
