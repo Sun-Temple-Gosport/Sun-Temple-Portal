@@ -23,38 +23,55 @@ export async function POST(request: Request) {
       );
     }
 
-    const [
-      { data: pkg, error: packageError },
-      { data: customer, error: customerError },
-      { data: vipSettings, error: vipError },
-      { data: salonSettings, error: salonSettingsError },
-    ] = await Promise.all([
-      supabaseAdmin
-        .from("packages")
-        .select("id, name, minutes, price, expiry_days, active")
-        .eq("id", body.packageId)
-        .eq("active", true)
-        .gte("minutes", 30)
-        .maybeSingle(),
+    const { data: customer, error: customerError } = await supabaseAdmin
+  .from("customers")
+  .select("customer_id, vip_expires_at, salon_id")
+  .eq("customer_id", body.customerId)
+  .maybeSingle();
 
-      supabaseAdmin
-        .from("customers")
-        .select("customer_id, vip_expires_at")
-        .eq("customer_id", body.customerId)
-        .maybeSingle(),
+if (customerError) {
+  console.error("Customer lookup failed:", customerError);
 
-      supabaseAdmin
-        .from("vip_settings")
-        .select("discount_percent, course_expiry_days")
-        .eq("id", 1)
-        .maybeSingle(),
+  return NextResponse.json(
+    { error: "Could not load customer. " },
+    { status: 500 }
+  );
+}
 
-      supabaseAdmin
-        .from("salon_settings")
-        .select("salon_id")
-        .eq("id", 1)
-        .maybeSingle(),
-    ]);
+if (!customer?.salon_id) {
+  console.error("Customer salon could not be determined.");
+
+  return NextResponse.json(
+    { error: "Could not determine customer salon. " },
+    { status: 500 }
+  );
+}
+
+const [
+  { data: pkg, error: packageError },
+  { data: vipSettings, error: vipError },
+  { data: salonSettings, error: salonSettingsError },
+] = await Promise.all([
+  supabaseAdmin
+    .from("packages")
+    .select("id, name, minutes, price, expiry_days, active")
+    .eq("id", body.packageId)
+    .eq("active", true)
+    .gte("minutes", 30)
+    .maybeSingle(),
+
+  supabaseAdmin
+    .from("vip_settings")
+    .select("discount_percent, course_expiry_days")
+    .eq("salon_id", customer.salon_id)
+    .maybeSingle(),
+
+  supabaseAdmin
+    .from("salon_settings")
+    .select("salon_id")
+    .eq("salon_id", customer.salon_id)
+    .maybeSingle(),
+]);
 
     if (packageError) {
       console.error("Package lookup failed:", packageError);
