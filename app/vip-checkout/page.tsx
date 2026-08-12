@@ -16,7 +16,32 @@ type SalonBranding = {
 };
 
 export default async function VipCheckoutPage() {
- const [
+ const {
+  data: { user },
+} = await supabase.auth.getUser();
+
+if (!user) {
+  console.error("Could not load VIP settings: no authenticated user.");
+  return null;
+}
+
+const { data: profile, error: profileError } = await supabase
+  .from("profiles")
+  .select("salon_id")
+  .eq("id", user.id)
+  .maybeSingle();
+
+if (profileError || !profile?.salon_id) {
+  console.error(
+    "Could not load VIP settings: salon could not be determined.",
+    profileError
+  );
+  return null;
+}
+
+const salonId = profile.salon_id;
+
+const [
   { data: vipData, error: vipError },
   { data: brandingData, error: brandingError },
 ] = await Promise.all([
@@ -25,13 +50,13 @@ export default async function VipCheckoutPage() {
     .select(
       "id, price, discount_percent, duration_days, course_expiry_days"
     )
-    .eq("id", 1)
+    .eq("salon_id", salonId)
     .maybeSingle(),
 
   supabase
     .from("salon_settings")
     .select("salon_name, tagline, logo_url")
-    .eq("id", 1)
+    .eq("salon_id", salonId)
     .maybeSingle(),
 ]);
 
@@ -45,7 +70,6 @@ if (brandingError) {
     brandingError.message
   );
 }
-
 const vip = vipData as VipSettings | null;
 const branding = brandingData as SalonBranding | null;
 
