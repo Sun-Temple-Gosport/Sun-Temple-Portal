@@ -268,20 +268,44 @@ const {
     setAuthLoaded(true);
   }
   async function loadSalonSettings() {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    console.error("Could not load salon settings: no authenticated user.");
+    return;
+  }
+
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("salon_id")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (profileError || !profile?.salon_id) {
+    console.error(
+      "Could not load salon settings: salon could not be determined.",
+      profileError
+    );
+    return;
+  }
+
   const { data, error } = await supabase
     .from("salon_settings")
     .select("salon_name, tagline, logo_url")
-    .eq("id", 1)
+    .eq("salon_id", profile.salon_id)
     .maybeSingle();
-    if (data?.logo_url?.trim()) {
-  setSalonLogoUrl(data.logo_url.trim());
-} else {
-  setSalonLogoUrl(null);
-}
 
   if (error) {
     console.error("Could not load salon settings:", error.message);
     return;
+  }
+
+  if (data?.logo_url?.trim()) {
+    setSalonLogoUrl(data.logo_url.trim());
+  } else {
+    setSalonLogoUrl(null);
   }
 
   if (data?.salon_name?.trim()) {
