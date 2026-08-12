@@ -138,7 +138,7 @@ const [activities, setActivities] = useState<Activity[]>(() => {
   const [ownerView, setOwnerView] = useState<OwnerView>("dashboard");
   const [userRole, setUserRole] = useState<UserRole>("customer");
   const [userName, setUserName] = useState("Staff User");
-const [salonName, setSalonName] = useState("Sun Temple");
+const [salonName, setSalonName] = useState("Salon");
 const [salonTagline, setSalonTagline] = useState(
   "Salon control, customers, minutes and live beds"
   );

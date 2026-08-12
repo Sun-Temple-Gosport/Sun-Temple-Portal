@@ -17,7 +17,7 @@ export default function ReceptionHeader({
   activeBeds,
   userName,
   userRole,
-  salonName = "Sun Temple",
+  salonName = "Salon",
   tagline = "Professional tanning salon management platform",
   logoUrl = null,
 }: Props) {
