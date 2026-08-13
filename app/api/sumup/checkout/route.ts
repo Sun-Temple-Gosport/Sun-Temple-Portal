@@ -220,11 +220,12 @@ const [
       console.error("SumUp checkout failed:", data);
 
       await supabaseAdmin
-        .from("purchases")
-        .update({
-          payment_status: "failed",
-        })
-        .eq("checkout_reference", body.checkoutReference);
+  .from("purchases")
+  .update({
+    payment_status: "failed",
+  })
+  .eq("checkout_reference", body.checkoutReference)
+  .eq("salon_id", customer.salon_id);
 
       return NextResponse.json(
         {
@@ -237,11 +238,12 @@ const [
 
     if (data.id) {
       const { error: checkoutUpdateError } = await supabaseAdmin
-        .from("purchases")
-        .update({
-          sumup_checkout_id: data.id,
-        })
-        .eq("checkout_reference", body.checkoutReference);
+  .from("purchases")
+  .update({
+    sumup_checkout_id: data.id,
+  })
+  .eq("checkout_reference", body.checkoutReference)
+  .eq("salon_id", customer.salon_id);
 
       if (checkoutUpdateError) {
         console.error(
