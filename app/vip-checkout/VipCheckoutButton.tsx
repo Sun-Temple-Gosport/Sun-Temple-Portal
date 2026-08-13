@@ -35,24 +35,46 @@ export default function VipCheckoutButton({
         return;
       }
 
-      const { data: customer, error: customerError } = await supabase
-        .from("customers")
-        .select("customer_id")
-        .eq("email", user.email)
-        .maybeSingle();
+      const { data: profile, error: profileError } = await supabase
+  .from("profiles")
+  .select("customer_id, salon_id")
+  .eq("id", user.id)
+  .maybeSingle();
 
-      if (customerError) {
-        console.error("Customer lookup failed:", customerError);
-        alert("Unable to find your customer account.");
-        return;
-      }
+if (profileError) {
+  console.error("Profile lookup failed:", profileError);
+  alert("Unable to find your customer account.");
+  return;
+}
 
-      if (!customer) {
-        alert(
-          "Your login is not connected to a customer account. Please contact reception."
-        );
-        return;
-      }
+if (!profile?.salon_id) {
+  alert(
+    "Your login is not connected to a salon. Please contact reception."
+  );
+  return;
+}
+
+const customerId = profile.customer_id || user.id;
+
+const { data: customer, error: customerError } = await supabase
+  .from("customers")
+  .select("customer_id")
+  .eq("customer_id", customerId)
+  .eq("salon_id", profile.salon_id)
+  .maybeSingle();
+
+if (customerError) {
+  console.error("Customer lookup failed:", customerError);
+  alert("Unable to find your customer account.");
+  return;
+}
+
+if (!customer) {
+  alert(
+    "Your login is not connected to a customer account. Please contact reception."
+  );
+  return;
+}
 
       const checkoutReference = `vip-${Date.now()}`;
 
