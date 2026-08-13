@@ -140,7 +140,8 @@ const { error: checkoutUpdateError } = await supabaseAdmin
   .update({
     sumup_checkout_id: data.id,
   })
-  .eq("checkout_reference", body.checkoutReference);
+  .eq("checkout_reference", body.checkoutReference)
+  .eq("salon_id", customer.salon_id);
 
 if (checkoutUpdateError) {
   console.error(
