@@ -56,6 +56,7 @@ const [
     .from("packages")
     .select("id, name, minutes, price, expiry_days, active")
     .eq("id", body.packageId)
+    .eq("salon_id", customer.salon_id)
     .eq("active", true)
     .gte("minutes", 30)
     .maybeSingle(),
