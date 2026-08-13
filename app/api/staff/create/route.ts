@@ -54,20 +54,35 @@ export async function POST(request: Request) {
     }
 
     const { data: ownerProfile, error: ownerError } = await admin
-      .from("profiles")
-      .select("role")
-      .eq("id", user.id)
-      .maybeSingle();
+  .from("profiles")
+  .select("role, salon_id")
+  .eq("id", user.id)
+  .maybeSingle();
 
     if (
-      ownerError ||
-      ownerProfile?.role?.toLowerCase() !== "owner"
-    ) {
-      return NextResponse.json(
-        { error: "Owner access required." },
-        { status: 403 }
-      );
-    }
+  ownerError ||
+  ownerProfile?.role?.toLowerCase() !== "owner" ||
+  !ownerProfile.salon_id
+) {
+  return NextResponse.json(
+    { error: "Owner access required." },
+    { status: 403 }
+  );
+}
+const { data: ownerSalon, error: ownerSalonError } = await admin
+  .from("salons")
+  .select("slug")
+  .eq("id", ownerProfile.salon_id)
+  .maybeSingle();
+
+if (ownerSalonError || !ownerSalon?.slug) {
+  console.error("Owner salon lookup failed:", ownerSalonError);
+
+  return NextResponse.json(
+    { error: "Could not determine owner salon." },
+    { status: 500 }
+  );
+}
 
     const body = await request.json();
 
@@ -97,9 +112,10 @@ export async function POST(request: Request) {
 const { data, error } =
   await admin.auth.admin.inviteUserByEmail(email, {
     data: {
-      full_name: fullName,
-      role: "staff",
-    },
+  full_name: fullName,
+  role: "staff",
+  salon_slug: ownerSalon.slug,
+},
     redirectTo: `${siteUrl}/staff-setup`,
   });
 
@@ -111,13 +127,14 @@ const { data, error } =
     }
 
     const { error: profileError } = await admin
-      .from("profiles")
-      .update({
-        full_name: fullName,
-        email,
-        role: "staff",
-      })
-      .eq("id", data.user.id);
+  .from("profiles")
+  .update({
+    full_name: fullName,
+    email,
+    role: "staff",
+    salon_id: ownerProfile.salon_id,
+  })
+  .eq("id", data.user.id);
 
     if (profileError) {
       return NextResponse.json(
@@ -127,12 +144,13 @@ const { data, error } =
     }
 
     const { error: customerError } = await admin
-      .from("customers")
-      .update({
-        full_name: fullName,
-        email,
-      })
-      .eq("customer_id", data.user.id);
+  .from("customers")
+  .update({
+    full_name: fullName,
+    email,
+  })
+  .eq("customer_id", data.user.id)
+  .eq("salon_id", ownerProfile.salon_id);
 
     if (customerError) {
       return NextResponse.json(
