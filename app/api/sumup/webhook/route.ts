@@ -116,13 +116,14 @@ export async function POST(request: Request) {
 
     if (!existingBatch) {
       const { error: transactionError } = await supabaseAdmin
-        .from("minute_transactions")
-        .insert({
-          customer_id: purchase.customer_id,
-          minutes: purchase.minutes_added,
-          transaction_type: "purchase",
-          reason: `Online SumUp purchase - ${checkout.checkout_reference}`,
-        });
+  .from("minute_transactions")
+  .insert({
+    salon_id: purchase.salon_id,
+    customer_id: purchase.customer_id,
+    minutes: purchase.minutes_added,
+    transaction_type: "purchase",
+    reason: `Online SumUp purchase - ${checkout.checkout_reference}`,
+  });
 
       if (transactionError) {
         console.error(
@@ -137,14 +138,15 @@ export async function POST(request: Request) {
       }
 
       const { error: batchError } = await supabaseAdmin
-        .from("minute_batches")
-        .insert({
-          customer_id: purchase.customer_id,
-          purchase_id: purchase.id,
-          minutes_added: purchase.minutes_added,
-          minutes_remaining: purchase.minutes_added,
-          expires_at: purchase.expiry_date,
-        });
+  .from("minute_batches")
+  .insert({
+    salon_id: purchase.salon_id,
+    customer_id: purchase.customer_id,
+    purchase_id: purchase.id,
+    minutes_added: purchase.minutes_added,
+    minutes_remaining: purchase.minutes_added,
+    expires_at: purchase.expiry_date,
+  });
 
       if (batchError) {
         await supabaseAdmin
@@ -199,6 +201,7 @@ if (customerError) {
 const { error: receptionSaleError } = await supabaseAdmin
   .from("reception_sales")
   .insert({
+    salon_id: purchase.salon_id,
     customer_id: purchase.customer_id,
     customer_name: customer?.full_name || null,
     amount: purchase.amount_paid,
@@ -216,6 +219,7 @@ if (receptionSaleError) {
 const { error: auditError } = await supabaseAdmin
   .from("audit_log")
   .insert({
+    salon_id: purchase.salon_id,
     staff_id: null,
     staff_name: "Online Sale",
     action: "Package Sold",
