@@ -1,4 +1,7 @@
-export const dynamic = "force-dynamic";
+"use client";
+
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import VipCheckoutButton from "./VipCheckoutButton";
 import { supabase } from "@/lib/supabase";
 
@@ -10,20 +13,112 @@ type VipSettings = {
   course_expiry_days: number;
 };
 
-export default async function VipCheckoutPage() {
-  const { data, error } = await supabase
-    .from("vip_settings")
-    .select(
-      "id, price, discount_percent, duration_days, course_expiry_days"
-    )
-    .eq("id", 1)
-    .maybeSingle();
+export default function VipCheckoutPage() {
+  const router = useRouter();
 
-  if (error) {
-    console.error("Failed to load VIP settings:", error.message);
+  const [vip, setVip] = useState<VipSettings | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [salonName, setSalonName] = useState("Your Salon");
+  const [tagline, setTagline] = useState("");
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function loadVipCheckout() {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) {
+        router.replace("/login");
+        return;
+      }
+
+      const { data: profile, error: profileError } = await supabase
+        .from("profiles")
+        .select("customer_id, salon_id")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      if (profileError) {
+        console.error("Failed to load profile:", profileError.message);
+        setLoading(false);
+        return;
+      }
+
+      if (!profile?.salon_id) {
+        console.error("Customer salon could not be determined.");
+        setLoading(false);
+        return;
+      }
+
+      const customerId = profile.customer_id || user.id;
+
+      const { data: customer, error: customerError } = await supabase
+        .from("customers")
+        .select("customer_id")
+        .eq("customer_id", customerId)
+        .eq("salon_id", profile.salon_id)
+        .maybeSingle();
+
+      if (customerError || !customer) {
+        console.error(
+          "Customer lookup failed:",
+          customerError?.message
+        );
+        setLoading(false);
+        return;
+      }
+
+      const [
+        { data: vipData, error: vipError },
+        { data: brandingData, error: brandingError },
+      ] = await Promise.all([
+        supabase
+          .from("vip_settings")
+          .select(
+            "id, price, discount_percent, duration_days, course_expiry_days"
+          )
+          .eq("salon_id", profile.salon_id)
+          .maybeSingle(),
+
+        supabase
+          .from("salon_settings")
+          .select("salon_name, tagline, logo_url")
+          .eq("salon_id", profile.salon_id)
+          .maybeSingle(),
+      ]);
+
+      if (vipError) {
+        console.error("Failed to load VIP settings:", vipError.message);
+      }
+
+      if (brandingError) {
+        console.error(
+          "Could not load salon branding:",
+          brandingError.message
+        );
+      }
+
+      if (brandingData) {
+        setSalonName(brandingData.salon_name || "Your Salon");
+        setTagline(brandingData.tagline || "");
+        setLogoUrl(brandingData.logo_url || null);
+      }
+
+      setVip(vipData as VipSettings | null);
+      setLoading(false);
+    }
+
+    void loadVipCheckout();
+  }, [router]);
+
+  if (loading) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-[#050505] px-6 text-white">
+        <p className="text-zinc-400">Loading VIP membership...</p>
+      </main>
+    );
   }
-
-  const vip = data as VipSettings | null;
 
   if (!vip) {
     return (
@@ -42,13 +137,33 @@ export default async function VipCheckoutPage() {
   return (
     <main className="flex min-h-screen items-center justify-center bg-[#050505] px-6 py-12 text-white">
       <div className="w-full max-w-[520px] rounded-3xl border border-[#d6a84f]/40 bg-[#111] p-8 md:p-10">
-        <p className="font-semibold uppercase tracking-[0.25em] text-[#d6a84f]">
-          Sun Temple VIP
-        </p>
+        <div className="flex items-center gap-4">
+          {logoUrl ? (
+            <img
+              src={logoUrl}
+              alt={`${salonName} logo`}
+              className="h-24 w-24 rounded-2xl bg-[#111] object-cover"
+            />
+          ) : (
+            <span className="text-5xl">☀️</span>
+          )}
 
-        <h1 className="mt-3 text-4xl font-bold">VIP Membership</h1>
+          <div>
+            <p className="font-semibold uppercase tracking-[0.25em] text-[#d6a84f]">
+              {salonName} VIP
+            </p>
 
-        <p className="mt-4 text-zinc-300">
+            <h1 className="mt-2 text-4xl font-bold">
+              VIP Membership
+            </h1>
+          </div>
+        </div>
+
+        {tagline && (
+          <p className="mt-5 text-zinc-400">{tagline}</p>
+        )}
+
+        <p className="mt-6 text-zinc-300">
           Save {vip.discount_percent}% on every minute package for the next
           12 months.
         </p>
