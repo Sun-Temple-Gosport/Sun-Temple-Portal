@@ -136,7 +136,8 @@ const { error: customerUpdateError } = await supabaseAdmin
   .update({
     vip_expires_at: activeVip.expires_at,
   })
-  .eq("customer_id", activeVip.customer_id);
+  .eq("customer_id", activeVip.customer_id)
+  .eq("salon_id", activeVip.salon_id);
 
 if (customerUpdateError) {
   return (
@@ -147,6 +148,7 @@ const { data: vipCustomer } = await supabaseAdmin
   .from("customers")
   .select("full_name")
   .eq("customer_id", activeVip.customer_id)
+  .eq("salon_id", activeVip.salon_id)
   .maybeSingle();
 
 const { error: vipSaleError } = await supabaseAdmin
@@ -329,6 +331,7 @@ if (!updatedPurchase) {
   .from("customers")
   .select("full_name")
   .eq("customer_id", purchase.customer_id)
+  .eq("salon_id", purchase.salon_id)
   .maybeSingle();
 
 const { error: saleError } = await supabaseAdmin
