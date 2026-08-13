@@ -189,6 +189,7 @@ const { data: customer, error: customerError } = await supabaseAdmin
   .from("customers")
   .select("full_name")
   .eq("customer_id", purchase.customer_id)
+  .eq("salon_id", purchase.salon_id)
   .maybeSingle();
 
 if (customerError) {
