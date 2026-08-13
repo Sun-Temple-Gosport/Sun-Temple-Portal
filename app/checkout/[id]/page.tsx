@@ -20,7 +20,9 @@ type VipSettings = {
 };
 
 type CustomerVip = {
+  customer_id: string;
   vip_expires_at: string | null;
+  salon_id: string;
 };
 
 export default function Checkout() {
@@ -37,19 +39,7 @@ const [logoUrl, setLogoUrl] = useState<string | null>(null);
 
   useEffect(() => {
     async function loadCheckout() {
-      const { data: brandingData, error: brandingError } = await supabase
-  .from("salon_settings")
-  .select("salon_name, tagline, logo_url")
-  .limit(1)
-  .maybeSingle();
-
-if (brandingError) {
-  console.error("Could not load salon branding:", brandingError.message);
-} else if (brandingData) {
-  setSalonName(brandingData.salon_name || "Your Salon");
-  setTagline(brandingData.tagline || "");
-  setLogoUrl(brandingData.logo_url || null);
-}
+      
       const {
         data: { user },
       } = await supabase.auth.getUser();
@@ -66,31 +56,57 @@ if (brandingError) {
         return;
       }
 
-      const [
-        { data: packageData, error: packageError },
-        { data: vipData, error: vipError },
-        { data: customerData, error: customerError },
-      ] = await Promise.all([
-        supabase
-          .from("packages")
-          .select("id, name, minutes, price, expiry_days, active")
-          .eq("id", packageId)
-          .eq("active", true)
-          .gte("minutes", 30)
-          .maybeSingle(),
-
-        supabase
-          .from("vip_settings")
-          .select("discount_percent, course_expiry_days")
-          .eq("id", 1)
-          .maybeSingle(),
-
-        supabase
+      const { data: customerData, error: customerError } = await supabase
   .from("customers")
-  .select("vip_expires_at")
-  .eq("customer_id", user.id)
-  .maybeSingle(),
-      ]);
+  .select("customer_id, vip_expires_at, salon_id")
+  .eq("email", user.email)
+  .maybeSingle();
+
+if (customerError) {
+  console.error(
+    "Failed to load customer VIP status:",
+    customerError.message
+  );
+}
+
+if (!customerData?.salon_id) {
+  console.error("Customer salon could not be determined.");
+  setLoading(false);
+  return;
+}
+const { data: brandingData, error: brandingError } = await supabase
+  .from("salon_settings")
+  .select("salon_name, tagline, logo_url")
+  .eq("salon_id", customerData.salon_id)
+  .maybeSingle();
+
+if (brandingError) {
+  console.error("Could not load salon branding:", brandingError.message);
+} else if (brandingData) {
+  setSalonName(brandingData.salon_name || "Your Salon");
+  setTagline(brandingData.tagline || "");
+  setLogoUrl(brandingData.logo_url || null);
+}
+
+const [
+  { data: packageData, error: packageError },
+  { data: vipData, error: vipError },
+] = await Promise.all([
+  supabase
+    .from("packages")
+    .select("id, name, minutes, price, expiry_days, active")
+    .eq("id", packageId)
+    .eq("salon_id", customerData.salon_id)
+    .eq("active", true)
+    .gte("minutes", 30)
+    .maybeSingle(),
+
+  supabase
+    .from("vip_settings")
+    .select("discount_percent, course_expiry_days")
+    .eq("salon_id", customerData.salon_id)
+    .maybeSingle(),
+]);
 
       if (packageError) {
         console.error("Failed to load package:", packageError.message);
@@ -100,13 +116,7 @@ if (brandingError) {
         console.error("Failed to load VIP settings:", vipError.message);
       }
 
-      if (customerError) {
-        console.error(
-          "Failed to load customer VIP status:",
-          customerError.message
-        );
-      }
-
+      
       setPkg(packageData as PackageOption | null);
       setVip(vipData as VipSettings | null);
       setCustomer(customerData as CustomerVip | null);
