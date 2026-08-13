@@ -19,19 +19,7 @@ const [logoUrl, setLogoUrl] = useState<string | null>(null);
 
   useEffect(() => {
     async function loadCustomer() {
-      const { data: brandingData, error: brandingError } = await supabase
-  .from("salon_settings")
-  .select("salon_name, tagline, logo_url")
-  .limit(1)
-  .maybeSingle();
-
-if (brandingError) {
-  console.error("Could not load salon branding:", brandingError.message);
-} else if (brandingData) {
-  setSalonName(brandingData.salon_name || "Your Salon");
-  setTagline(brandingData.tagline || "");
-  setLogoUrl(brandingData.logo_url || null);
-}
+      
       const {
         data: { user },
       } = await supabase.auth.getUser();
@@ -53,14 +41,30 @@ if (brandingError) {
           profileError.message
         );
       }
+      if (profileData?.salon_id) {
+  const { data: brandingData, error: brandingError } = await supabase
+    .from("salon_settings")
+    .select("salon_name, tagline, logo_url")
+    .eq("salon_id", profileData.salon_id)
+    .maybeSingle();
+
+  if (brandingError) {
+    console.error("Could not load salon branding:", brandingError.message);
+  } else if (brandingData) {
+    setSalonName(brandingData.salon_name || "Your Salon");
+    setTagline(brandingData.tagline || "");
+    setLogoUrl(brandingData.logo_url || null);
+  }
+}
 
       const customerId = profileData?.customer_id || user.id;
 
       const { data: balanceData, error: balanceError } = await supabase
-        .from("customer_balances")
-        .select("*")
-        .eq("customer_id", customerId)
-        .maybeSingle();
+  .from("customer_balances")
+  .select("*")
+  .eq("customer_id", customerId)
+  .eq("salon_id", profileData?.salon_id)
+  .maybeSingle();
         
 
       if (balanceError) {
