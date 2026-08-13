@@ -54,20 +54,21 @@ export async function POST(request: Request) {
     }
 
     const { data: ownerProfile, error: ownerError } = await admin
-      .from("profiles")
-      .select("role")
-      .eq("id", user.id)
-      .maybeSingle();
+  .from("profiles")
+  .select("role, salon_id")
+  .eq("id", user.id)
+  .maybeSingle();
 
     if (
-      ownerError ||
-      ownerProfile?.role?.toLowerCase() !== "owner"
-    ) {
-      return NextResponse.json(
-        { error: "Owner access required." },
-        { status: 403 }
-      );
-    }
+  ownerError ||
+  ownerProfile?.role?.toLowerCase() !== "owner" ||
+  !ownerProfile.salon_id
+) {
+  return NextResponse.json(
+    { error: "Owner access required." },
+    { status: 403 }
+  );
+}
 
     const body = await request.json();
 
@@ -91,11 +92,11 @@ export async function POST(request: Request) {
     }
 
     const { data: staffProfile, error: staffProfileError } =
-      await admin
-        .from("profiles")
-        .select("role")
-        .eq("id", staffId)
-        .maybeSingle();
+  await admin
+    .from("profiles")
+    .select("role, salon_id")
+    .eq("id", staffId)
+    .maybeSingle();
 
     if (staffProfileError || !staffProfile) {
       return NextResponse.json(
@@ -104,12 +105,15 @@ export async function POST(request: Request) {
       );
     }
 
-    if (staffProfile.role?.toLowerCase() !== "staff") {
-      return NextResponse.json(
-        { error: "Only staff accounts can be disabled." },
-        { status: 400 }
-      );
-    }
+    if (
+  staffProfile.role?.toLowerCase() !== "staff" ||
+  staffProfile.salon_id !== ownerProfile.salon_id
+) {
+  return NextResponse.json(
+    { error: "Only staff from your salon can be disabled." },
+    { status: 403 }
+  );
+}
 
     const { error: disableError } =
       await admin.auth.admin.updateUserById(staffId, {
