@@ -75,7 +75,7 @@ type UserRole = "owner" | "staff" | "customer";
 
 
 
-const RECENT_CUSTOMERS_KEY = "sun-temple-recent-customers-v3";
+const RECENT_CUSTOMERS_KEY_PREFIX = "tansalonos-recent-customers-v3";
 const TODAY_ACTIVITY_KEY = "reception-v3-today-activity";
 const TODAY_ACTIVITY_DATE_KEY = "reception-v3-today-activity-date";
 const TOTAL_BEDS = 4;
@@ -96,6 +96,10 @@ export default function ReceptionV3Page() {
   const [recentCustomers, setRecentCustomers] = useState<CustomerBalance[]>([]);
   const [selectedCustomer, setSelectedCustomer] =
     useState<CustomerBalance | null>(null);
+    const [currentSalonId, setCurrentSalonId] = useState<string | null>(null);
+    const recentCustomersKey = currentSalonId
+  ? `${RECENT_CUSTOMERS_KEY_PREFIX}:${currentSalonId}`
+  : null;
 
   const [customerHistory, setCustomerHistory] =
     useState<CustomerHistoryType | null>(null);
@@ -290,6 +294,7 @@ const {
     );
     return;
   }
+  setCurrentSalonId(profile.salon_id);
 
   const { data, error } = await supabase
     .from("salon_settings")
@@ -326,7 +331,12 @@ const {
     ].slice(0, 8);
 
     setRecentCustomers(updated);
-    localStorage.setItem(RECENT_CUSTOMERS_KEY, JSON.stringify(updated));
+    if (recentCustomersKey) {
+  localStorage.setItem(
+    recentCustomersKey,
+    JSON.stringify(updated)
+  );
+}
   }
   async function selectCustomer(customer: CustomerBalance) {
   setSelectedCustomer(customer);
@@ -651,17 +661,28 @@ useEffect(() => {
     loadCustomerNotes(selectedCustomer.customer_id);
   }, [selectedCustomer?.customer_id]);
 
+  
   useEffect(() => {
-    const stored = localStorage.getItem(RECENT_CUSTOMERS_KEY);
+  if (!recentCustomersKey) {
+    setRecentCustomers([]);
+    return;
+  }
 
-    if (stored) {
-      try {
-        setRecentCustomers(JSON.parse(stored));
-      } catch {
-        localStorage.removeItem(RECENT_CUSTOMERS_KEY);
-      }
-    }
+  const stored = localStorage.getItem(recentCustomersKey);
 
+  if (!stored) {
+    setRecentCustomers([]);
+    return;
+  }
+
+  try {
+    setRecentCustomers(JSON.parse(stored));
+  } catch {
+    localStorage.removeItem(recentCustomersKey);
+    setRecentCustomers([]);
+  }
+}, [recentCustomersKey]);
+useEffect(() => {
    loadUserRole();
 loadSalonSettings();
 loadPackages();
@@ -820,7 +841,12 @@ setRecentCustomers((prev) => {
     customer.customer_id === id ? data : customer
   );
 
-  localStorage.setItem(RECENT_CUSTOMERS_KEY, JSON.stringify(updated));
+  if (recentCustomersKey) {
+  localStorage.setItem(
+    recentCustomersKey,
+    JSON.stringify(updated)
+  );
+}
   return updated;
 });
   }
