@@ -33,9 +33,35 @@ export async function createPackageService(newPackage: {
   expiry_days: number;
   active: boolean;
 }) {
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
+
+  if (userError || !user) {
+    return {
+      data: null,
+      error: userError ?? new Error("User is not logged in."),
+    };
+  }
+
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("salon_id")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (profileError || !profile?.salon_id) {
+    return {
+      data: null,
+      error: profileError ?? new Error("Could not determine the current salon."),
+    };
+  }
+
   return await supabase
     .from("packages")
     .insert({
+      salon_id: profile.salon_id,
       name: newPackage.name,
       minutes: newPackage.minutes,
       price: newPackage.price,
