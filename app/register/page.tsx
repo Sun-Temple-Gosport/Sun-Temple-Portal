@@ -15,13 +15,37 @@ const [loading, setLoading] = useState(false);
 const [salonName, setSalonName] = useState("Your Salon");
 const [tagline, setTagline] = useState("");
 const [logoUrl, setLogoUrl] = useState<string | null>(null);
+const [salonSlug, setSalonSlug] = useState("");
 
 useEffect(() => {
   async function loadBranding() {
+    const params = new URLSearchParams(window.location.search);
+    const requestedSalonSlug = params.get("salon");
+
+    if (!requestedSalonSlug) {
+      console.error("Could not load salon branding: salon was not specified.");
+      return;
+    }
+
+    const { data: salon, error: salonError } = await supabase
+      .from("salons")
+      .select("id, slug")
+      .eq("slug", requestedSalonSlug.toLowerCase())
+      .eq("active", true)
+      .maybeSingle();
+
+    if (salonError || !salon) {
+      console.error(
+        "Could not load salon branding:",
+        salonError?.message || "Salon was not found."
+      );
+      return;
+    }
+
     const { data, error } = await supabase
       .from("salon_settings")
       .select("salon_name, tagline, logo_url")
-      .limit(1)
+      .eq("salon_id", salon.id)
       .maybeSingle();
 
     if (error) {
@@ -31,6 +55,7 @@ useEffect(() => {
 
     if (!data) return;
 
+    setSalonSlug(salon.slug);
     setSalonName(data.salon_name || "Your Salon");
     setTagline(data.tagline || "");
     setLogoUrl(data.logo_url || null);
@@ -38,7 +63,6 @@ useEffect(() => {
 
   void loadBranding();
 }, []);
-  
 
 
     async function register() {
@@ -62,11 +86,12 @@ useEffect(() => {
     email: cleanEmail,
     password,
     options: {
-      data: {
-        full_name: cleanName,
-        phone: cleanPhone,
-      },
-    },
+  data: {
+    full_name: cleanName,
+    phone: cleanPhone,
+    salon_slug: salonSlug,
+  },
+},
   });
 
   setLoading(false);
