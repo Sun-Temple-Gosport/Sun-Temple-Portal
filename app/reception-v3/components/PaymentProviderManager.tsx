@@ -78,16 +78,52 @@ export default function PaymentProviderManager() {
     const [loading, setLoading] = useState(true);
 const [saving, setSaving] = useState(false);
 const [message, setMessage] = useState("");
+const [salonId, setSalonId] = useState<string | null>(null);
+
+useEffect(() => {
+  async function loadCurrentSalon() {
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
+
+    if (userError || !user) {
+      setMessage("Could not determine the logged-in user.");
+      setLoading(false);
+      return;
+    }
+
+    const { data: profile, error: profileError } = await supabase
+      .from("profiles")
+      .select("salon_id")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    if (profileError || !profile?.salon_id) {
+      setMessage(
+        profileError?.message || "Could not determine the current salon."
+      );
+      setLoading(false);
+      return;
+    }
+
+    setSalonId(profile.salon_id);
+  }
+
+  void loadCurrentSalon();
+}, []);
 
 useEffect(() => {
   async function loadPaymentProvider() {
+    if (!salonId) return;
+
     setLoading(true);
     setMessage("");
 
     const { data, error } = await supabase
       .from("salon_settings")
       .select("payment_provider")
-      .eq("id", 1)
+      .eq("salon_id", salonId)
       .maybeSingle();
 
     if (error) {
@@ -103,12 +139,12 @@ useEffect(() => {
   }
 
   void loadPaymentProvider();
-}, []);
+}, [salonId]);
 
 async function selectProvider(provider: Provider) {
-  if (!provider.available) {
-    return;
-  }
+  if (!provider.available || !salonId) {
+  return;
+}
 
   setSaving(true);
   setMessage("");
@@ -119,7 +155,7 @@ async function selectProvider(provider: Provider) {
       payment_provider: provider.id,
       updated_at: new Date().toISOString(),
     })
-    .eq("id", 1);
+    .eq("salon_id", salonId);
 
   setSaving(false);
 
