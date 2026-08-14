@@ -76,8 +76,8 @@ type UserRole = "owner" | "staff" | "customer";
 
 
 const RECENT_CUSTOMERS_KEY_PREFIX = "tansalonos-recent-customers-v3";
-const TODAY_ACTIVITY_KEY = "reception-v3-today-activity";
-const TODAY_ACTIVITY_DATE_KEY = "reception-v3-today-activity-date";
+const TODAY_ACTIVITY_KEY_PREFIX = "reception-v3-today-activity";
+const TODAY_ACTIVITY_DATE_KEY_PREFIX = "reception-v3-today-activity-date";
 const TOTAL_BEDS = 4;
 
 function getLocalDateKey() {
@@ -100,7 +100,13 @@ export default function ReceptionV3Page() {
     const recentCustomersKey = currentSalonId
   ? `${RECENT_CUSTOMERS_KEY_PREFIX}:${currentSalonId}`
   : null;
+const todayActivityKey = currentSalonId
+  ? `${TODAY_ACTIVITY_KEY_PREFIX}:${currentSalonId}`
+  : null;
 
+const todayActivityDateKey = currentSalonId
+  ? `${TODAY_ACTIVITY_DATE_KEY_PREFIX}:${currentSalonId}`
+  : null;
   const [customerHistory, setCustomerHistory] =
     useState<CustomerHistoryType | null>(null);
 
@@ -115,28 +121,7 @@ const [manualMinutes, setManualMinutes] = useState("");
  const [message, setMessage] = useState("");
 const [activityDate, setActivityDate] = useState(getLocalDateKey);
 
-const [activities, setActivities] = useState<Activity[]>(() => {
-  if (typeof window === "undefined") return [];
-
-  const savedDate = localStorage.getItem(TODAY_ACTIVITY_DATE_KEY);
-  const today = getLocalDateKey();
-
-  if (savedDate !== today) {
-    localStorage.removeItem(TODAY_ACTIVITY_KEY);
-    localStorage.setItem(TODAY_ACTIVITY_DATE_KEY, today);
-    return [];
-  }
-
-  const stored = localStorage.getItem(TODAY_ACTIVITY_KEY);
-  if (!stored) return [];
-
-  try {
-    return JSON.parse(stored) as Activity[];
-  } catch {
-    localStorage.removeItem(TODAY_ACTIVITY_KEY);
-    return [];
-  }
-});
+const [activities, setActivities] = useState<Activity[]>([]);
   const [authLoaded, setAuthLoaded] = useState(false);
   const [isOwnerMode, setIsOwnerMode] = useState(false);
   const [ownerView, setOwnerView] = useState<OwnerView>("dashboard");
@@ -682,6 +667,42 @@ useEffect(() => {
     setRecentCustomers([]);
   }
 }, [recentCustomersKey]);
+
+useEffect(() => {
+  if (!todayActivityKey || !todayActivityDateKey) {
+    setActivities([]);
+    return;
+  }
+
+  const today = getLocalDateKey();
+  const savedDate = localStorage.getItem(todayActivityDateKey);
+
+  if (savedDate !== today) {
+    localStorage.removeItem(todayActivityKey);
+    localStorage.setItem(todayActivityDateKey, today);
+    setActivities([]);
+    setActivityDate(today);
+    return;
+  }
+
+  const stored = localStorage.getItem(todayActivityKey);
+
+  if (!stored) {
+    setActivities([]);
+    setActivityDate(today);
+    return;
+  }
+
+  try {
+    setActivities(JSON.parse(stored) as Activity[]);
+  } catch {
+    localStorage.removeItem(todayActivityKey);
+    setActivities([]);
+  }
+
+  setActivityDate(today);
+}, [todayActivityKey, todayActivityDateKey]);
+
 useEffect(() => {
    loadUserRole();
 loadSalonSettings();
@@ -726,9 +747,23 @@ refreshDashboardStats();
     };
   }, [selectedCustomer?.customer_id]);
   useEffect(() => {
-  localStorage.setItem(TODAY_ACTIVITY_KEY, JSON.stringify(activities));
-  localStorage.setItem(TODAY_ACTIVITY_DATE_KEY, activityDate);
-}, [activities, activityDate]);
+  if (!todayActivityKey || !todayActivityDateKey) return;
+
+  localStorage.setItem(
+    todayActivityKey,
+    JSON.stringify(activities)
+  );
+
+  localStorage.setItem(
+    todayActivityDateKey,
+    activityDate
+  );
+}, [
+  activities,
+  activityDate,
+  todayActivityKey,
+  todayActivityDateKey,
+]);
 
 useEffect(() => {
   function checkForNewDay() {
