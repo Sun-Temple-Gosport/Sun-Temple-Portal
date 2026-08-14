@@ -63,10 +63,11 @@ export async function POST(request: Request) {
     }
 
     const { data: purchase, error: purchaseError } = await supabaseAdmin
-      .from("purchases")
-      .select("*")
-      .eq("checkout_reference", checkout.checkout_reference)
-      .maybeSingle();
+  .from("purchases")
+  .select("*")
+  .eq("checkout_reference", checkout.checkout_reference)
+  .eq("sumup_checkout_id", checkout.id)
+  .maybeSingle();
 
     if (purchaseError) {
       console.error("Webhook purchase lookup failed:", purchaseError);
@@ -96,11 +97,12 @@ export async function POST(request: Request) {
     }
 
     const { data: existingBatch, error: existingBatchError } =
-      await supabaseAdmin
-        .from("minute_batches")
-        .select("id")
-        .eq("purchase_id", purchase.id)
-        .maybeSingle();
+  await supabaseAdmin
+    .from("minute_batches")
+    .select("id")
+    .eq("purchase_id", purchase.id)
+    .eq("salon_id", purchase.salon_id)
+    .maybeSingle();
 
     if (existingBatchError) {
       console.error(
@@ -174,6 +176,7 @@ export async function POST(request: Request) {
     paid_at: new Date().toISOString(),
   })
   .eq("id", purchase.id)
+  .eq("salon_id", purchase.salon_id)
   .eq("payment_status", "pending");
 
 if (updateError) {
