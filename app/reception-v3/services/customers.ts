@@ -16,9 +16,46 @@ export async function createCustomer(customer: {
   phone: string;
   email: string;
 }) {
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
+
+  if (userError || !user) {
+    return {
+      data: null,
+      error: {
+        message: userError?.message ?? "User is not logged in.",
+        details: "",
+        hint: "",
+        code: "AUTH_REQUIRED",
+      },
+    };
+  }
+
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("salon_id")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (profileError || !profile?.salon_id) {
+    return {
+      data: null,
+      error:
+        profileError ?? {
+          message: "Could not determine the current salon.",
+          details: "",
+          hint: "",
+          code: "SALON_NOT_FOUND",
+        },
+    };
+  }
+
   return await supabase
     .from("customers")
     .insert({
+      salon_id: profile.salon_id,
       full_name: customer.full_name,
       phone: customer.phone || null,
       email: customer.email || null,
