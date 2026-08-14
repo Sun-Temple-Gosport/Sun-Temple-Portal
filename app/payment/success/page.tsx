@@ -120,6 +120,7 @@ const { data: updatedVip, error: vipUpdateError } = await supabaseAdmin
     started_at: new Date().toISOString(),
   })
   .eq("id", vipMembership.id)
+  .eq("salon_id", vipMembership.salon_id)
   .eq("payment_status", "pending")
   .select()
   .maybeSingle();
