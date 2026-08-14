@@ -54,25 +54,27 @@ export async function GET(request: Request) {
     }
 
     const { data: ownerProfile, error: ownerError } = await admin
-      .from("profiles")
-      .select("role")
-      .eq("id", user.id)
-      .maybeSingle();
+  .from("profiles")
+  .select("role, salon_id")
+  .eq("id", user.id)
+  .maybeSingle();
 
     if (
-      ownerError ||
-      ownerProfile?.role?.toLowerCase() !== "owner"
-    ) {
-      return NextResponse.json(
-        { error: "Owner access required." },
-        { status: 403 }
-      );
-    }
+  ownerError ||
+  ownerProfile?.role?.toLowerCase() !== "owner" ||
+  !ownerProfile.salon_id
+) {
+  return NextResponse.json(
+    { error: "Owner access required." },
+    { status: 403 }
+  );
+}
 
     const { data: staffProfiles, error: staffError } = await admin
   .from("profiles")
-  .select("id, full_name, email, role")
+  .select("id, full_name, email, role, salon_id")
   .ilike("role", "staff")
+  .eq("salon_id", ownerProfile.salon_id)
   .order("full_name");
 
     if (staffError) {
