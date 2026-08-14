@@ -40,52 +40,91 @@ export default function SalonSettings() {
   const [message, setMessage] = useState("");
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [salonImages, setSalonImages] = useState<SalonImage[]>([]);
+  const [salonId, setSalonId] = useState<string | null>(null);
   const [draggedImageId, setDraggedImageId] = useState<number | null>(null);
 
   useEffect(() => {
-    async function loadSettings() {
-      setLoading(true);
-      setMessage("");
+  async function loadCurrentSalon() {
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
 
-      const { data, error } = await supabase
-        .from("salon_settings")
-        .select(
-          "id, salon_name, tagline, phone, email, website, facebook, instagram, address, logo_url, hero_image_url, opening_hours"
-        )
-        .eq("id", 1)
-        .maybeSingle();
-
-      if (error) {
-        setMessage(error.message);
-        setLoading(false);
-        return;
-      }
-
-      setSettings(data);
+    if (userError || !user) {
+      setMessage("Could not determine the logged-in user.");
       setLoading(false);
+      return;
     }
 
-    void loadSettings();
-  }, []);
+    const { data: profile, error: profileError } = await supabase
+      .from("profiles")
+      .select("salon_id")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    if (profileError || !profile?.salon_id) {
+      setMessage(
+        profileError?.message || "Could not determine the current salon."
+      );
+      setLoading(false);
+      return;
+    }
+
+    setSalonId(profile.salon_id);
+  }
+
+  void loadCurrentSalon();
+}, []);
 
   useEffect(() => {
-    async function loadSalonImages() {
-      const { data, error } = await supabase
-        .from("salon_images")
-        .select("id, image_url, sort_order")
-        .order("sort_order", { ascending: true })
-        .order("created_at", { ascending: true });
+  async function loadSettings() {
+    if (!salonId) return;
 
-      if (error) {
-        console.error("Could not load salon photos:", error.message);
-        return;
-      }
+    setLoading(true);
+    setMessage("");
 
-      setSalonImages((data ?? []) as SalonImage[]);
+    const { data, error } = await supabase
+      .from("salon_settings")
+      .select(
+        "id, salon_name, tagline, phone, email, website, facebook, instagram, address, logo_url, hero_image_url, opening_hours"
+      )
+      .eq("salon_id", salonId)
+      .maybeSingle();
+
+    if (error) {
+      setMessage(error.message);
+      setLoading(false);
+      return;
     }
 
-    void loadSalonImages();
-  }, []);
+    setSettings(data);
+    setLoading(false);
+  }
+
+  void loadSettings();
+}, [salonId]);
+
+  useEffect(() => {
+  async function loadSalonImages() {
+    if (!salonId) return;
+
+    const { data, error } = await supabase
+      .from("salon_images")
+      .select("id, image_url, sort_order")
+      .eq("salon_id", salonId)
+      .order("sort_order", { ascending: true })
+      .order("created_at", { ascending: true });
+
+    if (error) {
+      console.error("Could not load salon photos:", error.message);
+      return;
+    }
+
+    setSalonImages((data ?? []) as SalonImage[]);
+  }
+
+  void loadSalonImages();
+}, [salonId]);
 
   function updateSetting(
     field: keyof Omit<SalonSettingsData, "id">,
@@ -164,7 +203,7 @@ export default function SalonSettings() {
   }
 
   async function uploadSalonPhotos(files: FileList) {
-    if (!files.length) return;
+    if (!files.length || !salonId) return;
 
     setMessage("");
 
@@ -193,9 +232,10 @@ export default function SalonSettings() {
       const { data, error } = await supabase
         .from("salon_images")
         .insert({
-          image_url: publicUrl,
-          sort_order: salonImages.length + newImages.length,
-        })
+  salon_id: salonId,
+  image_url: publicUrl,
+  sort_order: salonImages.length + newImages.length,
+})
         .select("id, image_url, sort_order")
         .single();
 
@@ -212,6 +252,7 @@ export default function SalonSettings() {
   }
 
   async function replaceSalonPhoto(image: SalonImage, file: File) {
+  if (!salonId) return;
   setMessage("");
 
   const extension = file.name.split(".").pop();
@@ -237,7 +278,8 @@ export default function SalonSettings() {
     .update({
       image_url: publicUrl,
     })
-    .eq("id", image.id);
+    .eq("id", image.id)
+.eq("salon_id", salonId);
 
   if (error) {
     setMessage(error.message);
@@ -259,12 +301,14 @@ export default function SalonSettings() {
 }
 
 async function deleteSalonPhoto(imageId: number) {
+  if (!salonId) return;
   setMessage("");
 
   const { error } = await supabase
     .from("salon_images")
     .delete()
-    .eq("id", imageId);
+    .eq("id", imageId)
+.eq("salon_id", salonId);
 
   if (error) {
     setMessage(error.message);
@@ -281,7 +325,7 @@ async function reorderSalonPhotos(
   draggedId: number,
   targetId: number
 ) {
-  if (draggedId === targetId) return;
+  if (!salonId) return;
 
   const currentImages = [...salonImages];
 
@@ -313,6 +357,7 @@ async function reorderSalonPhotos(
         sort_order: image.sort_order,
       })
       .eq("id", image.id)
+.eq("salon_id", salonId)
   );
 
   const results = await Promise.all(updates);
@@ -328,7 +373,7 @@ async function reorderSalonPhotos(
 }
 
   async function saveSettings() {
-    if (!settings) return;
+    if (!settings || !salonId) return;
 
     setSaving(true);
     setMessage("");
@@ -349,7 +394,8 @@ async function reorderSalonPhotos(
         opening_hours: settings.opening_hours,
         updated_at: new Date().toISOString(),
       })
-      .eq("id", settings.id);
+      .eq("id", settings.id)
+.eq("salon_id", salonId);
 
     setSaving(false);
 
