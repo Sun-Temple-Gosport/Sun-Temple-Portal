@@ -1,14 +1,6 @@
 import { supabase } from "../lib/supabase";
 
-export async function loadCustomerNotes(customerId: string) {
-  return await supabase
-    .from("customer_notes")
-    .select("id, note, created_at")
-    .eq("customer_id", customerId)
-    .order("created_at", { ascending: false });
-}
-
-export async function addCustomerNote(customerId: string, note: string) {
+async function getCurrentSalonId() {
   const {
     data: { user },
     error: userError,
@@ -16,13 +8,8 @@ export async function addCustomerNote(customerId: string, note: string) {
 
   if (userError || !user) {
     return {
-      data: null,
-      error: {
-        message: userError?.message ?? "User is not logged in.",
-        details: "",
-        hint: "",
-        code: "AUTH_REQUIRED",
-      },
+      salonId: null,
+      error: userError ?? new Error("User is not logged in."),
     };
   }
 
@@ -34,27 +21,93 @@ export async function addCustomerNote(customerId: string, note: string) {
 
   if (profileError || !profile?.salon_id) {
     return {
-      data: null,
+      salonId: null,
       error:
-        profileError ?? {
-          message: "Could not determine the current salon.",
-          details: "",
-          hint: "",
-          code: "SALON_NOT_FOUND",
-        },
+        profileError ??
+        new Error("Could not determine the current salon."),
+    };
+  }
+
+  return {
+    salonId: profile.salon_id,
+    error: null,
+  };
+}
+
+export async function loadCustomerNotes(customerId: string) {
+  const { salonId, error } = await getCurrentSalonId();
+
+  if (error || !salonId) {
+    return {
+      data: null,
+      error,
+    };
+  }
+
+  return await supabase
+    .from("customer_notes")
+    .select("id, note, created_at")
+    .eq("salon_id", salonId)
+    .eq("customer_id", customerId)
+    .order("created_at", { ascending: false });
+}
+
+export async function addCustomerNote(
+  customerId: string,
+  note: string
+) {
+  const { salonId, error } = await getCurrentSalonId();
+
+  if (error || !salonId) {
+    return {
+      data: null,
+      error,
+    };
+  }
+
+  const { data: customer, error: customerError } = await supabase
+    .from("customers")
+    .select("customer_id")
+    .eq("customer_id", customerId)
+    .eq("salon_id", salonId)
+    .maybeSingle();
+
+  if (customerError) {
+    return {
+      data: null,
+      error: customerError,
+    };
+  }
+
+  if (!customer) {
+    return {
+      data: null,
+      error: new Error(
+        "Customer was not found in the current salon."
+      ),
     };
   }
 
   return await supabase.from("customer_notes").insert({
-    salon_id: profile.salon_id,
+    salon_id: salonId,
     customer_id: customerId,
     note,
   });
 }
 
 export async function deleteCustomerNote(id: string) {
+  const { salonId, error } = await getCurrentSalonId();
+
+  if (error || !salonId) {
+    return {
+      data: null,
+      error,
+    };
+  }
+
   return await supabase
     .from("customer_notes")
     .delete()
-    .eq("id", id);
+    .eq("id", id)
+    .eq("salon_id", salonId);
 }
