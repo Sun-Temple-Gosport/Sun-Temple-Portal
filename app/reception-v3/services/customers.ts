@@ -1,21 +1,7 @@
 import { supabase } from "../lib/supabase";
 import type { CustomerBalance } from "../types";
 
-export async function searchCustomers(term: string) {
-  return await supabase
-    .from("customer_balances")
-    .select("*")
-    .or(
-      `full_name.ilike.%${term}%,email.ilike.%${term}%,phone.ilike.%${term}%`
-    )
-    .order("full_name", { ascending: true });
-}
-
-export async function createCustomer(customer: {
-  full_name: string;
-  phone: string;
-  email: string;
-}) {
+async function getCurrentSalonId() {
   const {
     data: { user },
     error: userError,
@@ -23,13 +9,14 @@ export async function createCustomer(customer: {
 
   if (userError || !user) {
     return {
-      data: null,
-      error: {
-        message: userError?.message ?? "User is not logged in.",
-        details: "",
-        hint: "",
-        code: "AUTH_REQUIRED",
-      },
+      salonId: null,
+      error:
+  userError ?? {
+    message: "User is not logged in.",
+    details: "",
+    hint: "",
+    code: "AUTH_REQUIRED",
+  },
     };
   }
 
@@ -41,21 +28,61 @@ export async function createCustomer(customer: {
 
   if (profileError || !profile?.salon_id) {
     return {
-      data: null,
+      salonId: null,
       error:
-        profileError ?? {
-          message: "Could not determine the current salon.",
-          details: "",
-          hint: "",
-          code: "SALON_NOT_FOUND",
-        },
+  profileError ?? {
+    message: "Could not determine the current salon.",
+    details: "",
+    hint: "",
+    code: "SALON_NOT_FOUND",
+  },
+    };
+  }
+
+  return {
+    salonId: profile.salon_id,
+    error: null,
+  };
+}
+
+export async function searchCustomers(term: string) {
+  const { salonId, error } = await getCurrentSalonId();
+
+  if (error || !salonId) {
+    return {
+      data: null,
+      error,
+    };
+  }
+
+  return await supabase
+    .from("customer_balances")
+    .select("*")
+    .eq("salon_id", salonId)
+    .or(
+      `full_name.ilike.%${term}%,email.ilike.%${term}%,phone.ilike.%${term}%`
+    )
+    .order("full_name", { ascending: true });
+}
+
+export async function createCustomer(customer: {
+  full_name: string;
+  phone: string;
+  email: string;
+}) {
+  const { salonId, error } = await getCurrentSalonId();
+
+  if (error || !salonId) {
+    return {
+      data: null,
+      error,
     };
   }
 
   return await supabase
     .from("customers")
     .insert({
-      salon_id: profile.salon_id,
+      salon_id: salonId,
       full_name: customer.full_name,
       phone: customer.phone || null,
       email: customer.email || null,
@@ -70,6 +97,15 @@ export async function updateCustomer(
   phone: string,
   email: string
 ) {
+  const { salonId, error } = await getCurrentSalonId();
+
+  if (error || !salonId) {
+    return {
+      data: null,
+      error,
+    };
+  }
+
   return await supabase
     .from("customers")
     .update({
@@ -77,21 +113,46 @@ export async function updateCustomer(
       phone,
       email,
     })
-    .eq("customer_id", customerId);
+    .eq("customer_id", customerId)
+    .eq("salon_id", salonId);
 }
 
-export async function loadCustomerBalance(customerId: string) {
+export async function loadCustomerBalance(
+  customerId: string
+) {
+  const { salonId, error } = await getCurrentSalonId();
+
+  if (error || !salonId) {
+    return {
+      data: null,
+      error,
+    };
+  }
+
   return await supabase
     .from("customer_balances")
     .select("*")
+    .eq("salon_id", salonId)
     .eq("customer_id", customerId)
     .single();
 }
 
-export async function loadCustomerBalanceOptional(customerId: string) {
+export async function loadCustomerBalanceOptional(
+  customerId: string
+) {
+  const { salonId, error } = await getCurrentSalonId();
+
+  if (error || !salonId) {
+    return {
+      data: null,
+      error,
+    };
+  }
+
   return await supabase
     .from("customer_balances")
     .select("*")
+    .eq("salon_id", salonId)
     .eq("customer_id", customerId)
     .maybeSingle();
 }

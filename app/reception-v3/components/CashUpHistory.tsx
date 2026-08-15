@@ -59,42 +59,73 @@ export default function CashUpHistory() {
   }, []);
 
   async function loadCashUps() {
-    setLoading(true);
-    setErrorMessage("");
+  setLoading(true);
+  setErrorMessage("");
 
-    const { data, error } = await supabase
-      .from("cash_ups")
-      .select(
-        `
-          id,
-          business_date,
-          revenue,
-          card_revenue,
-          cash_revenue,
-          complimentary_revenue,
-          expected_cash,
-          counted_cash,
-          difference,
-          packages_sold,
-          minutes_sold,
-          customers_today,
-          sessions_today,
-          created_at
-        `
-      )
-      .order("business_date", { ascending: false });
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
 
-    if (error) {
-      console.error("Unable to load cash-up history:", error);
-      setErrorMessage(error.message);
-      setCashUps([]);
-      setLoading(false);
-      return;
-    }
-
-    setCashUps((data ?? []) as CashUpRecord[]);
+  if (userError || !user) {
+    setErrorMessage(
+      userError?.message || "You must be logged in."
+    );
+    setCashUps([]);
     setLoading(false);
+    return;
   }
+
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("salon_id")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (profileError || !profile?.salon_id) {
+    setErrorMessage(
+      profileError?.message ||
+        "Could not determine the current salon."
+    );
+    setCashUps([]);
+    setLoading(false);
+    return;
+  }
+
+  const { data, error } = await supabase
+    .from("cash_ups")
+    .select(
+      `
+        id,
+        business_date,
+        revenue,
+        card_revenue,
+        cash_revenue,
+        complimentary_revenue,
+        expected_cash,
+        counted_cash,
+        difference,
+        packages_sold,
+        minutes_sold,
+        customers_today,
+        sessions_today,
+        created_at
+      `
+    )
+    .eq("salon_id", profile.salon_id)
+    .order("business_date", { ascending: false });
+
+  if (error) {
+    console.error("Unable to load cash-up history:", error);
+    setErrorMessage(error.message);
+    setCashUps([]);
+    setLoading(false);
+    return;
+  }
+
+  setCashUps((data ?? []) as CashUpRecord[]);
+  setLoading(false);
+}
 
   return (
     <>
