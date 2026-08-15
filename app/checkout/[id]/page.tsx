@@ -56,21 +56,57 @@ const [logoUrl, setLogoUrl] = useState<string | null>(null);
         return;
       }
 
-      const { data: customerData, error: customerError } = await supabase
+      const { data: profileData, error: profileError } = await supabase
+  .from("profiles")
+  .select("salon_id, customer_id")
+  .eq("id", user.id)
+  .maybeSingle();
+
+if (profileError) {
+  console.error(
+    "Failed to load customer profile:",
+    profileError.message
+  );
+  setLoading(false);
+  return;
+}
+
+if (!profileData?.salon_id) {
+  console.error("Customer salon could not be determined.");
+  setLoading(false);
+  return;
+}
+
+let customerQuery = supabase
   .from("customers")
   .select("customer_id, vip_expires_at, salon_id")
-  .eq("email", user.email)
-  .maybeSingle();
+  .eq("salon_id", profileData.salon_id);
+
+if (profileData.customer_id) {
+  customerQuery = customerQuery.eq(
+    "customer_id",
+    profileData.customer_id
+  );
+} else {
+  customerQuery = customerQuery.eq("email", user.email);
+}
+
+const { data: customerData, error: customerError } =
+  await customerQuery.maybeSingle();
 
 if (customerError) {
   console.error(
     "Failed to load customer VIP status:",
     customerError.message
   );
+  setLoading(false);
+  return;
 }
 
-if (!customerData?.salon_id) {
-  console.error("Customer salon could not be determined.");
+if (!customerData) {
+  console.error(
+    "Customer record could not be found for this salon."
+  );
   setLoading(false);
   return;
 }
