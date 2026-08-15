@@ -53,10 +53,37 @@ const [savingDiscount, setSavingDiscount] = useState(false);
 
 useEffect(() => {
   async function loadVipDiscount() {
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
+
+    if (userError || !user) {
+      console.error(
+        "Failed to determine logged-in user:",
+        userError?.message
+      );
+      return;
+    }
+
+    const { data: profile, error: profileError } = await supabase
+      .from("profiles")
+      .select("salon_id")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    if (profileError || !profile?.salon_id) {
+      console.error(
+        "Failed to determine current salon:",
+        profileError?.message || "Salon ID missing."
+      );
+      return;
+    }
+
     const { data, error } = await supabase
       .from("vip_settings")
       .select("discount_percent")
-      .eq("id", 1)
+      .eq("salon_id", profile.salon_id)
       .maybeSingle();
 
     if (error) {
@@ -67,7 +94,7 @@ useEffect(() => {
     setVipDiscountPercent(Number(data?.discount_percent ?? 0));
   }
 
-  loadVipDiscount();
+  void loadVipDiscount();
 }, []);
 async function saveDiscount() {
   if (!selectedCustomer) return;
@@ -79,6 +106,33 @@ async function saveDiscount() {
 
   setSavingDiscount(true);
 
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
+
+  if (userError || !user) {
+    window.alert(
+      userError?.message || "Could not determine the logged-in user."
+    );
+    setSavingDiscount(false);
+    return;
+  }
+
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("salon_id")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (profileError || !profile?.salon_id) {
+    window.alert(
+      profileError?.message || "Could not determine the current salon."
+    );
+    setSavingDiscount(false);
+    return;
+  }
+
   const { error } = await supabase
     .from("customers")
     .update({
@@ -89,7 +143,8 @@ async function saveDiscount() {
           ? null
           : `${discountExpiry}T23:59:59`,
     })
-    .eq("customer_id", selectedCustomer.customer_id);
+    .eq("customer_id", selectedCustomer.customer_id)
+    .eq("salon_id", profile.salon_id);
 
   setSavingDiscount(false);
 
