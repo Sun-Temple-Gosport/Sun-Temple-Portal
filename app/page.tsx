@@ -47,11 +47,24 @@ const [openingHours, setOpeningHours] = useState<{
 
 useEffect(() => {
   async function loadSalonWebsite() {
-    const salonSlug = new URLSearchParams(window.location.search).get("salon");
-    if (!salonSlug) {
-      console.error("Could not load salon website: salon slug missing.");
-      return;
-    }
+    const requestedSalonSlug = new URLSearchParams(
+  window.location.search
+).get("salon");
+
+const hostname = window.location.hostname.toLowerCase();
+
+const salonSlug =
+  requestedSalonSlug ||
+  (hostname === "mysuntemple.co.uk" ||
+  hostname === "www.mysuntemple.co.uk" ||
+  hostname === "localhost"
+    ? "sun-temple-gosport"
+    : null);
+
+if (!salonSlug) {
+  console.error("Could not determine salon for this website.");
+  return;
+}
 
     const { data: salon, error: salonError } = await publicSupabase
       .from("salons")
