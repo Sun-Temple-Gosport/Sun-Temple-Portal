@@ -8,18 +8,23 @@ export default function MyMinutes() {
   const [profile, setProfile] = useState<any>(null);
   const [balance, setBalance] = useState<any>(null);
   const [salonName, setSalonName] = useState("Your Salon");
-const [tagline, setTagline] = useState("");
-const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [tagline, setTagline] = useState("");
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [salonSlug, setSalonSlug] = useState("");
   const router = useRouter();
 
   async function logout() {
     await supabase.auth.signOut();
-    router.push("/login");
+
+    router.push(
+      salonSlug
+        ? `/login?salon=${encodeURIComponent(salonSlug)}`
+        : "/login"
+    );
   }
 
   useEffect(() => {
     async function loadCustomer() {
-      
       const {
         data: { user },
       } = await supabase.auth.getUser();
@@ -40,32 +45,57 @@ const [logoUrl, setLogoUrl] = useState<string | null>(null);
           "Could not load customer profile:",
           profileError.message
         );
+        return;
       }
-      if (profileData?.salon_id) {
-  const { data: brandingData, error: brandingError } = await supabase
-    .from("salon_settings")
-    .select("salon_name, tagline, logo_url")
-    .eq("salon_id", profileData.salon_id)
-    .maybeSingle();
 
-  if (brandingError) {
-    console.error("Could not load salon branding:", brandingError.message);
-  } else if (brandingData) {
-    setSalonName(brandingData.salon_name || "Your Salon");
-    setTagline(brandingData.tagline || "");
-    setLogoUrl(brandingData.logo_url || null);
-  }
-}
+      if (!profileData?.salon_id) {
+        console.error(
+          "Could not load customer profile: no salon is assigned to this account."
+        );
+        return;
+      }
 
-      const customerId = profileData?.customer_id || user.id;
+      const { data: salonData, error: salonError } = await supabase
+        .from("salons")
+        .select("slug")
+        .eq("id", profileData.salon_id)
+        .eq("active", true)
+        .maybeSingle();
+
+      if (salonError) {
+        console.error(
+          "Could not load customer salon:",
+          salonError.message
+        );
+      } else if (salonData) {
+        setSalonSlug(salonData.slug);
+      }
+
+      const { data: brandingData, error: brandingError } = await supabase
+        .from("salon_settings")
+        .select("salon_name, tagline, logo_url")
+        .eq("salon_id", profileData.salon_id)
+        .maybeSingle();
+
+      if (brandingError) {
+        console.error(
+          "Could not load salon branding:",
+          brandingError.message
+        );
+      } else if (brandingData) {
+        setSalonName(brandingData.salon_name || "Your Salon");
+        setTagline(brandingData.tagline || "");
+        setLogoUrl(brandingData.logo_url || null);
+      }
+
+      const customerId = profileData.customer_id || user.id;
 
       const { data: balanceData, error: balanceError } = await supabase
-  .from("customer_balances")
-  .select("*")
-  .eq("customer_id", customerId)
-  .eq("salon_id", profileData?.salon_id)
-  .maybeSingle();
-        
+        .from("customer_balances")
+        .select("*")
+        .eq("customer_id", customerId)
+        .eq("salon_id", profileData.salon_id)
+        .maybeSingle();
 
       if (balanceError) {
         console.error(
@@ -77,7 +107,7 @@ const [logoUrl, setLogoUrl] = useState<string | null>(null);
       setProfile({
         ...profileData,
         full_name:
-          profileData?.full_name ||
+          profileData.full_name ||
           balanceData?.full_name ||
           user.user_metadata?.full_name ||
           user.email,
@@ -86,37 +116,37 @@ const [logoUrl, setLogoUrl] = useState<string | null>(null);
       setBalance(balanceData);
     }
 
-    loadCustomer();
+    void loadCustomer();
   }, []);
 
   return (
     <main className="min-h-screen bg-[#050505] px-6 py-16 text-white">
       <section className="mx-auto max-w-3xl">
         <div className="flex items-center gap-4">
-  {logoUrl ? (
-    <img
-      src={logoUrl}
-      alt={`${salonName} logo`}
-      className="h-24 w-24 rounded-2xl bg-[#111] object-cover"
-    />
-  ) : (
-    <span className="text-5xl">☀️</span>
-  )}
+          {logoUrl ? (
+            <img
+              src={logoUrl}
+              alt={`${salonName} logo`}
+              className="h-24 w-24 rounded-2xl bg-[#111] object-cover"
+            />
+          ) : (
+            <span className="text-5xl">☀️</span>
+          )}
 
-  <div>
-    <p className="text-sm font-semibold uppercase tracking-[0.3em] text-[#d6a84f]">
-      {salonName}
-    </p>
+          <div>
+            <p className="text-sm font-semibold uppercase tracking-[0.3em] text-[#d6a84f]">
+              {salonName}
+            </p>
 
-    <h1 className="mt-2 text-5xl font-bold">My Minutes</h1>
-  </div>
-</div>
+            <h1 className="mt-2 text-5xl font-bold">My Minutes</h1>
+          </div>
+        </div>
 
-{tagline && (
-  <p className="mt-4 text-zinc-400">
-    {tagline}
-  </p>
-)}
+        {tagline && (
+          <p className="mt-4 text-zinc-400">
+            {tagline}
+          </p>
+        )}
 
         <div className="mt-10 rounded-3xl border border-[#d6a84f]/30 bg-[#111] p-8">
           <p className="text-zinc-400">Welcome back</p>
