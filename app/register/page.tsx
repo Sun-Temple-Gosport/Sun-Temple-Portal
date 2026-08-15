@@ -4,147 +4,161 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 
-
 export default function RegisterPage() {
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-const [isOver18, setIsOver18] = useState(false);
-const [loading, setLoading] = useState(false);
-const [salonName, setSalonName] = useState("Your Salon");
-const [tagline, setTagline] = useState("");
-const [logoUrl, setLogoUrl] = useState<string | null>(null);
-const [salonSlug, setSalonSlug] = useState("");
+  const [isOver18, setIsOver18] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [salonName, setSalonName] = useState("Your Salon");
+  const [tagline, setTagline] = useState("");
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [salonSlug, setSalonSlug] = useState("");
 
-useEffect(() => {
-  async function loadBranding() {
-    const params = new URLSearchParams(window.location.search);
-    const requestedSalonSlug = params.get("salon");
+  useEffect(() => {
+    async function loadBranding() {
+      const params = new URLSearchParams(window.location.search);
+      const requestedSalonSlug = params.get("salon");
 
-    if (!requestedSalonSlug) {
-      console.error("Could not load salon branding: salon was not specified.");
+      if (!requestedSalonSlug) {
+        console.error(
+          "Could not load salon branding: salon was not specified."
+        );
+        return;
+      }
+
+      const { data: salon, error: salonError } = await supabase
+        .from("salons")
+        .select("id, slug")
+        .eq("slug", requestedSalonSlug.toLowerCase())
+        .eq("active", true)
+        .maybeSingle();
+
+      if (salonError || !salon) {
+        console.error(
+          "Could not load salon branding:",
+          salonError?.message || "Salon was not found."
+        );
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from("salon_settings")
+        .select("salon_name, tagline, logo_url")
+        .eq("salon_id", salon.id)
+        .maybeSingle();
+
+      if (error) {
+        console.error("Could not load salon branding:", error.message);
+        return;
+      }
+
+      setSalonSlug(salon.slug);
+
+      if (!data) return;
+
+      setSalonName(data.salon_name || "Your Salon");
+      setTagline(data.tagline || "");
+      setLogoUrl(data.logo_url || null);
+    }
+
+    void loadBranding();
+  }, []);
+
+  async function register() {
+    if (!fullName.trim() || !email.trim() || !password) {
+      alert("Please enter your name, email address and password.");
       return;
     }
 
-    const { data: salon, error: salonError } = await supabase
-      .from("salons")
-      .select("id, slug")
-      .eq("slug", requestedSalonSlug.toLowerCase())
-      .eq("active", true)
-      .maybeSingle();
+    if (!isOver18) {
+      alert("You must confirm that you are aged 18 or over.");
+      return;
+    }
 
-    if (salonError || !salon) {
-      console.error(
-        "Could not load salon branding:",
-        salonError?.message || "Salon was not found."
+    if (!salonSlug) {
+      alert(
+        "This salon could not be identified. Please return to the salon login page and try again."
       );
       return;
     }
 
-    const { data, error } = await supabase
-      .from("salon_settings")
-      .select("salon_name, tagline, logo_url")
-      .eq("salon_id", salon.id)
-      .maybeSingle();
+    setLoading(true);
+
+    const cleanName = fullName.trim();
+    const cleanPhone = phone.trim();
+    const cleanEmail = email.trim().toLowerCase();
+
+    const { data, error } = await supabase.auth.signUp({
+      email: cleanEmail,
+      password,
+      options: {
+        data: {
+          full_name: cleanName,
+          phone: cleanPhone,
+          salon_slug: salonSlug,
+        },
+      },
+    });
+
+    setLoading(false);
 
     if (error) {
-      console.error("Could not load salon branding:", error.message);
+      alert(error.message);
       return;
     }
 
-    if (!data) return;
+    if (!data.user) {
+      alert("Your account could not be created. Please try again.");
+      return;
+    }
 
-    setSalonSlug(salon.slug);
-    setSalonName(data.salon_name || "Your Salon");
-    setTagline(data.tagline || "");
-    setLogoUrl(data.logo_url || null);
+    if (!data.session) {
+      alert(
+        "Account created. Please check your email to confirm your account before logging in."
+      );
+
+      window.location.href = `/login?salon=${encodeURIComponent(
+        salonSlug
+      )}`;
+
+      return;
+    }
+
+    window.location.href = "/my-minutes";
   }
-
-  void loadBranding();
-}, []);
-
-
-    async function register() {
-  if (!fullName.trim() || !email.trim() || !password) {
-    alert("Please enter your name, email address and password.");
-    return;
-  }
-
-  if (!isOver18) {
-    alert("You must confirm that you are aged 18 or over.");
-    return;
-  }
-
-  setLoading(true);
-
-  const cleanName = fullName.trim();
-  const cleanPhone = phone.trim();
-  const cleanEmail = email.trim().toLowerCase();
-
-  const { data, error } = await supabase.auth.signUp({
-    email: cleanEmail,
-    password,
-    options: {
-  data: {
-    full_name: cleanName,
-    phone: cleanPhone,
-    salon_slug: salonSlug,
-  },
-},
-  });
-
-  setLoading(false);
-
-  if (error) {
-    alert(error.message);
-    return;
-  }
-
-  if (!data.user) {
-    alert("Your account could not be created. Please try again.");
-    return;
-  }
-
-  if (!data.session) {
-    alert(
-      "Account created. Please check your email to confirm your account before logging in."
-    );
-    window.location.href = "/login";
-    return;
-  }
-
-  window.location.href = "/my-minutes";
-}
 
   return (
     <main className="min-h-screen bg-[#050505] px-6 py-16 text-white">
       <section className="mx-auto max-w-md">
         <div className="flex items-center gap-4">
-  {logoUrl ? (
-    <img
-      src={logoUrl}
-      alt={`${salonName} logo`}
-      className="h-24 w-24 rounded-2xl bg-[#111] object-cover"
-    />
-  ) : (
-    <span className="text-5xl">☀️</span>
-  )}
+          {logoUrl ? (
+            <img
+              src={logoUrl}
+              alt={`${salonName} logo`}
+              className="h-24 w-24 rounded-2xl bg-[#111] object-cover"
+            />
+          ) : (
+            <span className="text-5xl">☀️</span>
+          )}
 
-  <div>
-    <p className="text-sm font-semibold uppercase tracking-[0.3em] text-[#d6a84f]">
-      {salonName}
-    </p>
+          <div>
+            <p className="text-sm font-semibold uppercase tracking-[0.3em] text-[#d6a84f]">
+              {salonName}
+            </p>
 
-    <h1 className="mt-2 text-5xl font-bold">Create Your Account</h1>
-  </div>
-</div>
+            <h1 className="mt-2 text-5xl font-bold">
+              Create Your Account
+            </h1>
+          </div>
+        </div>
 
-{tagline && (
-  <p className="mt-4 text-zinc-400">
-    {tagline}
-  </p>
-)}
+        {tagline && (
+          <p className="mt-4 text-zinc-400">
+            {tagline}
+          </p>
+        )}
 
         <div className="mt-10 rounded-3xl border border-[#d6a84f]/30 bg-[#111] p-8">
           <div className="space-y-4">
@@ -181,15 +195,15 @@ useEffect(() => {
             />
 
             <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-[#2a2a2a] p-4 text-sm text-zinc-300">
-  <input
-    type="checkbox"
-    checked={isOver18}
-    onChange={(e) => setIsOver18(e.target.checked)}
-    className="mt-1 h-4 w-4 accent-[#d6a84f]"
-  />
+              <input
+                type="checkbox"
+                checked={isOver18}
+                onChange={(e) => setIsOver18(e.target.checked)}
+                className="mt-1 h-4 w-4 accent-[#d6a84f]"
+              />
 
-  <span>I confirm that I am aged 18 or over.</span>
-</label>
+              <span>I confirm that I am aged 18 or over.</span>
+            </label>
 
             <button
               type="button"
@@ -204,7 +218,11 @@ useEffect(() => {
           <p className="mt-6 text-center text-sm text-zinc-400">
             Already have an account?{" "}
             <Link
-              href="/login"
+              href={
+                salonSlug
+                  ? `/login?salon=${salonSlug}`
+                  : "/login"
+              }
               className="font-semibold text-[#d6a84f] hover:underline"
             >
               Login
