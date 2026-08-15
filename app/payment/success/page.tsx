@@ -131,7 +131,30 @@ if (vipUpdateError) {
   );
 }
 
-const activeVip = updatedVip ?? vipMembership;
+if (!updatedVip) {
+  return (
+    <main className="flex min-h-screen items-center justify-center bg-[#050505] px-6 text-white">
+      <div className="text-center">
+        <h1 className="text-5xl font-bold">
+          VIP Membership Already Activated
+        </h1>
+
+        <p className="mt-4 text-zinc-300">
+          Your VIP membership has already been processed.
+        </p>
+
+        <a
+          href="/my-minutes"
+          className="mt-8 inline-block rounded-full bg-[#d6a84f] px-8 py-4 font-bold text-black"
+        >
+          View My Minutes
+        </a>
+      </div>
+    </main>
+  );
+}
+
+const activeVip = updatedVip;
 const { error: customerUpdateError } = await supabaseAdmin
   .from("customers")
   .update({
