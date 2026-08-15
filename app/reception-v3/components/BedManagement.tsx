@@ -10,6 +10,40 @@ type Bed = {
   active: boolean;
 };
 
+async function getCurrentSalonId() {
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
+
+  if (userError || !user) {
+    return {
+      salonId: null,
+      error: userError ?? new Error("User is not logged in."),
+    };
+  }
+
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("salon_id")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (profileError || !profile?.salon_id) {
+    return {
+      salonId: null,
+      error:
+        profileError ??
+        new Error("Could not determine the current salon."),
+    };
+  }
+
+  return {
+    salonId: profile.salon_id,
+    error: null,
+  };
+}
+
 export default function BedManagement() {
   const [beds, setBeds] = useState<Bed[]>([]);
   const [loading, setLoading] = useState(true);
@@ -19,22 +53,37 @@ export default function BedManagement() {
   const [addBedOpen, setAddBedOpen] = useState(false);
   const [newBedName, setNewBedName] = useState("");
 
-  const [editingBedId, setEditingBedId] = useState<number | null>(null);
+  const [editingBedId, setEditingBedId] =
+    useState<number | null>(null);
   const [editingBedName, setEditingBedName] = useState("");
 
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    loadBeds();
+    void loadBeds();
   }, []);
 
   async function loadBeds() {
     setLoading(true);
     setErrorMessage("");
 
+    const { salonId, error: salonError } =
+      await getCurrentSalonId();
+
+    if (salonError || !salonId) {
+      setErrorMessage(
+        salonError?.message ||
+          "Could not determine the current salon."
+      );
+      setBeds([]);
+      setLoading(false);
+      return;
+    }
+
     const { data, error } = await supabase
       .from("beds")
       .select("id, name, display_order, active")
+      .eq("salon_id", salonId)
       .eq("active", true)
       .order("display_order", { ascending: true });
 
@@ -60,12 +109,27 @@ export default function BedManagement() {
     setErrorMessage("");
     setSuccessMessage("");
 
+    const { salonId, error: salonError } =
+      await getCurrentSalonId();
+
+    if (salonError || !salonId) {
+      setErrorMessage(
+        salonError?.message ||
+          "Could not determine the current salon."
+      );
+      setSaving(false);
+      return;
+    }
+
     const nextDisplayOrder =
       beds.length === 0
         ? 1
-        : Math.max(...beds.map((bed) => bed.display_order)) + 1;
+        : Math.max(
+            ...beds.map((bed) => bed.display_order)
+          ) + 1;
 
     const { error } = await supabase.from("beds").insert({
+      salon_id: salonId,
       name: trimmedName,
       display_order: nextDisplayOrder,
       active: true,
@@ -79,7 +143,9 @@ export default function BedManagement() {
 
     setNewBedName("");
     setAddBedOpen(false);
-    setSuccessMessage(`${trimmedName} added successfully.`);
+    setSuccessMessage(
+      `${trimmedName} added successfully.`
+    );
 
     await loadBeds();
     setSaving(false);
@@ -99,12 +165,25 @@ export default function BedManagement() {
     setErrorMessage("");
     setSuccessMessage("");
 
+    const { salonId, error: salonError } =
+      await getCurrentSalonId();
+
+    if (salonError || !salonId) {
+      setErrorMessage(
+        salonError?.message ||
+          "Could not determine the current salon."
+      );
+      setSaving(false);
+      return;
+    }
+
     const { error } = await supabase
       .from("beds")
       .update({
         name: trimmedName,
       })
-      .eq("id", editingBedId);
+      .eq("id", editingBedId)
+      .eq("salon_id", salonId);
 
     if (error) {
       setErrorMessage(error.message);
@@ -131,12 +210,25 @@ export default function BedManagement() {
     setErrorMessage("");
     setSuccessMessage("");
 
+    const { salonId, error: salonError } =
+      await getCurrentSalonId();
+
+    if (salonError || !salonId) {
+      setErrorMessage(
+        salonError?.message ||
+          "Could not determine the current salon."
+      );
+      setSaving(false);
+      return;
+    }
+
     const { error } = await supabase
       .from("beds")
       .update({
         active: false,
       })
-      .eq("id", bed.id);
+      .eq("id", bed.id)
+      .eq("salon_id", salonId);
 
     if (error) {
       setErrorMessage(error.message);
@@ -149,12 +241,13 @@ export default function BedManagement() {
       setEditingBedName("");
     }
 
-    setSuccessMessage(`${bed.name} removed successfully.`);
+    setSuccessMessage(
+      `${bed.name} removed successfully.`
+    );
 
     await loadBeds();
     setSaving(false);
   }
-  
 
   return (
     <section className="rounded-3xl border border-slate-800 bg-slate-950 p-6 shadow-xl">
@@ -212,7 +305,9 @@ export default function BedManagement() {
               id="new-bed-name"
               type="text"
               value={newBedName}
-              onChange={(event) => setNewBedName(event.target.value)}
+              onChange={(event) =>
+                setNewBedName(event.target.value)
+              }
               placeholder="Enter bed name"
               className="min-w-0 flex-1 rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none focus:border-amber-400"
             />
@@ -249,11 +344,15 @@ export default function BedManagement() {
           </div>
         )}
 
-        {!loading && !errorMessage && beds.length === 0 && (
-          <div className="rounded-2xl border border-dashed border-slate-700 bg-slate-900/50 p-8 text-center">
-            <p className="font-bold text-white">No active beds found.</p>
-          </div>
-        )}
+        {!loading &&
+          !errorMessage &&
+          beds.length === 0 && (
+            <div className="rounded-2xl border border-dashed border-slate-700 bg-slate-900/50 p-8 text-center">
+              <p className="font-bold text-white">
+                No active beds found.
+              </p>
+            </div>
+          )}
 
         {!loading &&
           beds.map((bed) => (
@@ -268,7 +367,9 @@ export default function BedManagement() {
                       type="text"
                       value={editingBedName}
                       onChange={(event) =>
-                        setEditingBedName(event.target.value)
+                        setEditingBedName(
+                          event.target.value
+                        )
                       }
                       className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none focus:border-amber-400"
                     />
@@ -298,7 +399,9 @@ export default function BedManagement() {
                   </div>
                 ) : (
                   <>
-                    <p className="text-lg font-black text-white">{bed.name}</p>
+                    <p className="text-lg font-black text-white">
+                      {bed.name}
+                    </p>
 
                     <p className="mt-1 text-sm text-slate-400">
                       Display order: {bed.display_order}
