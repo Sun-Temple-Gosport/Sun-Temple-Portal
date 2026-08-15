@@ -256,6 +256,41 @@ return (
     return <ErrorPage message="Payment has not been verified as paid." />;
   }
 
+  const { data: existingBatch, error: existingBatchError } =
+  await supabaseAdmin
+    .from("minute_batches")
+    .select("id")
+    .eq("purchase_id", purchase.id)
+    .eq("salon_id", purchase.salon_id)
+    .maybeSingle();
+
+if (existingBatchError) {
+  return (
+    <ErrorPage message="The payment was verified, but we could not confirm whether the minutes were already credited." />
+  );
+}
+
+if (existingBatch) {
+  return (
+    <main className="flex min-h-screen items-center justify-center bg-[#050505] px-6 text-white">
+      <div className="text-center">
+        <h1 className="text-5xl font-bold">Payment Already Processed</h1>
+
+        <p className="mt-4">
+          Your minutes have already been added to your account.
+        </p>
+
+        <a
+          href="/my-minutes"
+          className="mt-8 inline-block rounded-full bg-[#d6a84f] px-8 py-4 font-bold text-black"
+        >
+          View My Minutes
+        </a>
+      </div>
+    </main>
+  );
+}
+
  const { error: transactionError } = await supabaseAdmin
   .from("minute_transactions")
   .insert({
@@ -283,10 +318,11 @@ return (
 
   if (batchError) {
     await supabaseAdmin
-      .from("minute_transactions")
-      .delete()
-      .eq("customer_id", purchase.customer_id)
-      .eq("reason", `Online SumUp purchase - ${checkoutReference}`);
+  .from("minute_transactions")
+  .delete()
+  .eq("salon_id", purchase.salon_id)
+  .eq("customer_id", purchase.customer_id)
+  .eq("reason", `Online SumUp purchase - ${checkoutReference}`);
 
     return <ErrorPage message="The payment was verified, but the minute balance could not be updated." />;
   }
@@ -298,7 +334,8 @@ return (
     paid_at: new Date().toISOString(),
   })
   .eq("id", purchase.id)
-  .eq("payment_status", "pending")
+.eq("salon_id", purchase.salon_id)
+.eq("payment_status", "pending")
   .select("id")
   .maybeSingle();
 
