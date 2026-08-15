@@ -8,31 +8,81 @@ export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [salonName, setSalonName] = useState("Your Salon");
-const [tagline, setTagline] = useState("");
-const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [tagline, setTagline] = useState("");
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [salonSlug, setSalonSlug] = useState("");
 
-useEffect(() => {
-  async function loadBranding() {
-    const { data, error } = await supabase
-      .from("salon_settings")
-      .select("salon_name, tagline, logo_url")
-      .limit(1)
-      .maybeSingle();
+  useEffect(() => {
+    async function loadBranding() {
+      const params = new URLSearchParams(window.location.search);
+      const requestedSalonSlug = params.get("salon");
 
-    if (error) {
-      console.error("Could not load salon branding:", error.message);
-      return;
+      let salon: {
+        id: string;
+        slug: string;
+      } | null = null;
+
+      if (requestedSalonSlug) {
+        const { data, error } = await supabase
+          .from("salons")
+          .select("id, slug")
+          .eq("slug", requestedSalonSlug.toLowerCase())
+          .eq("active", true)
+          .maybeSingle();
+
+        if (error || !data) {
+          console.error(
+            "Could not load salon branding:",
+            error?.message || "Salon was not found."
+          );
+          return;
+        }
+
+        salon = data;
+      } else {
+        const { data, error } = await supabase
+          .from("salons")
+          .select("id, slug")
+          .eq("active", true)
+          .limit(2);
+
+        if (error) {
+          console.error("Could not load salon branding:", error.message);
+          return;
+        }
+
+        if (!data || data.length !== 1) {
+          console.error(
+            "Could not load salon branding: salon must be specified."
+          );
+          return;
+        }
+
+        salon = data[0];
+      }
+
+      const { data, error } = await supabase
+        .from("salon_settings")
+        .select("salon_name, tagline, logo_url")
+        .eq("salon_id", salon.id)
+        .maybeSingle();
+
+      if (error) {
+        console.error("Could not load salon branding:", error.message);
+        return;
+      }
+
+      setSalonSlug(salon.slug);
+
+      if (!data) return;
+
+      setSalonName(data.salon_name || "Your Salon");
+      setTagline(data.tagline || "");
+      setLogoUrl(data.logo_url || null);
     }
 
-    if (!data) return;
-
-    setSalonName(data.salon_name || "Your Salon");
-    setTagline(data.tagline || "");
-    setLogoUrl(data.logo_url || null);
-  }
-
-  void loadBranding();
-}, []);
+    void loadBranding();
+  }, []);
 
   async function resetPassword() {
     if (!email.trim()) {
@@ -42,10 +92,16 @@ useEffect(() => {
 
     setLoading(true);
 
+    const redirectUrl = salonSlug
+      ? `${window.location.origin}/reset-password?salon=${encodeURIComponent(
+          salonSlug
+        )}`
+      : `${window.location.origin}/reset-password`;
+
     const { error } = await supabase.auth.resetPasswordForEmail(
       email.trim(),
       {
-        redirectTo: `${window.location.origin}/reset-password`,
+        redirectTo: redirectUrl,
       }
     );
 
@@ -65,30 +121,30 @@ useEffect(() => {
     <main className="min-h-screen bg-[#050505] px-6 py-16 text-white">
       <section className="mx-auto max-w-md">
         <div className="flex items-center gap-4">
-  {logoUrl ? (
-    <img
-      src={logoUrl}
-      alt={`${salonName} logo`}
-      className="h-24 w-24 rounded-2xl bg-[#111] object-cover"
-    />
-  ) : (
-    <span className="text-5xl">☀️</span>
-  )}
+          {logoUrl ? (
+            <img
+              src={logoUrl}
+              alt={`${salonName} logo`}
+              className="h-24 w-24 rounded-2xl bg-[#111] object-cover"
+            />
+          ) : (
+            <span className="text-5xl">☀️</span>
+          )}
 
-  <div>
-    <p className="text-sm font-semibold uppercase tracking-[0.3em] text-[#d6a84f]">
-      {salonName}
-    </p>
+          <div>
+            <p className="text-sm font-semibold uppercase tracking-[0.3em] text-[#d6a84f]">
+              {salonName}
+            </p>
 
-    <h1 className="mt-2 text-5xl font-bold">Forgot Password</h1>
-  </div>
-</div>
+            <h1 className="mt-2 text-5xl font-bold">Forgot Password</h1>
+          </div>
+        </div>
 
-{tagline && (
-  <p className="mt-4 text-zinc-400">
-    {tagline}
-  </p>
-)}
+        {tagline && (
+          <p className="mt-4 text-zinc-400">
+            {tagline}
+          </p>
+        )}
 
         <p className="mt-4 text-zinc-400">
           Enter your email address and we'll send you a password reset link.
@@ -117,7 +173,11 @@ useEffect(() => {
           <p className="mt-6 text-center text-sm text-zinc-400">
             Remembered your password?{" "}
             <Link
-              href="/login"
+              href={
+                salonSlug
+                  ? `/login?salon=${salonSlug}`
+                  : "/login"
+              }
               className="font-semibold text-[#d6a84f] hover:underline"
             >
               Login
