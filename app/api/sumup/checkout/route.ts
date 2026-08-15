@@ -7,7 +7,6 @@ const supabaseAdmin = createClient(
 );
 
 type CheckoutRequest = {
-  customerId?: string;
   packageId?: number;
   checkoutReference?: string;
 };
@@ -15,20 +14,74 @@ type CheckoutRequest = {
 export async function POST(request: Request) {
   try {
     const body = (await request.json()) as CheckoutRequest;
+    const authHeader = request.headers.get("authorization");
 
-    if (!body.customerId || !body.packageId || !body.checkoutReference) {
-      return NextResponse.json(
-        { error: "Missing checkout information." },
-        { status: 400 }
-      );
-    }
+if (!authHeader?.startsWith("Bearer ")) {
+  return NextResponse.json(
+    { error: "Authentication required." },
+    { status: 401 }
+  );
+}
 
-    const { data: customer, error: customerError } = await supabaseAdmin
-  .from("customers")
-  .select("customer_id, vip_expires_at, salon_id")
-  .eq("customer_id", body.customerId)
+const accessToken = authHeader.slice("Bearer ".length);
+
+const {
+  data: { user },
+  error: userError,
+} = await supabaseAdmin.auth.getUser(accessToken);
+
+if (userError || !user) {
+  return NextResponse.json(
+    { error: "Invalid or expired login session." },
+    { status: 401 }
+  );
+}
+
+   if (!body.packageId || !body.checkoutReference) {
+  return NextResponse.json(
+    { error: "Missing checkout information." },
+    { status: 400 }
+  );
+}
+
+    const { data: profile, error: profileError } = await supabaseAdmin
+  .from("profiles")
+  .select("customer_id, salon_id")
+  .eq("id", user.id)
   .maybeSingle();
 
+if (profileError) {
+  console.error("Profile lookup failed:", profileError);
+
+  return NextResponse.json(
+    { error: "Could not load customer profile." },
+    { status: 500 }
+  );
+}
+
+if (!profile?.salon_id) {
+  return NextResponse.json(
+    { error: "Customer salon could not be determined." },
+    { status: 400 }
+  );
+}
+
+let customerQuery = supabaseAdmin
+  .from("customers")
+  .select("customer_id, vip_expires_at, salon_id")
+  .eq("salon_id", profile.salon_id);
+
+if (profile.customer_id) {
+  customerQuery = customerQuery.eq(
+    "customer_id",
+    profile.customer_id
+  );
+} else {
+  customerQuery = customerQuery.eq("email", user.email);
+}
+
+const { data: customer, error: customerError } =
+  await customerQuery.maybeSingle();
 if (customerError) {
   console.error("Customer lookup failed:", customerError);
 

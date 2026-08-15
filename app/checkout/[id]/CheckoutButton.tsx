@@ -24,34 +24,32 @@ export default function CheckoutButton({
       return;
     }
 
-    const { data: profileData, error: profileError } = await supabase
-      .from("profiles")
-      .select("customer_id")
-      .eq("id", user.id)
-      .maybeSingle();
-
-    if (profileError) {
-      alert("Could not load your customer account. Please try again.");
-      return;
-    }
-
-    const customerId = profileData?.customer_id || user.id;
+    
 
     const checkoutReference = `tansalonos-${Date.now()}`;
 
-    const res = await fetch("/api/sumup/checkout", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
+   const {
+  data: { session },
+} = await supabase.auth.getSession();
+
+if (!session?.access_token) {
+  alert("Your login session has expired. Please log in again.");
+  return;
+}
+
+const res = await fetch("/api/sumup/checkout", {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${session.access_token}`,
+  },
       body: JSON.stringify({
-        amount,
-        description,
-        packageId,
-        minutes,
-        customerId,
-        checkoutReference,
-      }),
+  amount,
+  description,
+  packageId,
+  minutes,
+  checkoutReference,
+}),
     });
 
     const data = await res.json();
