@@ -10,6 +10,25 @@ type Bed = {
   active: boolean;
 };
 
+type BedLampCycle = {
+  id: string;
+  bed_id: number;
+  installed_at: string;
+  target_minutes: number;
+  starting_minutes: number;
+  active: boolean;
+};
+type BedLampUsage = {
+  bed_id: number;
+  minutes_used: number;
+};
+function formatMinutesAsHours(totalMinutes: number) {
+  const safeMinutes = Math.max(0, Math.round(totalMinutes));
+  const hours = Math.floor(safeMinutes / 60);
+  const minutes = safeMinutes % 60;
+
+  return `${hours}h ${minutes}m`;
+}
 async function getCurrentSalonId() {
   const {
     data: { user },
@@ -45,8 +64,14 @@ async function getCurrentSalonId() {
 }
 
 export default function BedManagement() {
-  const [beds, setBeds] = useState<Bed[]>([]);
-  const [loading, setLoading] = useState(true);
+const [beds, setBeds] = useState<Bed[]>([]);
+const [lampCycles, setLampCycles] = useState<BedLampCycle[]>([]);
+const [lampUsage, setLampUsage] = useState<BedLampUsage[]>([]);
+const [lampSetupBedId, setLampSetupBedId] =
+  useState<number | null>(null);
+const [lampTargetHours, setLampTargetHours] = useState("1000");
+const [startingLampMinutes, setStartingLampMinutes] = useState("0");
+const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
 
@@ -80,21 +105,81 @@ export default function BedManagement() {
       return;
     }
 
-    const { data, error } = await supabase
-      .from("beds")
-      .select("id, name, display_order, active")
-      .eq("salon_id", salonId)
-      .eq("active", true)
-      .order("display_order", { ascending: true });
+    const [
+  { data: bedData, error: bedError },
+  { data: lampData, error: lampError },
+] = await Promise.all([
+  supabase
+    .from("beds")
+    .select("id, name, display_order, active")
+    .eq("salon_id", salonId)
+    .eq("active", true)
+    .order("display_order", { ascending: true }),
 
-    if (error) {
-      setErrorMessage(error.message);
-      setLoading(false);
-      return;
+  supabase
+    .from("bed_lamp_cycles")
+    .select(
+      "id, bed_id, installed_at, target_minutes, starting_minutes, active"
+    )
+    .eq("salon_id", salonId)
+    .eq("active", true),
+]);
+
+    if (bedError) {
+  setErrorMessage(bedError.message);
+  setLoading(false);
+  return;
+}
+
+if (lampError) {
+  setErrorMessage(lampError.message);
+  setLoading(false);
+  return;
+}
+
+setBeds(bedData ?? []);
+setLampCycles((lampData ?? []) as BedLampCycle[]);
+const usageResults = await Promise.all(
+  ((lampData ?? []) as BedLampCycle[]).map(async (cycle) => {
+    const bed = (bedData ?? []).find(
+      (item) => item.id === cycle.bed_id
+    );
+
+    if (!bed) {
+      return {
+        bed_id: cycle.bed_id,
+        minutes_used: cycle.starting_minutes,
+      };
     }
 
-    setBeds(data ?? []);
-    setLoading(false);
+    const { data: sessionData, error: sessionError } =
+      await supabase
+        .from("bed_sessions")
+        .select("minutes")
+        .eq("salon_id", salonId)
+        .eq("bed_name", bed.name)
+        .eq("status", "finished")
+        .gte("started_at", cycle.installed_at);
+
+    if (sessionError) {
+      throw sessionError;
+    }
+
+    const sessionMinutes = (sessionData ?? []).reduce(
+      (total, session) => total + Number(session.minutes || 0),
+      0
+    );
+
+    return {
+      bed_id: cycle.bed_id,
+      minutes_used:
+        cycle.starting_minutes + sessionMinutes,
+    };
+  })
+);
+
+setLampUsage(usageResults);
+setLoading(false);
   }
 
   async function addBed() {
@@ -248,7 +333,85 @@ export default function BedManagement() {
     await loadBeds();
     setSaving(false);
   }
+async function startLampCycle(bed: Bed) {
+  const targetHours = Number(lampTargetHours);
+  const startMinutes = Number(startingLampMinutes);
 
+  if (
+    !Number.isFinite(targetHours) ||
+    targetHours <= 0
+  ) {
+    setErrorMessage("Please enter a valid lamp-life target in hours.");
+    return;
+  }
+
+  if (
+    !Number.isFinite(startMinutes) ||
+    startMinutes < 0
+  ) {
+    setErrorMessage("Please enter a valid starting lamp usage.");
+    return;
+  }
+
+  setSaving(true);
+  setErrorMessage("");
+  setSuccessMessage("");
+
+  const { salonId, error: salonError } =
+    await getCurrentSalonId();
+
+  if (salonError || !salonId) {
+    setErrorMessage(
+      salonError?.message ||
+        "Could not determine the current salon."
+    );
+    setSaving(false);
+    return;
+  }
+
+  const { error: closeError } = await supabase
+    .from("bed_lamp_cycles")
+    .update({
+      active: false,
+    })
+    .eq("salon_id", salonId)
+    .eq("bed_id", bed.id)
+    .eq("active", true);
+
+  if (closeError) {
+    setErrorMessage(closeError.message);
+    setSaving(false);
+    return;
+  }
+
+  const { error: insertError } = await supabase
+    .from("bed_lamp_cycles")
+    .insert({
+      salon_id: salonId,
+      bed_id: bed.id,
+      installed_at: new Date().toISOString(),
+      target_minutes: Math.round(targetHours * 60),
+      starting_minutes: Math.round(startMinutes),
+      active: true,
+    });
+
+  if (insertError) {
+    setErrorMessage(insertError.message);
+    setSaving(false);
+    return;
+  }
+
+  setLampSetupBedId(null);
+  setLampTargetHours("1000");
+  setStartingLampMinutes("0");
+
+  setSuccessMessage(
+    `${bed.name} lamp counter started successfully.`
+  );
+
+  await loadBeds();
+  setSaving(false);
+}
   return (
     <section className="rounded-3xl border border-slate-800 bg-slate-950 p-6 shadow-xl">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -399,14 +562,206 @@ export default function BedManagement() {
                   </div>
                 ) : (
                   <>
-                    <p className="text-lg font-black text-white">
-                      {bed.name}
-                    </p>
+  <p className="text-lg font-black text-white">
+    {bed.name}
+  </p>
 
-                    <p className="mt-1 text-sm text-slate-400">
-                      Display order: {bed.display_order}
-                    </p>
-                  </>
+  <p className="mt-1 text-sm text-slate-400">
+    Display order: {bed.display_order}
+  </p>
+
+  {(() => {
+    const cycle = lampCycles.find(
+      (item) => item.bed_id === bed.id
+    );
+
+    if (!cycle) {
+      return (
+        <div className="mt-4 rounded-2xl border border-slate-700 bg-slate-950 p-4">
+          <p className="text-xs font-black uppercase tracking-wide text-slate-500">
+            Lamp Life
+          </p>
+
+          <p className="mt-2 text-sm font-bold text-slate-400">
+            Lamp counter not started
+          </p>
+        </div>
+      );
+    }
+
+    const usage = lampUsage.find(
+      (item) => item.bed_id === bed.id
+    );
+
+    const minutesUsed =
+      usage?.minutes_used ?? cycle.starting_minutes;
+
+    const minutesRemaining = Math.max(
+      0,
+      cycle.target_minutes - minutesUsed
+    );
+
+    const percentageRemaining =
+      cycle.target_minutes > 0
+        ? Math.max(
+            0,
+            Math.min(
+              100,
+              (minutesRemaining / cycle.target_minutes) * 100
+            )
+          )
+        : 0;
+
+    const status =
+      percentageRemaining <= 0
+        ? "RE-BULB DUE"
+        : percentageRemaining <= 10
+          ? "RE-BULB SOON"
+          : "GOOD";
+
+    return (
+      <div className="mt-4 rounded-2xl border border-slate-700 bg-slate-950 p-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="text-xs font-black uppercase tracking-wide text-amber-400">
+            Lamp Life
+          </p>
+
+          <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs font-black text-emerald-300">
+            {status}
+          </span>
+        </div>
+
+        <div className="mt-4 grid gap-3 sm:grid-cols-3">
+          <div>
+            <p className="text-xs font-bold text-slate-500">
+              Used
+            </p>
+            <p className="mt-1 font-black text-white">
+              {formatMinutesAsHours(minutesUsed)}
+            </p>
+          </div>
+
+          <div>
+            <p className="text-xs font-bold text-slate-500">
+              Remaining
+            </p>
+            <p className="mt-1 font-black text-white">
+              {formatMinutesAsHours(minutesRemaining)}
+            </p>
+          </div>
+
+          <div>
+            <p className="text-xs font-bold text-slate-500">
+              Life Remaining
+            </p>
+            <p className="mt-1 font-black text-white">
+              {percentageRemaining.toFixed(1)}%
+            </p>
+          </div>
+        </div>
+
+        <p className="mt-4 text-xs font-semibold text-slate-500">
+          Lamps fitted{" "}
+          {new Date(cycle.installed_at).toLocaleDateString(
+            "en-GB",
+            {
+              day: "2-digit",
+              month: "short",
+              year: "numeric",
+            }
+          )}
+        </p>
+      </div>
+    );
+    })()}
+
+  <div className="mt-3">
+    <button
+      type="button"
+      onClick={() => {
+        setLampSetupBedId(bed.id);
+        setLampTargetHours("1000");
+        setStartingLampMinutes("0");
+        setErrorMessage("");
+        setSuccessMessage("");
+      }}
+      disabled={saving}
+      className="rounded-full border border-amber-400 px-4 py-2 text-xs font-black uppercase tracking-wide text-amber-300 transition hover:bg-amber-400 hover:text-black disabled:opacity-50"
+    >
+      {lampCycles.some(
+        (cycle) => cycle.bed_id === bed.id
+      )
+        ? "Re-bulb / Start New Cycle"
+        : "Start Lamp Counter"}
+        </button>
+  </div>
+
+  {lampSetupBedId === bed.id && (
+    <div className="mt-4 rounded-2xl border border-amber-400/30 bg-slate-950 p-5">
+      <p className="text-xs font-black uppercase tracking-[0.2em] text-amber-400">
+        Lamp Counter Setup
+      </p>
+
+      <h3 className="mt-2 text-lg font-black text-white">
+        {bed.name}
+      </h3>
+
+      <div className="mt-5 grid gap-4 sm:grid-cols-2">
+        <label className="space-y-2">
+          <span className="text-xs font-black uppercase tracking-wide text-slate-400">
+            Lamp Life Target (hours)
+          </span>
+
+          <input
+            type="number"
+            min="1"
+            value={lampTargetHours}
+            onChange={(event) =>
+              setLampTargetHours(event.target.value)
+            }
+            className="w-full rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 text-white"
+          />
+        </label>
+
+        <label className="space-y-2">
+          <span className="text-xs font-black uppercase tracking-wide text-slate-400">
+            Starting Usage (minutes)
+          </span>
+
+          <input
+            type="number"
+            min="0"
+            value={startingLampMinutes}
+            onChange={(event) =>
+              setStartingLampMinutes(event.target.value)
+            }
+            className="w-full rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 text-white"
+          />
+        </label>
+      </div>
+
+      <div className="mt-5 flex flex-wrap gap-3">
+        <button
+          type="button"
+          onClick={() => void startLampCycle(bed)}
+          disabled={saving}
+          className="rounded-xl bg-amber-400 px-5 py-3 font-black text-black hover:bg-amber-300 disabled:opacity-50"
+        >
+          {saving ? "Saving..." : "Start New Lamp Cycle"}
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setLampSetupBedId(null)}
+          disabled={saving}
+          className="rounded-xl border border-slate-700 px-5 py-3 font-black text-slate-300 disabled:opacity-50"
+        >
+          Cancel
+        </button>
+      </div>
+    </div>
+  )}
+</>
                 )}
               </div>
 
@@ -441,6 +796,7 @@ export default function BedManagement() {
             </div>
           ))}
       </div>
+      
     </section>
   );
 }
