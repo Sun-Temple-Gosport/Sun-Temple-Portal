@@ -5,24 +5,76 @@ import Link from "next/link";
 import { supabase } from "../../lib/supabase";
 
 export default function LoginPage() {
-  console.log(process.env.NEXT_PUBLIC_SUPABASE_URL);
-  console.log(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [salonName, setSalonName] = useState("Your Salon");
 const [tagline, setTagline] = useState("");
 const [logoUrl, setLogoUrl] = useState<string | null>(null);
+const [salonSlug, setSalonSlug] = useState("");
 
 useEffect(() => {
   async function loadBranding() {
-    const { data } = await supabase
+    const params = new URLSearchParams(window.location.search);
+    const requestedSalonSlug = params.get("salon");
+
+    let salon: {
+      id: string;
+      slug: string;
+    } | null = null;
+
+    if (requestedSalonSlug) {
+      const { data, error } = await supabase
+        .from("salons")
+        .select("id, slug")
+        .eq("slug", requestedSalonSlug.toLowerCase())
+        .eq("active", true)
+        .maybeSingle();
+
+      if (error || !data) {
+        console.error(
+          "Could not load salon branding:",
+          error?.message || "Salon was not found."
+        );
+        return;
+      }
+
+      salon = data;
+    } else {
+      const { data, error } = await supabase
+        .from("salons")
+        .select("id, slug")
+        .eq("active", true)
+        .limit(2);
+
+      if (error) {
+        console.error("Could not load salon branding:", error.message);
+        return;
+      }
+
+      if (!data || data.length !== 1) {
+        console.error(
+          "Could not load salon branding: salon must be specified."
+        );
+        return;
+      }
+
+      salon = data[0];
+    }
+
+    const { data, error } = await supabase
       .from("salon_settings")
       .select("salon_name, tagline, logo_url")
-      .limit(1)
+      .eq("salon_id", salon.id)
       .maybeSingle();
+
+    if (error) {
+      console.error("Could not load salon branding:", error.message);
+      return;
+    }
 
     if (!data) return;
 
+    setSalonSlug(salon.slug);
     setSalonName(data.salon_name || "Your Salon");
     setTagline(data.tagline || "");
     setLogoUrl(data.logo_url || null);
@@ -37,7 +89,6 @@ useEffect(() => {
     password,
   });
 
-  console.log({ data, error });
 
   if (error) {
     alert(error.message);
@@ -104,21 +155,25 @@ useEffect(() => {
             </button>
             <div className="flex justify-end">
   <Link
-    href="/forgot-password"
-    className="text-sm font-medium text-[#d6a84f] hover:underline"
-  >
-    Forgot your password?
-  </Link>
+  href={
+    salonSlug
+      ? `/forgot-password?salon=${salonSlug}`
+      : "/forgot-password"
+  }
+  className="text-sm font-medium text-[#d6a84f] hover:underline"
+>
+  Forgot your password?
+</Link>
 </div>
           </div>
           <p className="mt-6 text-center text-sm text-zinc-400">
   New customer?{" "}
   <Link
-    href="/register"
-    className="font-semibold text-[#d6a84f] hover:underline"
-  >
-    Create an account
-  </Link>
+  href={salonSlug ? `/register?salon=${salonSlug}` : "/register"}
+  className="font-semibold text-[#d6a84f] hover:underline"
+>
+  Create an account
+</Link>
 </p>
         </div>
       </section>
