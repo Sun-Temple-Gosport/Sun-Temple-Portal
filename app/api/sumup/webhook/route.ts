@@ -152,13 +152,14 @@ export async function POST(request: Request) {
 
       if (batchError) {
         await supabaseAdmin
-          .from("minute_transactions")
-          .delete()
-          .eq("customer_id", purchase.customer_id)
-          .eq(
-            "reason",
-            `Online SumUp purchase - ${checkout.checkout_reference}`
-          );
+  .from("minute_transactions")
+  .delete()
+  .eq("salon_id", purchase.salon_id)
+  .eq("customer_id", purchase.customer_id)
+  .eq(
+    "reason",
+    `Online SumUp purchase - ${checkout.checkout_reference}`
+  );
 
         console.error("Webhook minute batch failed:", batchError);
 
