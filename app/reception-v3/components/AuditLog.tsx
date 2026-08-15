@@ -64,19 +64,43 @@ export default function AuditLog() {
   }, []);
 
   async function loadAudit() {
-    setLoading(true);
+  setLoading(true);
 
-    const { data, error } = await supabase
-      .from("audit_log")
-      .select("*")
-      .order("created_at", { ascending: false });
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
 
-    if (!error) {
-      setEntries((data ?? []) as AuditEntry[]);
-    }
-
+  if (userError || !user) {
+    setEntries([]);
     setLoading(false);
+    return;
   }
+
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("salon_id")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (profileError || !profile?.salon_id) {
+    setEntries([]);
+    setLoading(false);
+    return;
+  }
+
+  const { data, error } = await supabase
+    .from("audit_log")
+    .select("*")
+    .eq("salon_id", profile.salon_id)
+    .order("created_at", { ascending: false });
+
+  if (!error) {
+    setEntries((data ?? []) as AuditEntry[]);
+  }
+
+  setLoading(false);
+}
 
   return (
     <section className="space-y-5">
