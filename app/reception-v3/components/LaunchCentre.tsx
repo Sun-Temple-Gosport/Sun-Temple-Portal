@@ -119,16 +119,46 @@ export default function LaunchCentre({
   const [hasMinutePackages, setHasMinutePackages] = useState(false);
 const [hasVipMembership, setHasVipMembership] = useState(false);
 const [hasSalonPhotos, setHasSalonPhotos] = useState(false);
+const [salonId, setSalonId] = useState<string | null>(null);
   
 
 useEffect(() => {
   async function loadSalonSettings() {
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
+
+    if (userError || !user) {
+      console.error(
+        "Could not determine Launch Centre user:",
+        userError?.message
+      );
+      return;
+    }
+
+    const { data: profile, error: profileError } = await supabase
+      .from("profiles")
+      .select("salon_id")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    if (profileError || !profile?.salon_id) {
+      console.error(
+        "Could not determine Launch Centre salon:",
+        profileError?.message || "Salon ID missing."
+      );
+      return;
+    }
+
+    setSalonId(profile.salon_id);
+
     const { data, error } = await supabase
       .from("salon_settings")
       .select(
-  "salon_name, logo_url, hero_image_url, address, phone, opening_hours, payment_provider, website, website_reviewed, registration_test_complete, login_test_complete, website_published, buy_minutes_test_complete, my_minutes_test_complete, website_review_complete, contact_details_review_complete, contact_details_review_complete, opening_hours_review_complete, salon_photos_review_complete, launch_complete"
-)
-      .eq("id", 1)
+        "salon_name, logo_url, hero_image_url, address, phone, opening_hours, payment_provider, website, website_reviewed, registration_test_complete, login_test_complete, website_published, buy_minutes_test_complete, my_minutes_test_complete, website_review_complete, contact_details_review_complete, opening_hours_review_complete, salon_photos_review_complete, launch_complete"
+      )
+      .eq("salon_id", profile.salon_id)
       .maybeSingle();
 
     if (error) {
@@ -144,11 +174,17 @@ useEffect(() => {
 
   void loadSalonSettings();
 }, []);
-useEffect(() => {
+
+  useEffect(() => {
+  if (!salonId) {
+    return;
+  }
+
   async function loadSalonPhotos() {
     const { count, error } = await supabase
       .from("salon_images")
-      .select("id", { count: "exact", head: true });
+      .select("id", { count: "exact", head: true })
+      .eq("salon_id", salonId);
 
     if (error) {
       console.error("Could not load salon photos:", error.message);
@@ -159,7 +195,7 @@ useEffect(() => {
   }
 
   void loadSalonPhotos();
-}, []);
+}, [salonId]);
 useEffect(() => {
   async function loadStaffStatus() {
     const { data, error } = await supabase.rpc("list_staff_members");

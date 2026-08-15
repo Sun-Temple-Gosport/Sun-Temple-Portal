@@ -1,9 +1,37 @@
 import { supabase } from "../lib/supabase";
 
 export async function loadPackages() {
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
+
+  if (userError || !user) {
+    return {
+      data: null,
+      error: userError ?? new Error("User is not logged in."),
+    };
+  }
+
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("salon_id")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (profileError || !profile?.salon_id) {
+    return {
+      data: null,
+      error:
+        profileError ??
+        new Error("Could not determine the current salon."),
+    };
+  }
+
   return await supabase
     .from("packages")
     .select("id, name, minutes, price, expiry_days, active")
+    .eq("salon_id", profile.salon_id)
     .order("minutes", { ascending: true });
 }
 
@@ -15,6 +43,33 @@ export async function savePackage(updatedPackage: {
   expiry_days: number | null;
   active: boolean;
 }) {
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
+
+  if (userError || !user) {
+    return {
+      data: null,
+      error: userError ?? new Error("User is not logged in."),
+    };
+  }
+
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("salon_id")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (profileError || !profile?.salon_id) {
+    return {
+      data: null,
+      error:
+        profileError ??
+        new Error("Could not determine the current salon."),
+    };
+  }
+
   return await supabase
     .from("packages")
     .update({
@@ -24,7 +79,8 @@ export async function savePackage(updatedPackage: {
       expiry_days: updatedPackage.expiry_days,
       active: updatedPackage.active,
     })
-    .eq("id", updatedPackage.id);
+    .eq("id", updatedPackage.id)
+    .eq("salon_id", profile.salon_id);
 }
 export async function createPackageService(newPackage: {
   name: string;
@@ -70,8 +126,36 @@ export async function createPackageService(newPackage: {
     });
 }
 export async function deletePackageService(id: number) {
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
+
+  if (userError || !user) {
+    return {
+      data: null,
+      error: userError ?? new Error("User is not logged in."),
+    };
+  }
+
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("salon_id")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (profileError || !profile?.salon_id) {
+    return {
+      data: null,
+      error:
+        profileError ??
+        new Error("Could not determine the current salon."),
+    };
+  }
+
   return await supabase
     .from("packages")
     .delete()
-    .eq("id", id);
+    .eq("id", id)
+    .eq("salon_id", profile.salon_id);
 }
