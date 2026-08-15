@@ -178,10 +178,7 @@ export default function VipCheckoutPage() {
           £{Number(vip.price).toFixed(2)}
         </p>
 
-        <VipCheckoutButton
-          amount={Number(vip.price)}
-          durationDays={vip.duration_days}
-        />
+        <VipCheckoutButton />
       </div>
     </main>
   );

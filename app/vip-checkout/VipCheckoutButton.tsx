@@ -8,15 +8,7 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
-type Props = {
-  amount: number;
-  durationDays: number;
-};
-
-export default function VipCheckoutButton({
-  amount,
-  durationDays,
-}: Props) {
+export default function VipCheckoutButton() {
   const [loading, setLoading] = useState(false);
 
   async function startCheckout() {
@@ -35,60 +27,28 @@ export default function VipCheckoutButton({
         return;
       }
 
-      const { data: profile, error: profileError } = await supabase
-  .from("profiles")
-  .select("customer_id, salon_id")
-  .eq("id", user.id)
-  .maybeSingle();
-
-if (profileError) {
-  console.error("Profile lookup failed:", profileError);
-  alert("Unable to find your customer account.");
-  return;
-}
-
-if (!profile?.salon_id) {
-  alert(
-    "Your login is not connected to a salon. Please contact reception."
-  );
-  return;
-}
-
-const customerId = profile.customer_id || user.id;
-
-const { data: customer, error: customerError } = await supabase
-  .from("customers")
-  .select("customer_id")
-  .eq("customer_id", customerId)
-  .eq("salon_id", profile.salon_id)
-  .maybeSingle();
-
-if (customerError) {
-  console.error("Customer lookup failed:", customerError);
-  alert("Unable to find your customer account.");
-  return;
-}
-
-if (!customer) {
-  alert(
-    "Your login is not connected to a customer account. Please contact reception."
-  );
-  return;
-}
+      
 
       const checkoutReference = `vip-${Date.now()}`;
 
-      const response = await fetch("/api/sumup/vip-checkout", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+      const {
+  data: { session },
+} = await supabase.auth.getSession();
+
+if (!session?.access_token) {
+  alert("Your login session has expired. Please log in again.");
+  return;
+}
+
+const response = await fetch("/api/sumup/vip-checkout", {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${session.access_token}`,
+  },
         body: JSON.stringify({
-          customerId: customer.customer_id,
-          amount,
-          durationDays,
-          checkoutReference,
-        }),
+  checkoutReference,
+}),
       });
 
       const result = await response.json();

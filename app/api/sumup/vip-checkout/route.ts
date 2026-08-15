@@ -9,28 +9,88 @@ const supabaseAdmin = createClient(
 export async function POST(request: Request) {
   try {
     const body = await request.json();
+    const authHeader = request.headers.get("authorization");
 
-    if (!body.customerId || !body.checkoutReference) {
-      return NextResponse.json(
-        { error: "Missing VIP checkout information." },
-        { status: 400 }
-      );
-    }
+if (!authHeader?.startsWith("Bearer ")) {
+  return NextResponse.json(
+    { error: "Authentication required." },
+    { status: 401 }
+  );
+}
 
-   const { data: customer, error: customerError } = await supabaseAdmin
-  .from("customers")
-  .select("salon_id")
-  .eq("customer_id", body.customerId)
+const accessToken = authHeader.slice("Bearer ".length);
+
+const {
+  data: { user },
+  error: userError,
+} = await supabaseAdmin.auth.getUser(accessToken);
+
+if (userError || !user) {
+  return NextResponse.json(
+    { error: "Invalid or expired login session." },
+    { status: 401 }
+  );
+}
+
+    if (!body.checkoutReference) {
+  return NextResponse.json(
+    { error: "Missing VIP checkout information." },
+    { status: 400 }
+  );
+}
+
+   const { data: profile, error: profileError } = await supabaseAdmin
+  .from("profiles")
+  .select("customer_id, salon_id")
+  .eq("id", user.id)
   .maybeSingle();
 
-if (customerError || !customer?.salon_id) {
+if (profileError) {
+  console.error("VIP checkout profile lookup failed:", profileError);
+
+  return NextResponse.json(
+    { error: "Could not load customer profile." },
+    { status: 500 }
+  );
+}
+
+if (!profile?.salon_id) {
+  return NextResponse.json(
+    { error: "Could not determine customer salon." },
+    { status: 400 }
+  );
+}
+
+let customerQuery = supabaseAdmin
+  .from("customers")
+  .select("customer_id, salon_id")
+  .eq("salon_id", profile.salon_id);
+
+if (profile.customer_id) {
+  customerQuery = customerQuery.eq(
+    "customer_id",
+    profile.customer_id
+  );
+} else {
+  customerQuery = customerQuery.eq("email", user.email);
+}
+
+const { data: customer, error: customerError } =
+  await customerQuery.maybeSingle();
+
+if (customerError) {
   console.error("VIP checkout customer lookup failed:", customerError);
 
   return NextResponse.json(
-    {
-      error: "Could not determine customer salon.",
-    },
+    { error: "Could not load customer account." },
     { status: 500 }
+  );
+}
+
+if (!customer) {
+  return NextResponse.json(
+    { error: "Customer account was not found for this salon." },
+    { status: 404 }
   );
 }
 
@@ -64,7 +124,7 @@ if (settingsError || !vipSettings) {
     const { error: membershipError } = await supabaseAdmin
   .from("vip_memberships")
   .insert({
-    customer_id: body.customerId,
+    customer_id: customer.customer_id,
     amount_paid: checkoutAmount,
     checkout_reference: body.checkoutReference,
     payment_status: "pending",
