@@ -38,6 +38,7 @@ export default function BuyMinutes() {
   const [salonName, setSalonName] = useState("Your Salon");
 const [tagline, setTagline] = useState("");
 const [logoUrl, setLogoUrl] = useState<string | null>(null);
+const [salonSlug, setSalonSlug] = useState("");
 
   useEffect(() => {
     async function loadPage() {
@@ -53,23 +54,71 @@ const [logoUrl, setLogoUrl] = useState<string | null>(null);
 
 
 
-      const { data: customerData, error: customerError } = await supabase
+      const { data: profileData, error: profileError } = await supabase
+  .from("profiles")
+  .select("salon_id, customer_id")
+  .eq("id", user.id)
+  .maybeSingle();
+
+if (profileError) {
+  console.error(
+    "Failed to load customer profile:",
+    profileError.message
+  );
+  setLoading(false);
+  return;
+}
+
+if (!profileData?.salon_id) {
+  console.error("Customer salon could not be determined.");
+  setLoading(false);
+  return;
+}
+
+let customerQuery = supabase
   .from("customers")
   .select("customer_id, vip_expires_at, salon_id")
-  .eq("email", user.email)
-  .maybeSingle();
+  .eq("salon_id", profileData.salon_id);
+
+if (profileData.customer_id) {
+  customerQuery = customerQuery.eq(
+    "customer_id",
+    profileData.customer_id
+  );
+} else {
+  customerQuery = customerQuery.eq("email", user.email);
+}
+
+const { data: customerData, error: customerError } =
+  await customerQuery.maybeSingle();
 
 if (customerError) {
   console.error(
     "Failed to load customer VIP status:",
     customerError.message
   );
-}
-
-if (!customerData?.salon_id) {
-  console.error("Customer salon could not be determined.");
   setLoading(false);
   return;
+}
+
+if (!customerData) {
+  console.error(
+    "Customer record could not be found for this salon."
+  );
+  setLoading(false);
+  return;
+}
+const { data: salonData, error: salonError } = await supabase
+  .from("salons")
+  .select("slug")
+  .eq("id", customerData.salon_id)
+  .eq("active", true)
+  .maybeSingle();
+
+if (salonError) {
+  console.error("Could not load salon:", salonError.message);
+} else if (salonData) {
+  setSalonSlug(salonData.slug);
 }
 
 const { data: brandingData, error: brandingError } = await supabase
@@ -81,9 +130,7 @@ const { data: brandingData, error: brandingError } = await supabase
 if (brandingError) {
   console.error("Could not load salon branding:", brandingError.message);
 } else if (brandingData) {
-  setSalonName(brandingData.salon_name || "Your Salon");
-  setTagline(brandingData.tagline || "");
-  setLogoUrl(brandingData.logo_url || null);
+  
 }
 
 const [
@@ -178,7 +225,11 @@ setLoading(false);
 )}
 
   <Link
-    href="/my-minutes"
+    href={
+  salonSlug
+    ? `/my-minutes?salon=${encodeURIComponent(salonSlug)}`
+    : "/my-minutes"
+}
     className="rounded-full border border-[#d6a84f] px-5 py-2 font-bold text-white transition hover:bg-[#d6a84f] hover:text-black"
   >
     My Minutes
@@ -285,7 +336,11 @@ setLoading(false);
                 </p>
 
                 <Link
-                  href="/vip-checkout"
+                 href={
+  salonSlug
+    ? `/vip-checkout?salon=${encodeURIComponent(salonSlug)}`
+    : "/vip-checkout"
+}
                   className="mt-4 block w-full rounded-full bg-[#d6a84f] py-3 text-center font-bold text-black hover:opacity-90"
                 >
                   Become a VIP
@@ -334,7 +389,11 @@ setLoading(false);
                 </p>
 
                 <Link
-                  href={`/checkout/${pkg.id}`}
+                  href={
+  salonSlug
+    ? `/checkout/${pkg.id}?salon=${encodeURIComponent(salonSlug)}`
+    : `/checkout/${pkg.id}`
+}
                   className="mt-7 inline-block w-full rounded-full bg-[#d6a84f] py-4 text-center font-bold text-black"
                 >
                   Buy Now
