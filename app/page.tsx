@@ -1,7 +1,18 @@
 "use client";
-
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase";
+import { createClient } from "@supabase/supabase-js";
+
+const publicSupabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+  {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+      detectSessionInUrl: false,
+    },
+  }
+);
 const gallery = [
   ["/reception.jpg", "Luxury reception"],
   ["/megasunbed.jpg", "MegaSun G800"],
@@ -35,52 +46,74 @@ const [openingHours, setOpeningHours] = useState<{
 } | null>(null);
 
 useEffect(() => {
-  async function loadBranding() {
-    const { data, error } = await supabase
-      .from("salon_settings")
-      .select(
-  "salon_name, tagline, logo_url, hero_image_url, reception_image_url, bed_image_1_url, bed_image_2_url, interior_image_url, address, phone, opening_hours"
-)
-      .eq("id", 1)
+  async function loadSalonWebsite() {
+    const salonSlug = new URLSearchParams(window.location.search).get("salon");
+    if (!salonSlug) {
+      console.error("Could not load salon website: salon slug missing.");
+      return;
+    }
+
+    const { data: salon, error: salonError } = await publicSupabase
+      .from("salons")
+      .select("id")
+      .eq("slug", salonSlug)
+      .eq("active", true)
       .maybeSingle();
 
-    if (error) {
-      console.error("Could not load salon branding:", error.message);
+    if (salonError || !salon?.id) {
+      console.error(
+        "Could not resolve salon:",
+        salonError?.message || "Salon not found."
+      );
       return;
     }
 
-    if (!data) return;
+    const [{ data: brandingData, error: brandingError }, { data: imageData, error: imageError }] =
+      await Promise.all([
+        publicSupabase
+          .from("salon_settings")
+          .select(
+            "salon_name, tagline, logo_url, hero_image_url, reception_image_url, bed_image_1_url, bed_image_2_url, interior_image_url, address, phone, opening_hours"
+          )
+          .eq("salon_id", salon.id)
+          .maybeSingle(),
 
-    setSalonName(data.salon_name || "Your Salon");
-    setTagline(
-    data.tagline || "Your local tanning salon."
-    );
-    setLogoUrl(data.logo_url || null);
-    setHeroImageUrl(data.hero_image_url || null);
-    setAddress(data.address || "");
-    setPhone(data.phone || "");
-    setOpeningHours(data.opening_hours || null);
-  }
+        publicSupabase
+          .from("salon_images")
+          .select("id, image_url, sort_order")
+          .eq("salon_id", salon.id)
+          .order("sort_order", { ascending: true })
+          .order("created_at", { ascending: true }),
+      ]);
 
-  void loadBranding();
-}, []);
-useEffect(() => {
-  async function loadSalonImages() {
-    const { data, error } = await supabase
-      .from("salon_images")
-      .select("id, image_url, sort_order")
-      .order("sort_order", { ascending: true })
-      .order("created_at", { ascending: true });
-
-    if (error) {
-      console.error("Could not load salon photos:", error.message);
-      return;
+    if (brandingError) {
+      console.error(
+        "Could not load salon branding:",
+        brandingError.message
+      );
+    } else if (brandingData) {
+      setSalonName(brandingData.salon_name || "Your Salon");
+      setTagline(
+        brandingData.tagline || "Your local tanning salon."
+      );
+      setLogoUrl(brandingData.logo_url || null);
+      setHeroImageUrl(brandingData.hero_image_url || null);
+      setAddress(brandingData.address || "");
+      setPhone(brandingData.phone || "");
+      setOpeningHours(brandingData.opening_hours || null);
     }
 
-    setSalonImages((data ?? []) as SalonImage[]);
+    if (imageError) {
+      console.error(
+        "Could not load salon photos:",
+        imageError.message
+      );
+    } else {
+      setSalonImages((imageData ?? []) as SalonImage[]);
+    }
   }
 
-  void loadSalonImages();
+  void loadSalonWebsite();
 }, []);
   return (
     <main className="min-h-screen bg-[#050505] text-white">
