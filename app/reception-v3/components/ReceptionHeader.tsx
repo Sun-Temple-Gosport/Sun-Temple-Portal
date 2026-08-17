@@ -159,6 +159,15 @@ window.setTimeout(() => {
             <p style={styles.userName}>👤 {userName}</p>
             <p style={styles.userRole}>{roleLabel}</p>
           </div>
+          {userRole === "staff" && (
+  <button
+    type="button"
+    onClick={() => router.push("/staff-rota")}
+    style={styles.passwordButton}
+  >
+    Staff Rota
+  </button>
+)}
 
           <div style={styles.badge}>
             🟢 {activeBeds} active bed{activeBeds === 1 ? "" : "s"}

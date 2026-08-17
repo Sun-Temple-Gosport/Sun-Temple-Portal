@@ -546,10 +546,15 @@ async function saveRepeatingRota() {
     return;
   }
 
+  const weekStartKey = formatDateKey(weekStart);
+  const weekEndKey = formatDateKey(addDays(weekStart, 6));
+
   const staffWorkingEntries = rotaEntries.filter(
     (entry) =>
       entry.staff_id === repeatingStaffId &&
-      entry.entry_type === "working"
+      entry.entry_type === "working" &&
+      entry.rota_date >= weekStartKey &&
+      entry.rota_date <= weekEndKey
   );
 
   if (staffWorkingEntries.length === 0) {
@@ -573,9 +578,19 @@ async function saveRepeatingRota() {
   }
 
   const patternRows = staffWorkingEntries.map((entry) => {
-    const date = new Date(`${entry.rota_date}T12:00:00`);
-const jsDay = date.getDay();
-const dayOfWeek = jsDay === 0 ? 7 : jsDay;
+    const [year, month, day] = entry.rota_date.split("-").map(Number);
+
+    const localDate = new Date(
+      year,
+      month - 1,
+      day,
+      12,
+      0,
+      0
+    );
+
+    const jsDay = localDate.getDay();
+    const dayOfWeek = jsDay === 0 ? 7 : jsDay;
 
     return {
       salon_id: profile.salon_id,
@@ -584,7 +599,7 @@ const dayOfWeek = jsDay === 0 ? 7 : jsDay;
       entry_type: "working",
       start_time: entry.start_time,
       end_time: entry.end_time,
-      starts_on: formatDateKey(weekStart),
+      starts_on: weekStartKey,
       ends_on: repeatUntilEnabled ? repeatUntilDate : null,
       active: true,
       updated_at: new Date().toISOString(),
@@ -977,8 +992,7 @@ hrs
       entry.rota_date === rotaDate
   );
 
-  const dayDate = new Date(`${rotaDate}T00:00:00Z`);
-const jsDay = dayDate.getUTCDay();
+  const jsDay = day.getDay();
 const dayOfWeek = jsDay === 0 ? 7 : jsDay;
 
 const recurringPattern = rotaPatterns.find(
