@@ -7,6 +7,7 @@ export type OwnerView =
   | "history"
   | "audit"
   | "beds"
+  | "rota"
   | "payments"
   | "settings"
   | "staff";
@@ -83,6 +84,15 @@ export default function OwnerTabs({
 >
   Beds
 </button>
+
+<button
+  type="button"
+  onClick={() => onSelectView("rota")}
+  className={tabClass("rota")}
+>
+  Rota
+</button>
+
       <button
         type="button"
         onClick={() => onSelectView("staff")}

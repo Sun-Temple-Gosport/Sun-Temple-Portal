@@ -6,6 +6,7 @@ import CashUpHistory from "./CashUpHistory";
 import AuditLog from "./AuditLog";
 import StaffManagement from "./StaffManagement";
 import BedManagement from "./BedManagement";
+import StaffRota from "./StaffRota";
 import LaunchCentre from "./LaunchCentre";
 import type { OwnerView } from "./OwnerTabs";
 import PaymentProviderManager from "./PaymentProviderManager";
@@ -173,6 +174,9 @@ if (ownerView === "launch") {
 
   if (ownerView === "beds") {
   return <BedManagement />;
+}
+if (ownerView === "rota") {
+  return <StaffRota />;
 }
 if (ownerView === "payments") {
   return <PaymentProviderManager />;
