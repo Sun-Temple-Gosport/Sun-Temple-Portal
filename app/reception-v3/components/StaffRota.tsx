@@ -56,7 +56,13 @@ function formatShortDate(date: Date) {
     year: "numeric",
   });
 }
+function formatDateKey(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
 
+  return `${year}-${month}-${day}`;
+}
 function getWorkingHours(entry: RotaEntry) {
   if (
     entry.entry_type !== "working" ||
@@ -567,9 +573,9 @@ async function saveRepeatingRota() {
   }
 
   const patternRows = staffWorkingEntries.map((entry) => {
-    const date = new Date(`${entry.rota_date}T00:00:00Z`);
-    const jsDay = date.getUTCDay();
-    const dayOfWeek = jsDay === 0 ? 7 : jsDay;
+    const date = new Date(`${entry.rota_date}T12:00:00`);
+const jsDay = date.getDay();
+const dayOfWeek = jsDay === 0 ? 7 : jsDay;
 
     return {
       salon_id: profile.salon_id,
@@ -578,7 +584,7 @@ async function saveRepeatingRota() {
       entry_type: "working",
       start_time: entry.start_time,
       end_time: entry.end_time,
-      starts_on: weekStart.toISOString().slice(0, 10),
+      starts_on: formatDateKey(weekStart),
       ends_on: repeatUntilEnabled ? repeatUntilDate : null,
       active: true,
       updated_at: new Date().toISOString(),
@@ -897,11 +903,54 @@ async function copyPreviousWeek() {
     </span>
 
     <span className="whitespace-nowrap text-xs font-black text-amber-400">
-      {rotaEntries
-        .filter((entry) => entry.staff_id === member.id)
-        .reduce((total, entry) => total + getWorkingHours(entry), 0)
-        .toFixed(1)}{" "}
-      hrs
+      {weekDays
+  .reduce((total, day) => {
+    const rotaDate = formatDateKey(day);
+
+    const savedEntry = rotaEntries.find(
+      (entry) =>
+        entry.staff_id === member.id &&
+        entry.rota_date === rotaDate
+    );
+
+    if (savedEntry) {
+      return total + getWorkingHours(savedEntry);
+    }
+
+    const jsDay = day.getDay();
+    const dayOfWeek = jsDay === 0 ? 7 : jsDay;
+
+    const recurringPattern = rotaPatterns.find(
+      (pattern) =>
+        pattern.staff_id === member.id &&
+        pattern.day_of_week === dayOfWeek &&
+        pattern.active &&
+        rotaDate >= pattern.starts_on &&
+        (!pattern.ends_on || rotaDate <= pattern.ends_on)
+    );
+
+    if (
+      recurringPattern?.entry_type === "working" &&
+      recurringPattern.start_time &&
+      recurringPattern.end_time
+    ) {
+      return (
+        total +
+        getWorkingHours({
+          id: recurringPattern.id,
+          staff_id: recurringPattern.staff_id,
+          rota_date: rotaDate,
+          entry_type: "working",
+          start_time: recurringPattern.start_time,
+          end_time: recurringPattern.end_time,
+        })
+      );
+    }
+
+    return total;
+  }, 0)
+  .toFixed(1)}{" "}
+hrs
     </span>
   </div>
 
