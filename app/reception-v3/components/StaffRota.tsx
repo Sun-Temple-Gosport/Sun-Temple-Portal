@@ -87,6 +87,11 @@ const [summaryMonth, setSummaryMonth] = useState(() => {
     1
   );
 });
+
+const [reportStartDate, setReportStartDate] = useState("");
+const [reportEndDate, setReportEndDate] = useState("");
+const [reportEntries, setReportEntries] = useState<RotaEntry[]>([]);
+const [loadingReport, setLoadingReport] = useState(false);
 const [editingCell, setEditingCell] = useState<{
   staffId: string;
   rotaDate: string;
@@ -99,6 +104,7 @@ const [entryType, setEntryType] = useState<
 const [startTime, setStartTime] = useState("09:00");
 const [endTime, setEndTime] = useState("17:00");
 const [savingEntry, setSavingEntry] = useState(false);
+const [deletingEntry, setDeletingEntry] = useState(false);
 const [copyingWeek, setCopyingWeek] = useState(false);
 const [rotaMessage, setRotaMessage] = useState("");
 const weekEnd = addDays(weekStart, 6);
@@ -262,6 +268,66 @@ async function loadMonthlyRotaEntries() {
   setMonthlyRotaEntries((data ?? []) as RotaEntry[]);
 }
 
+async function loadCustomReport() {
+  if (!reportStartDate || !reportEndDate) {
+    setRotaMessage("Please choose a start date and end date.");
+    return;
+  }
+
+  if (reportEndDate < reportStartDate) {
+    setRotaMessage("End date cannot be before start date.");
+    return;
+  }
+
+  setLoadingReport(true);
+  setRotaMessage("");
+
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
+
+  if (userError || !user) {
+    setRotaMessage("Could not confirm the logged-in owner.");
+    setLoadingReport(false);
+    return;
+  }
+
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("salon_id")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (profileError || !profile?.salon_id) {
+    setRotaMessage("Could not determine the current salon.");
+    setLoadingReport(false);
+    return;
+  }
+
+  const { data, error } = await supabase
+    .from("staff_rota_entries")
+    .select(
+      "id, staff_id, rota_date, entry_type, start_time, end_time"
+    )
+    .eq("salon_id", profile.salon_id)
+    .gte("rota_date", reportStartDate)
+    .lte("rota_date", reportEndDate)
+    .order("rota_date", { ascending: true });
+
+  if (error) {
+    setRotaMessage(error.message);
+    setLoadingReport(false);
+    return;
+  }
+
+  setReportEntries((data ?? []) as RotaEntry[]);
+  setRotaMessage("Custom hours report loaded.");
+  setLoadingReport(false);
+}
+
+
+
   async function saveRotaEntry() {
   if (!editingCell) return;
 
@@ -326,6 +392,53 @@ async function loadMonthlyRotaEntries() {
 setEditingCell(null);
 await loadRotaEntries();
 setSavingEntry(false);
+}
+
+async function deleteRotaEntry(entry: RotaEntry) {
+  setDeletingEntry(true);
+  setRotaMessage("");
+
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
+
+  if (userError || !user) {
+    setRotaMessage("Could not confirm the logged-in owner.");
+    setDeletingEntry(false);
+    return;
+  }
+
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("salon_id")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (profileError || !profile?.salon_id) {
+    setRotaMessage("Could not determine the current salon.");
+    setDeletingEntry(false);
+    return;
+  }
+
+  const { error } = await supabase
+    .from("staff_rota_entries")
+    .delete()
+    .eq("id", entry.id)
+    .eq("salon_id", profile.salon_id);
+
+  if (error) {
+    setRotaMessage(error.message);
+    setDeletingEntry(false);
+    return;
+  }
+
+  setEditingCell(null);
+  await loadRotaEntries();
+  await loadMonthlyRotaEntries();
+
+  setRotaMessage("Rota entry removed.");
+  setDeletingEntry(false);
 }
 
 async function copyPreviousWeek() {
@@ -689,20 +802,31 @@ async function copyPreviousWeek() {
 </div>
       )}
 
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2">
   <button
     type="button"
     onClick={() => void saveRotaEntry()}
-    disabled={savingEntry}
+    disabled={savingEntry || deletingEntry}
     className="flex-1 rounded-lg bg-amber-400 px-2 py-2 text-xs font-black text-black disabled:opacity-50"
   >
     {savingEntry ? "Saving..." : "Save"}
   </button>
 
+  {savedEntry && (
+    <button
+      type="button"
+      onClick={() => void deleteRotaEntry(savedEntry)}
+      disabled={savingEntry || deletingEntry}
+      className="flex-1 rounded-lg border border-red-500 px-2 py-2 text-xs font-black text-red-300 disabled:opacity-50"
+    >
+      {deletingEntry ? "Removing..." : "Remove"}
+    </button>
+  )}
+
   <button
     type="button"
     onClick={() => setEditingCell(null)}
-    disabled={savingEntry}
+    disabled={savingEntry || deletingEntry}
     className="flex-1 rounded-lg border border-slate-700 px-2 py-2 text-xs font-black text-slate-300 disabled:opacity-50"
   >
     Cancel
@@ -895,7 +1019,118 @@ return (
         </div>
       );
     })}
+    </div>
+</div>
+
+<div className="mt-6 rounded-2xl border border-slate-800 bg-slate-900/50 p-5">
+  <div>
+    <p className="text-xs font-black uppercase tracking-wide text-slate-400">
+      Custom Hours Report
+    </p>
+
+    <p className="mt-1 text-sm text-slate-400">
+      Choose any date range to calculate staff hours and attendance.
+    </p>
   </div>
+
+  <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_auto]">
+    <label className="space-y-2">
+      <span className="text-xs font-black uppercase tracking-wide text-slate-400">
+        From
+      </span>
+
+      <input
+        type="date"
+        value={reportStartDate}
+        onChange={(event) =>
+          setReportStartDate(event.target.value)
+        }
+        className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white"
+      />
+    </label>
+
+    <label className="space-y-2">
+      <span className="text-xs font-black uppercase tracking-wide text-slate-400">
+        To
+      </span>
+
+      <input
+        type="date"
+        value={reportEndDate}
+        onChange={(event) =>
+          setReportEndDate(event.target.value)
+        }
+        className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white"
+      />
+    </label>
+
+    <div className="flex items-end">
+      <button
+        type="button"
+        onClick={() => void loadCustomReport()}
+        disabled={loadingReport}
+        className="w-full rounded-xl bg-amber-400 px-5 py-3 font-black text-black disabled:opacity-50"
+      >
+        {loadingReport ? "Loading..." : "Run Report"}
+      </button>
+    </div>
+  </div>
+
+  {reportEntries.length > 0 && (
+    <div className="mt-6 space-y-2">
+      {staff.map((member) => {
+        const staffEntries = reportEntries.filter(
+          (entry) => entry.staff_id === member.id
+        );
+
+        const totalHours = staffEntries.reduce(
+          (total, entry) => total + getWorkingHours(entry),
+          0
+        );
+
+        const annualLeaveDays = staffEntries.filter(
+          (entry) => entry.entry_type === "annual_leave"
+        ).length;
+
+        const sickDays = staffEntries.filter(
+          (entry) => entry.entry_type === "sick"
+        ).length;
+
+        const daysOff = staffEntries.filter(
+          (entry) => entry.entry_type === "day_off"
+        ).length;
+
+        return (
+          <div
+            key={member.id}
+            className="flex flex-col gap-3 rounded-xl border border-slate-800 bg-slate-950 px-4 py-4 sm:flex-row sm:items-center sm:justify-between"
+          >
+            <span className="font-black text-white">
+              {member.full_name}
+            </span>
+
+            <div className="flex flex-wrap gap-4 text-sm font-bold">
+              <span className="text-amber-400">
+                {totalHours.toFixed(1)} hrs worked
+              </span>
+
+              <span className="text-slate-300">
+                {annualLeaveDays} annual leave
+              </span>
+
+              <span className="text-slate-300">
+                {sickDays} sick
+              </span>
+
+              <span className="text-slate-300">
+                {daysOff} days off
+              </span>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  )}
 </div>
 
   </section>
