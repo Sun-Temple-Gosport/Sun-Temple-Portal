@@ -58,15 +58,7 @@ function formatLocalDate(date: Date) {
   return `${year}-${month}-${day}`;
 }
 
-/*
-  IMPORTANT:
-  Existing owner rota entries were created using UTC date keys.
-  This deliberately uses the same key for manual entries so the
-  read-only staff rota matches the owner rota exactly.
-*/
-function formatSavedEntryDate(date: Date) {
-  return date.toISOString().slice(0, 10);
-}
+
 
 export default function StaffRotaPage() {
   const router = useRouter();
@@ -99,7 +91,7 @@ export default function StaffRotaPage() {
       }
 
       try {
-        const startDate = formatSavedEntryDate(weekStart);
+        const startDate = formatLocalDate(weekStart);
 
         const response = await fetch(
           `/api/staff/rota-team?weekStart=${startDate}`,
@@ -263,11 +255,8 @@ export default function StaffRotaPage() {
                       {weekDays.map((day) => {
                         const displayDate = formatLocalDate(day);
 
-                        /*
-                          Manual entries deliberately use the same UTC
-                          date key as the existing owner rota.
-                        */
-                        const savedDate = formatSavedEntryDate(day);
+                        
+                        const savedDate = formatLocalDate(day);
 
                         const entry = rotaEntries.find(
                           (rotaEntry) =>
