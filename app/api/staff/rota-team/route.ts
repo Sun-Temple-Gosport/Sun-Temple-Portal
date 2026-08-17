@@ -73,11 +73,11 @@ const requestedWeekStart = url.searchParams.get("weekStart");
         { status: 403 }
       );
     }
-const { data: team, error: teamError } = await admin
+const { data: staffProfiles, error: teamError } = await admin
   .from("profiles")
   .select("id, full_name, email, role")
   .eq("salon_id", profile.salon_id)
-  .in("role", ["owner", "staff"])
+  .ilike("role", "staff")
   .order("full_name");
 
 if (teamError) {
@@ -86,6 +86,49 @@ if (teamError) {
     { status: 500 }
   );
 }
+
+const authUsers = [];
+let authPage = 1;
+const authPerPage = 1000;
+
+while (true) {
+  const { data, error } = await admin.auth.admin.listUsers({
+    page: authPage,
+    perPage: authPerPage,
+  });
+
+  if (error) {
+    return NextResponse.json(
+      { error: error.message },
+      { status: 500 }
+    );
+  }
+
+  authUsers.push(...data.users);
+
+  if (data.users.length < authPerPage) {
+    break;
+  }
+
+  authPage += 1;
+}
+
+const authUserMap = new Map(
+  authUsers.map((authUser) => [authUser.id, authUser])
+);
+
+const team = (staffProfiles ?? []).filter((staffProfile) => {
+  const authUser = authUserMap.get(staffProfile.id);
+
+  const bannedUntil = authUser?.banned_until
+    ? new Date(authUser.banned_until)
+    : null;
+
+  const disabled =
+    bannedUntil !== null && bannedUntil.getTime() > Date.now();
+
+  return !disabled;
+});
 
 const weekStart = requestedWeekStart
   ? new Date(`${requestedWeekStart}T12:00:00`)
