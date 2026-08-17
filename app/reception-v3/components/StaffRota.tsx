@@ -512,6 +512,28 @@ async function deleteRotaEntry(entry: RotaEntry) {
   setDeletingEntry(false);
 }
 
+async function deleteRotaPattern(pattern: RotaPattern) {
+  setDeletingEntry(true);
+  setRotaMessage("");
+
+  const { error } = await supabase
+    .from("staff_rota_patterns")
+    .delete()
+    .eq("id", pattern.id);
+
+  if (error) {
+    setRotaMessage(error.message);
+    setDeletingEntry(false);
+    return;
+  }
+
+  await loadRotaPatterns();
+
+  setEditingCell(null);
+  setRotaMessage("Repeating rota day removed.");
+  setDeletingEntry(false);
+}
+
 async function saveRepeatingRota() {
   if (!repeatingStaffId) return;
 
@@ -1075,6 +1097,17 @@ const recurringPattern = rotaPatterns.find(
     <button
       type="button"
       onClick={() => void deleteRotaEntry(savedEntry)}
+      disabled={savingEntry || deletingEntry}
+      className="flex-1 rounded-lg border border-red-500 px-2 py-2 text-xs font-black text-red-300 disabled:opacity-50"
+    >
+      {deletingEntry ? "Removing..." : "Remove"}
+    </button>
+  )}
+
+  {!savedEntry && recurringPattern && (
+    <button
+      type="button"
+      onClick={() => void deleteRotaPattern(recurringPattern)}
       disabled={savingEntry || deletingEntry}
       className="flex-1 rounded-lg border border-red-500 px-2 py-2 text-xs font-black text-red-300 disabled:opacity-50"
     >
