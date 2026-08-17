@@ -130,7 +130,9 @@ const { data: brandingData, error: brandingError } = await supabase
 if (brandingError) {
   console.error("Could not load salon branding:", brandingError.message);
 } else if (brandingData) {
-  
+  setSalonName(brandingData.salon_name || "Your Salon");
+  setTagline(brandingData.tagline || "");
+  setLogoUrl(brandingData.logo_url || null);
 }
 
 const [
