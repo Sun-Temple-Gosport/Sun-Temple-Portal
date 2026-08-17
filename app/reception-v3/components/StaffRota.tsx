@@ -285,17 +285,23 @@ async function loadMonthlyRotaEntries() {
   const monthStart = new Date(
     summaryMonth.getFullYear(),
     summaryMonth.getMonth(),
-    1
+    1,
+    12,
+    0,
+    0
   );
 
   const monthEnd = new Date(
     summaryMonth.getFullYear(),
     summaryMonth.getMonth() + 1,
+    0,
+    12,
+    0,
     0
   );
 
-  const startDate = monthStart.toISOString().slice(0, 10);
-  const endDate = monthEnd.toISOString().slice(0, 10);
+  const startDate = formatDateKey(monthStart);
+  const endDate = formatDateKey(monthEnd);
 
   const {
     data: { user },
@@ -318,7 +324,7 @@ async function loadMonthlyRotaEntries() {
     return;
   }
 
-  const { data, error } = await supabase
+  const { data: savedEntries, error: entriesError } = await supabase
     .from("staff_rota_entries")
     .select(
       "id, staff_id, rota_date, entry_type, start_time, end_time"
@@ -328,17 +334,90 @@ async function loadMonthlyRotaEntries() {
     .lte("rota_date", endDate)
     .order("rota_date", { ascending: true });
 
-  if (error) {
+  if (entriesError) {
     console.error(
       "Could not load monthly rota entries:",
-      error.message
+      entriesError.message
     );
     return;
   }
 
-  setMonthlyRotaEntries((data ?? []) as RotaEntry[]);
-}
+  const { data: patterns, error: patternsError } = await supabase
+    .from("staff_rota_patterns")
+    .select(
+      "id, staff_id, day_of_week, entry_type, start_time, end_time, starts_on, ends_on, active"
+    )
+    .eq("salon_id", profile.salon_id)
+    .eq("active", true)
+    .lte("starts_on", endDate)
+    .or(`ends_on.is.null,ends_on.gte.${startDate}`);
 
+  if (patternsError) {
+    console.error(
+      "Could not load monthly rota patterns:",
+      patternsError.message
+    );
+    return;
+  }
+
+  const actualEntries = (savedEntries ?? []) as RotaEntry[];
+  const activePatterns = (patterns ?? []) as RotaPattern[];
+
+  const savedDateKeys = new Set(
+    actualEntries.map(
+      (entry) => `${entry.staff_id}-${entry.rota_date}`
+    )
+  );
+
+  const generatedEntries: RotaEntry[] = [];
+
+  const currentDate = new Date(monthStart);
+
+  while (currentDate <= monthEnd) {
+    const rotaDate = formatDateKey(currentDate);
+
+    const jsDay = currentDate.getDay();
+    const dayOfWeek = jsDay === 0 ? 7 : jsDay;
+
+    activePatterns.forEach((pattern) => {
+      if (pattern.day_of_week !== dayOfWeek) {
+        return;
+      }
+
+      if (rotaDate < pattern.starts_on) {
+        return;
+      }
+
+      if (pattern.ends_on && rotaDate > pattern.ends_on) {
+        return;
+      }
+
+      const savedKey = `${pattern.staff_id}-${rotaDate}`;
+
+      if (savedDateKeys.has(savedKey)) {
+        return;
+      }
+
+      generatedEntries.push({
+        id: `pattern-${pattern.id}-${rotaDate}`,
+        staff_id: pattern.staff_id,
+        rota_date: rotaDate,
+        entry_type: pattern.entry_type,
+        start_time: pattern.start_time,
+        end_time: pattern.end_time,
+      });
+    });
+
+    currentDate.setDate(currentDate.getDate() + 1);
+  }
+
+  const combinedEntries = [
+    ...actualEntries,
+    ...generatedEntries,
+  ].sort((a, b) => a.rota_date.localeCompare(b.rota_date));
+
+  setMonthlyRotaEntries(combinedEntries);
+}
 async function loadCustomReport() {
   if (!reportStartDate || !reportEndDate) {
     setRotaMessage("Please choose a start date and end date.");
@@ -376,7 +455,7 @@ async function loadCustomReport() {
     return;
   }
 
-  const { data, error } = await supabase
+  const { data: savedEntries, error: entriesError } = await supabase
     .from("staff_rota_entries")
     .select(
       "id, staff_id, rota_date, entry_type, start_time, end_time"
@@ -386,17 +465,114 @@ async function loadCustomReport() {
     .lte("rota_date", reportEndDate)
     .order("rota_date", { ascending: true });
 
-  if (error) {
-    setRotaMessage(error.message);
+  if (entriesError) {
+    setRotaMessage(entriesError.message);
     setLoadingReport(false);
     return;
   }
 
-  setReportEntries((data ?? []) as RotaEntry[]);
+  const { data: patterns, error: patternsError } = await supabase
+    .from("staff_rota_patterns")
+    .select(
+      "id, staff_id, day_of_week, entry_type, start_time, end_time, starts_on, ends_on, active"
+    )
+    .eq("salon_id", profile.salon_id)
+    .eq("active", true)
+    .lte("starts_on", reportEndDate)
+    .or(`ends_on.is.null,ends_on.gte.${reportStartDate}`);
+
+  if (patternsError) {
+    setRotaMessage(patternsError.message);
+    setLoadingReport(false);
+    return;
+  }
+
+  const actualEntries = (savedEntries ?? []) as RotaEntry[];
+  const activePatterns = (patterns ?? []) as RotaPattern[];
+
+  const savedDateKeys = new Set(
+    actualEntries.map(
+      (entry) => `${entry.staff_id}-${entry.rota_date}`
+    )
+  );
+
+  const generatedEntries: RotaEntry[] = [];
+
+  const [startYear, startMonth, startDay] = reportStartDate
+    .split("-")
+    .map(Number);
+
+  const [endYear, endMonth, endDay] = reportEndDate
+    .split("-")
+    .map(Number);
+
+  const currentDate = new Date(
+    startYear,
+    startMonth - 1,
+    startDay,
+    12,
+    0,
+    0
+  );
+
+  const finalDate = new Date(
+    endYear,
+    endMonth - 1,
+    endDay,
+    12,
+    0,
+    0
+  );
+
+  while (currentDate <= finalDate) {
+    const rotaDate = formatDateKey(currentDate);
+
+    const jsDay = currentDate.getDay();
+    const dayOfWeek = jsDay === 0 ? 7 : jsDay;
+
+    activePatterns.forEach((pattern) => {
+      if (pattern.day_of_week !== dayOfWeek) {
+        return;
+      }
+
+      if (rotaDate < pattern.starts_on) {
+        return;
+      }
+
+      if (pattern.ends_on && rotaDate > pattern.ends_on) {
+        return;
+      }
+
+      const savedKey = `${pattern.staff_id}-${rotaDate}`;
+
+      // A manually saved entry overrides the repeating rota
+      // for that staff member on that date.
+      if (savedDateKeys.has(savedKey)) {
+        return;
+      }
+
+      generatedEntries.push({
+        id: `pattern-${pattern.id}-${rotaDate}`,
+        staff_id: pattern.staff_id,
+        rota_date: rotaDate,
+        entry_type: pattern.entry_type,
+        start_time: pattern.start_time,
+        end_time: pattern.end_time,
+      });
+    });
+
+    currentDate.setDate(currentDate.getDate() + 1);
+  }
+
+  const combinedEntries = [
+    ...actualEntries,
+    ...generatedEntries,
+  ].sort((a, b) => a.rota_date.localeCompare(b.rota_date));
+
+  setReportEntries(combinedEntries);
   setRotaMessage("Custom hours report loaded.");
   setLoadingReport(false);
 }
-
 
 
   async function saveRotaEntry() {
@@ -1006,7 +1182,7 @@ hrs
 </div>
 
               {weekDays.map((day) => {
-  const rotaDate = day.toISOString().slice(0, 10);
+  const rotaDate = formatDateKey(day)
 
   const savedEntry = rotaEntries.find(
     (entry) =>
@@ -1032,7 +1208,7 @@ const recurringPattern = rotaPatterns.find(
   className="min-h-24 rounded-xl border border-slate-800 bg-slate-950 p-3"
 >
   {editingCell?.staffId === member.id &&
-  editingCell.rotaDate === day.toISOString().slice(0, 10) ? (
+  editingCell.rotaDate === formatDateKey(day) ? (
     <div className="space-y-3">
       <select
         value={entryType}
@@ -1123,7 +1299,7 @@ const recurringPattern = rotaPatterns.find(
   >
     Cancel
   </button>
-</div>
+</div>np
     </div>
   ) : savedEntry ? (
   <button
@@ -1197,7 +1373,7 @@ const recurringPattern = rotaPatterns.find(
       onClick={() => {
         setEditingCell({
           staffId: member.id,
-          rotaDate: day.toISOString().slice(0, 10),
+          rotaDate: formatDateKey(day)
         });
         setEntryType("working");
         setStartTime("09:00");
