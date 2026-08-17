@@ -17,54 +17,88 @@ export default function RegisterPage() {
   const [salonSlug, setSalonSlug] = useState("");
 
   useEffect(() => {
-    async function loadBranding() {
-      const params = new URLSearchParams(window.location.search);
-      const requestedSalonSlug = params.get("salon");
+  async function loadBranding() {
+    const params = new URLSearchParams(window.location.search);
 
-      if (!requestedSalonSlug) {
-        console.error(
-          "Could not load salon branding: salon was not specified."
-        );
-        return;
+    const hostname = window.location.hostname
+      .toLowerCase()
+      .replace(/^www\./, "");
+
+    const salonFromUrl = params.get("salon")?.trim().toLowerCase();
+
+    let requestedSalonSlug = salonFromUrl || "";
+
+    // Explicit salon parameter always wins.
+    // These fallbacks only identify known customer-facing domains.
+    if (!requestedSalonSlug) {
+      if (hostname === "mysuntemple.co.uk") {
+        requestedSalonSlug = "sun-temple-gosport";
+      } else if (hostname === "localhost") {
+        requestedSalonSlug = "sun-temple-gosport";
       }
-
-      const { data: salon, error: salonError } = await supabase
-        .from("salons")
-        .select("id, slug")
-        .eq("slug", requestedSalonSlug.toLowerCase())
-        .eq("active", true)
-        .maybeSingle();
-
-      if (salonError || !salon) {
-        console.error(
-          "Could not load salon branding:",
-          salonError?.message || "Salon was not found."
-        );
-        return;
-      }
-
-      const { data, error } = await supabase
-        .from("salon_settings")
-        .select("salon_name, tagline, logo_url")
-        .eq("salon_id", salon.id)
-        .maybeSingle();
-
-      if (error) {
-        console.error("Could not load salon branding:", error.message);
-        return;
-      }
-
-      setSalonSlug(salon.slug);
-
-      if (!data) return;
-
-      setSalonName(data.salon_name || "Your Salon");
-      setTagline(data.tagline || "");
-      setLogoUrl(data.logo_url || null);
     }
 
-    void loadBranding();
-  }, []);
+    if (!requestedSalonSlug) {
+      console.error(
+        "Could not load salon branding: no salon could be resolved for this URL."
+      );
+      return;
+    }
+
+    const { data: salon, error: salonError } = await supabase
+      .from("salons")
+      .select("id, slug")
+      .eq("slug", requestedSalonSlug)
+      .eq("active", true)
+      .maybeSingle();
+
+    if (salonError) {
+      console.error(
+        "Could not load salon:",
+        salonError.message
+      );
+      return;
+    }
+
+    if (!salon) {
+      console.error(
+        `Could not load salon: "${requestedSalonSlug}" was not found.`
+      );
+      return;
+    }
+
+    // Set this as soon as the salon is identified.
+    // Registration can then safely attach the correct salon_slug.
+    setSalonSlug(salon.slug);
+
+    const { data: settings, error: settingsError } = await supabase
+      .from("salon_settings")
+      .select("salon_name, tagline, logo_url")
+      .eq("salon_id", salon.id)
+      .maybeSingle();
+
+    if (settingsError) {
+      console.error(
+        "Could not load salon branding:",
+        settingsError.message
+      );
+      return;
+    }
+
+    if (!settings) {
+      console.error(
+        `Salon "${salon.slug}" exists but has no salon_settings row.`
+      );
+      return;
+    }
+
+    setSalonName(settings.salon_name || "Your Salon");
+    setTagline(settings.tagline || "");
+    setLogoUrl(settings.logo_url || null);
+  }
+
+  void loadBranding();
+}, []);
 
   async function register() {
     if (!fullName.trim() || !email.trim() || !password) {
