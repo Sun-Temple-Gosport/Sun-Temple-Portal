@@ -20,6 +20,18 @@ type RotaEntry = {
   end_time: string | null;
 };
 
+type RotaPattern = {
+  id: string;
+  staff_id: string;
+  day_of_week: number;
+  entry_type: "working" | "annual_leave" | "sick" | "day_off";
+  start_time: string | null;
+  end_time: string | null;
+  starts_on: string;
+  ends_on: string | null;
+  active: boolean;
+};
+
 function getStartOfWeek(date: Date) {
   const copy = new Date(date);
   const day = copy.getDay();
@@ -74,6 +86,15 @@ export default function StaffRota() {
   const [staff, setStaff] = useState<StaffMember[]>([]);
   const [rotaEntries, setRotaEntries] = useState<RotaEntry[]>([]);
   const [monthlyRotaEntries, setMonthlyRotaEntries] = useState<RotaEntry[]>([]);
+  const [rotaPatterns, setRotaPatterns] = useState<RotaPattern[]>([]);
+  const [repeatingStaffId, setRepeatingStaffId] =
+  useState<string | null>(null);
+
+const [repeatUntilEnabled, setRepeatUntilEnabled] =
+  useState(false);
+
+const [repeatUntilDate, setRepeatUntilDate] =
+  useState("");
   const [loading, setLoading] = useState(true);
   const [weekStart, setWeekStart] = useState(() =>
   getStartOfWeek(new Date())
@@ -106,6 +127,7 @@ const [endTime, setEndTime] = useState("17:00");
 const [savingEntry, setSavingEntry] = useState(false);
 const [deletingEntry, setDeletingEntry] = useState(false);
 const [copyingWeek, setCopyingWeek] = useState(false);
+const [savingPattern, setSavingPattern] = useState(false);
 const [rotaMessage, setRotaMessage] = useState("");
 const weekEnd = addDays(weekStart, 6);
 
@@ -124,6 +146,10 @@ const weekDays = Array.from({ length: 7 }, (_, index) =>
 useEffect(() => {
   void loadMonthlyRotaEntries();
 }, [summaryMonth]);
+
+useEffect(() => {
+  void loadRotaPatterns();
+}, []);
 
   async function loadStaff() {
     setLoading(true);
@@ -208,6 +234,45 @@ useEffect(() => {
   }
 
   setRotaEntries((data ?? []) as RotaEntry[]);
+}
+
+async function loadRotaPatterns() {
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
+
+  if (userError || !user) {
+    console.error("Could not confirm the logged-in owner.");
+    return;
+  }
+
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("salon_id")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (profileError || !profile?.salon_id) {
+    console.error("Could not determine the current salon.");
+    return;
+  }
+
+  const { data, error } = await supabase
+    .from("staff_rota_patterns")
+    .select(
+      "id, staff_id, day_of_week, entry_type, start_time, end_time, starts_on, ends_on, active"
+    )
+    .eq("salon_id", profile.salon_id)
+    .eq("active", true)
+    .order("day_of_week", { ascending: true });
+
+  if (error) {
+    console.error("Could not load recurring rota patterns:", error.message);
+    return;
+  }
+
+  setRotaPatterns((data ?? []) as RotaPattern[]);
 }
 
 async function loadMonthlyRotaEntries() {
@@ -439,6 +504,109 @@ async function deleteRotaEntry(entry: RotaEntry) {
 
   setRotaMessage("Rota entry removed.");
   setDeletingEntry(false);
+}
+
+async function saveRepeatingRota() {
+  if (!repeatingStaffId) return;
+
+  if (repeatUntilEnabled && !repeatUntilDate) {
+    setRotaMessage("Please choose an end date for the repeating rota.");
+    return;
+  }
+
+  setSavingPattern(true);
+  setRotaMessage("");
+
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
+
+  if (userError || !user) {
+    setRotaMessage("Could not confirm the logged-in owner.");
+    setSavingPattern(false);
+    return;
+  }
+
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("salon_id")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (profileError || !profile?.salon_id) {
+    setRotaMessage("Could not determine the current salon.");
+    setSavingPattern(false);
+    return;
+  }
+
+  const staffWorkingEntries = rotaEntries.filter(
+    (entry) =>
+      entry.staff_id === repeatingStaffId &&
+      entry.entry_type === "working"
+  );
+
+  if (staffWorkingEntries.length === 0) {
+    setRotaMessage(
+      "This staff member has no working shifts in the current week to repeat."
+    );
+    setSavingPattern(false);
+    return;
+  }
+
+  const { error: deleteError } = await supabase
+    .from("staff_rota_patterns")
+    .delete()
+    .eq("salon_id", profile.salon_id)
+    .eq("staff_id", repeatingStaffId);
+
+  if (deleteError) {
+    setRotaMessage(deleteError.message);
+    setSavingPattern(false);
+    return;
+  }
+
+  const patternRows = staffWorkingEntries.map((entry) => {
+    const date = new Date(`${entry.rota_date}T00:00:00Z`);
+    const jsDay = date.getUTCDay();
+    const dayOfWeek = jsDay === 0 ? 7 : jsDay;
+
+    return {
+      salon_id: profile.salon_id,
+      staff_id: repeatingStaffId,
+      day_of_week: dayOfWeek,
+      entry_type: "working",
+      start_time: entry.start_time,
+      end_time: entry.end_time,
+      starts_on: weekStart.toISOString().slice(0, 10),
+      ends_on: repeatUntilEnabled ? repeatUntilDate : null,
+      active: true,
+      updated_at: new Date().toISOString(),
+    };
+  });
+
+  const { error: insertError } = await supabase
+    .from("staff_rota_patterns")
+    .insert(patternRows);
+
+  if (insertError) {
+    setRotaMessage(insertError.message);
+    setSavingPattern(false);
+    return;
+  }
+
+  await loadRotaPatterns();
+
+  setRotaMessage(
+    repeatUntilEnabled
+      ? "Repeating rota saved until the selected date."
+      : "Repeating rota saved indefinitely."
+  );
+
+  setRepeatingStaffId(null);
+  setRepeatUntilEnabled(false);
+  setRepeatUntilDate("");
+  setSavingPattern(false);
 }
 
 async function copyPreviousWeek() {
@@ -722,18 +890,33 @@ async function copyPreviousWeek() {
 
           {staff.map((member) => (
             <div key={member.id} className="contents">
-              <div className="flex items-center justify-between gap-3 rounded-xl border border-slate-800 bg-slate-950 px-4 py-4">
-  <span className="font-black text-white">
-    {member.full_name}
-  </span>
+              <div className="rounded-xl border border-slate-800 bg-slate-950 px-4 py-4">
+  <div className="flex items-center justify-between gap-3">
+    <span className="font-black text-white">
+      {member.full_name}
+    </span>
 
-  <span className="whitespace-nowrap text-xs font-black text-amber-400">
-    {rotaEntries
-      .filter((entry) => entry.staff_id === member.id)
-      .reduce((total, entry) => total + getWorkingHours(entry), 0)
-      .toFixed(1)}{" "}
-    hrs
-  </span>
+    <span className="whitespace-nowrap text-xs font-black text-amber-400">
+      {rotaEntries
+        .filter((entry) => entry.staff_id === member.id)
+        .reduce((total, entry) => total + getWorkingHours(entry), 0)
+        .toFixed(1)}{" "}
+      hrs
+    </span>
+  </div>
+
+  <button
+    type="button"
+    onClick={() => {
+      setRepeatingStaffId(member.id);
+      setRepeatUntilEnabled(false);
+      setRepeatUntilDate("");
+      setRotaMessage("");
+    }}
+    className="mt-3 text-left text-[10px] font-black uppercase tracking-wide text-slate-500 hover:text-amber-400"
+  >
+    Set Repeating Rota
+  </button>
 </div>
 
               {weekDays.map((day) => {
@@ -744,6 +927,19 @@ async function copyPreviousWeek() {
       entry.staff_id === member.id &&
       entry.rota_date === rotaDate
   );
+
+  const dayDate = new Date(`${rotaDate}T00:00:00Z`);
+const jsDay = dayDate.getUTCDay();
+const dayOfWeek = jsDay === 0 ? 7 : jsDay;
+
+const recurringPattern = rotaPatterns.find(
+  (pattern) =>
+    pattern.staff_id === member.id &&
+    pattern.day_of_week === dayOfWeek &&
+    pattern.active &&
+    rotaDate >= pattern.starts_on &&
+    (!pattern.ends_on || rotaDate <= pattern.ends_on)
+);
 
   return (
                 <div
@@ -866,6 +1062,39 @@ async function copyPreviousWeek() {
         </span>
       )}
   </button>
+) : recurringPattern ? (
+  <button
+    type="button"
+    onClick={() => {
+      setEditingCell({
+        staffId: member.id,
+        rotaDate,
+      });
+
+      setEntryType(recurringPattern.entry_type);
+
+      setStartTime(
+        recurringPattern.start_time?.slice(0, 5) ?? "09:00"
+      );
+
+      setEndTime(
+        recurringPattern.end_time?.slice(0, 5) ?? "17:00"
+      );
+    }}
+    className="h-full w-full rounded-lg border border-amber-500/30 bg-amber-500/10 p-2 text-center"
+  >
+    <span className="block text-xs font-black uppercase text-amber-400">
+      Repeating
+    </span>
+
+    {recurringPattern.start_time &&
+      recurringPattern.end_time && (
+        <span className="mt-1 block text-xs font-bold text-white">
+          {recurringPattern.start_time.slice(0, 5)} –{" "}
+          {recurringPattern.end_time.slice(0, 5)}
+        </span>
+      )}
+  </button>
 ) : (
     <button
       type="button"
@@ -896,6 +1125,88 @@ async function copyPreviousWeek() {
   )}
 </div>
     </div>
+
+    {repeatingStaffId && (
+  <div className="mt-6 rounded-2xl border border-amber-400/30 bg-slate-900 p-5">
+    <p className="text-xs font-black uppercase tracking-[0.2em] text-amber-400">
+      Repeating Rota
+    </p>
+
+    <h3 className="mt-2 text-xl font-black text-white">
+      {staff.find((member) => member.id === repeatingStaffId)?.full_name ||
+        "Selected Staff Member"}
+    </h3>
+
+    <p className="mt-2 text-sm text-slate-400">
+      Use the current week as this staff member&apos;s normal weekly pattern.
+    </p>
+
+    <div className="mt-5 space-y-4">
+      <label className="flex items-center gap-3">
+        <input
+          type="checkbox"
+          checked={!repeatUntilEnabled}
+          onChange={() => {
+            setRepeatUntilEnabled(false);
+            setRepeatUntilDate("");
+          }}
+        />
+
+        <span className="font-bold text-white">
+          Repeat indefinitely
+        </span>
+      </label>
+
+      <label className="flex items-center gap-3">
+        <input
+          type="checkbox"
+          checked={repeatUntilEnabled}
+          onChange={(event) =>
+            setRepeatUntilEnabled(event.target.checked)
+          }
+        />
+
+        <span className="font-bold text-white">
+          Repeat until a date
+        </span>
+      </label>
+
+      {repeatUntilEnabled && (
+        <input
+          type="date"
+          value={repeatUntilDate}
+          onChange={(event) =>
+            setRepeatUntilDate(event.target.value)
+          }
+          className="w-full max-w-xs rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white"
+        />
+      )}
+    </div>
+
+    <div className="mt-5 flex gap-3">
+      <button
+  type="button"
+  onClick={() => void saveRepeatingRota()}
+  disabled={savingPattern}
+  className="rounded-xl bg-amber-400 px-5 py-3 font-black text-black disabled:opacity-50"
+>
+  {savingPattern ? "Saving..." : "Save Repeating Rota"}
+</button>
+
+      <button
+        type="button"
+        onClick={() => {
+          setRepeatingStaffId(null);
+          setRepeatUntilEnabled(false);
+          setRepeatUntilDate("");
+        }}
+        className="rounded-xl border border-slate-700 px-5 py-3 font-black text-slate-300"
+      >
+        Cancel
+      </button>
+    </div>
+  </div>
+)}
 
 <div className="mt-6 rounded-2xl border border-slate-800 bg-slate-900/50 p-5">
   <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
