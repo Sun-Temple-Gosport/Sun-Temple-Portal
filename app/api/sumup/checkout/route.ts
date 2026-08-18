@@ -121,11 +121,11 @@ const [
     .maybeSingle(),
 
   supabaseAdmin
-    .from("salon_settings")
-    .select("salon_id")
-    .eq("salon_id", customer.salon_id)
-    .maybeSingle(),
-]);
+  .from("salon_settings")
+  .select("salon_id, payment_provider")
+  .eq("salon_id", customer.salon_id)
+  .maybeSingle(),
+  ]);
 
     if (packageError) {
       console.error("Package lookup failed:", packageError);
@@ -181,11 +181,21 @@ const [
     }
 
     if (!salonSettings?.salon_id) {
-      return NextResponse.json(
-        { error: "Salon configuration is missing." },
-        { status: 500 }
-      );
-    }
+  return NextResponse.json(
+    { error: "Salon configuration is missing." },
+    { status: 500 }
+  );
+}
+
+if (salonSettings.payment_provider !== "sumup") {
+  return NextResponse.json(
+    {
+      error:
+        "Online payments are not currently available for this salon.",
+    },
+    { status: 400 }
+  );
+}
 
     const isVip =
       !!customer.vip_expires_at &&

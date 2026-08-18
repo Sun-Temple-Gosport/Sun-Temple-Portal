@@ -36,6 +36,7 @@ export default function Checkout() {
   const [salonName, setSalonName] = useState("Your Salon");
 const [tagline, setTagline] = useState("");
 const [logoUrl, setLogoUrl] = useState<string | null>(null);
+const [paymentProvider, setPaymentProvider] = useState<string | null>(null);
 
   useEffect(() => {
     async function loadCheckout() {
@@ -112,7 +113,7 @@ if (!customerData) {
 }
 const { data: brandingData, error: brandingError } = await supabase
   .from("salon_settings")
-  .select("salon_name, tagline, logo_url")
+  .select("salon_name, tagline, logo_url, payment_provider")
   .eq("salon_id", customerData.salon_id)
   .maybeSingle();
 
@@ -122,6 +123,7 @@ if (brandingError) {
   setSalonName(brandingData.salon_name || "Your Salon");
   setTagline(brandingData.tagline || "");
   setLogoUrl(brandingData.logo_url || null);
+  setPaymentProvider(brandingData.payment_provider || null);
 }
 
 const [
@@ -252,12 +254,20 @@ const [
           </p>
         )}
 
-        <CheckoutButton
-          amount={checkoutPrice}
-          description={`${pkg.minutes} Minute Package`}
-          packageId={pkg.id}
-          minutes={pkg.minutes}
-        />
+        {paymentProvider === "sumup" ? (
+  <CheckoutButton
+    amount={checkoutPrice}
+    description={`${pkg.minutes} Minute Package`}
+    packageId={pkg.id}
+    minutes={pkg.minutes}
+  />
+) : (
+  <div className="mt-10 rounded-2xl border border-[#d6a84f]/30 bg-black/20 p-5 text-center">
+    <p className="font-semibold text-white">
+      Online payments are not currently available for this salon.
+    </p>
+  </div>
+)}
       </div>
     </main>
   );
