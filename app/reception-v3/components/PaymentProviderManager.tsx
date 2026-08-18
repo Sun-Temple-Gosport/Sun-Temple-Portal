@@ -13,6 +13,11 @@ type ProviderId =
   | "manual"
   | "other";
 
+type ConnectionStatus =
+  | "not_configured"
+  | "connected"
+  | "error";
+
 type Provider = {
   id: ProviderId;
   name: string;
@@ -75,135 +80,263 @@ const providers: Provider[] = [
 export default function PaymentProviderManager() {
   const [selectedProvider, setSelectedProvider] =
     useState<ProviderId | null>(null);
-    const [loading, setLoading] = useState(true);
-const [saving, setSaving] = useState(false);
-const [message, setMessage] = useState("");
-const [salonId, setSalonId] = useState<string | null>(null);
 
-useEffect(() => {
-  async function loadCurrentSalon() {
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser();
+  const [connectionStatus, setConnectionStatus] =
+    useState<ConnectionStatus | null>(null);
 
-    if (userError || !user) {
-      setMessage("Could not determine the logged-in user.");
-      setLoading(false);
-      return;
+  const [merchantReference, setMerchantReference] =
+    useState<string | null>(null);
+
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [savingCredentials, setSavingCredentials] =
+    useState(false);
+
+  const [message, setMessage] = useState("");
+  const [salonId, setSalonId] = useState<string | null>(null);
+
+  const [sumupApiKey, setSumupApiKey] = useState("");
+  const [sumupMerchantCode, setSumupMerchantCode] =
+    useState("");
+
+  useEffect(() => {
+    async function loadCurrentSalon() {
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+
+      if (userError || !user) {
+        setMessage("Could not determine the logged-in user.");
+        setLoading(false);
+        return;
+      }
+
+      const { data: profile, error: profileError } =
+        await supabase
+          .from("profiles")
+          .select("salon_id")
+          .eq("id", user.id)
+          .maybeSingle();
+
+      if (profileError || !profile?.salon_id) {
+        setMessage(
+          profileError?.message ||
+            "Could not determine the current salon."
+        );
+        setLoading(false);
+        return;
+      }
+
+      setSalonId(profile.salon_id);
     }
 
-    const { data: profile, error: profileError } = await supabase
-      .from("profiles")
-      .select("salon_id")
-      .eq("id", user.id)
-      .maybeSingle();
+    void loadCurrentSalon();
+  }, []);
 
-    if (profileError || !profile?.salon_id) {
-      setMessage(
-        profileError?.message || "Could not determine the current salon."
+  useEffect(() => {
+    async function loadPaymentProvider() {
+      if (!salonId) return;
+
+      setLoading(true);
+      setMessage("");
+
+      const [
+        { data: settingsData, error: settingsError },
+        { data: connectionData, error: connectionError },
+      ] = await Promise.all([
+        supabase
+          .from("salon_settings")
+          .select("payment_provider")
+          .eq("salon_id", salonId)
+          .maybeSingle(),
+
+        supabase
+          .from("salon_payment_connections")
+          .select(
+            "provider, connection_status, merchant_reference"
+          )
+          .eq("salon_id", salonId)
+          .maybeSingle(),
+      ]);
+
+      if (settingsError) {
+        setMessage(settingsError.message);
+        setLoading(false);
+        return;
+      }
+
+      if (connectionError) {
+        setMessage(connectionError.message);
+        setLoading(false);
+        return;
+      }
+
+      const savedProvider =
+        (connectionData?.provider as ProviderId | null) ??
+        (settingsData?.payment_provider as ProviderId | null);
+
+      setSelectedProvider(savedProvider ?? null);
+
+      setConnectionStatus(
+        (connectionData?.connection_status as
+          | ConnectionStatus
+          | null) ?? null
       );
+
+      setMerchantReference(
+        connectionData?.merchant_reference ?? null
+      );
+
       setLoading(false);
+    }
+
+    void loadPaymentProvider();
+  }, [salonId]);
+
+  async function selectProvider(provider: Provider) {
+    if (!provider.available || !salonId) {
       return;
     }
 
-    setSalonId(profile.salon_id);
-  }
-
-  void loadCurrentSalon();
-}, []);
-
-useEffect(() => {
-  async function loadPaymentProvider() {
-    if (!salonId) return;
-
-    setLoading(true);
+    setSaving(true);
     setMessage("");
 
-    const { data, error } = await supabase
-      .from("salon_settings")
-      .select("payment_provider")
-      .eq("salon_id", salonId)
-      .maybeSingle();
+    const {
+      data: { session },
+      error: sessionError,
+    } = await supabase.auth.getSession();
 
-    if (error) {
-      setMessage(error.message);
-      setLoading(false);
+    if (sessionError || !session?.access_token) {
+      setSaving(false);
+      setMessage("Your login session could not be verified.");
       return;
     }
 
-    const savedProvider = data?.payment_provider as ProviderId | null;
+    const response = await fetch("/api/payments/provider", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${session.access_token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        provider: provider.id,
+      }),
+    });
 
-    setSelectedProvider(savedProvider ?? null);
-    setLoading(false);
-  }
+    const data = await response.json();
 
-  void loadPaymentProvider();
-}, [salonId]);
-
-async function selectProvider(provider: Provider) {
-  if (!provider.available || !salonId) {
-    return;
-  }
-
-  setSaving(true);
-  setMessage("");
-
-  const {
-    data: { session },
-    error: sessionError,
-  } = await supabase.auth.getSession();
-
-  if (sessionError || !session?.access_token) {
     setSaving(false);
-    setMessage("Your login session could not be verified.");
-    return;
+
+    if (!response.ok) {
+      setMessage(
+        data.error || "Could not save payment provider."
+      );
+      return;
+    }
+
+    setSelectedProvider(provider.id);
+
+    setConnectionStatus(
+      (data.connectionStatus as ConnectionStatus) ??
+        "not_configured"
+    );
+
+    if (
+      selectedProvider !== provider.id
+    ) {
+      setMerchantReference(null);
+    }
+
+    setSumupApiKey("");
+    setSumupMerchantCode("");
+
+    setMessage(
+      `${provider.name} has been saved as your payment provider.`
+    );
   }
 
-  const response = await fetch("/api/payments/provider", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${session.access_token}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      provider: provider.id,
-    }),
-  });
+  async function saveSumupPaymentDetails() {
+    if (!sumupApiKey.trim() || !sumupMerchantCode.trim()) {
+      setMessage(
+        "Enter both your SumUp API key and merchant code."
+      );
+      return;
+    }
 
-  const data = await response.json();
+    setSavingCredentials(true);
+    setMessage("");
 
-  setSaving(false);
+    const {
+      data: { session },
+      error: sessionError,
+    } = await supabase.auth.getSession();
 
-  if (!response.ok) {
-    setMessage(data.error || "Could not save payment provider.");
-    return;
+    if (sessionError || !session?.access_token) {
+      setSavingCredentials(false);
+      setMessage("Your login session could not be verified.");
+      return;
+    }
+
+    const response = await fetch(
+      "/api/payments/credentials",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          credentials: {
+            api_key: sumupApiKey,
+            merchant_code: sumupMerchantCode,
+          },
+        }),
+      }
+    );
+
+    const data = await response.json();
+
+    setSavingCredentials(false);
+
+    if (!response.ok) {
+      setMessage(
+        data.error || "Could not save payment details."
+      );
+      return;
+    }
+
+    setSumupApiKey("");
+    setSumupMerchantCode("");
+
+    setMessage(
+      "Payment details have been saved securely. They now need to be verified before online payments are activated."
+    );
   }
 
-  setSelectedProvider(provider.id);
-  setMessage(
-    `${provider.name} has been saved as your payment provider.`
-  );
-}
   const selected = providers.find(
     (provider) => provider.id === selectedProvider
   );
 
+  const isConnected =
+    connectionStatus === "connected";
+
   return (
     <section className="space-y-6">
-        {loading && (
-  <div className="rounded-2xl border border-slate-800 bg-slate-950 p-4 text-slate-400">
-    Loading payment settings...
-  </div>
-)}
+      {loading && (
+        <div className="rounded-2xl border border-slate-800 bg-slate-950 p-4 text-slate-400">
+          Loading payment settings...
+        </div>
+      )}
 
-{message && (
-  <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4">
-    <p className="font-black text-emerald-400">
-      ✓ {message}
-    </p>
-  </div>
-)}
+      {message && (
+        <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4">
+          <p className="font-black text-emerald-400">
+            ✓ {message}
+          </p>
+        </div>
+      )}
+
       <div>
         <p className="text-xs font-black uppercase tracking-[0.25em] text-amber-400">
           Payments
@@ -214,23 +347,25 @@ async function selectProvider(provider: Provider) {
         </h1>
 
         <p className="mt-2 max-w-2xl text-slate-400">
-          Choose how your salon accepts customer payments. You can change your
-          payment provider later.
+          Choose how your salon accepts customer payments.
+          Your online payment details are stored securely and
+          belong only to your salon.
         </p>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
         {providers.map((provider) => {
-          const active = selectedProvider === provider.id;
+          const active =
+            selectedProvider === provider.id;
 
           return (
             <button
               key={provider.id}
               type="button"
               onClick={() => {
-  void selectProvider(provider);
-}}
-disabled={!provider.available || saving}
+                void selectProvider(provider);
+              }}
+              disabled={!provider.available || saving}
               className={`rounded-2xl border p-5 text-left transition disabled:cursor-not-allowed disabled:opacity-60 ${
                 active
                   ? "border-amber-400 bg-amber-400/10"
@@ -255,7 +390,9 @@ disabled={!provider.available || saving}
                       : "bg-slate-800 text-slate-400"
                   }`}
                 >
-                  {provider.available ? "Available" : "Coming Soon"}
+                  {provider.available
+                    ? "Available"
+                    : "Coming Soon"}
                 </span>
               </div>
             </button>
@@ -265,48 +402,146 @@ disabled={!provider.available || saving}
 
       {selected && (
         <div className="rounded-3xl border border-slate-800 bg-slate-900 p-6">
-          <p className="text-xs font-black uppercase tracking-[0.2em] text-amber-400">
-            Selected Provider
-          </p>
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.2em] text-amber-400">
+                Selected Provider
+              </p>
 
-          <h2 className="mt-2 text-2xl font-black text-white">
-            {selected.name}
-          </h2>
+              <h2 className="mt-2 text-2xl font-black text-white">
+                {selected.name}
+              </h2>
+            </div>
 
-          {!selected.available && (
-            <p className="mt-3 text-slate-400">
-              Support for this provider is coming soon.
-            </p>
-          )}
+            {selected.id !== "manual" &&
+              selected.id !== "other" && (
+                <span
+                  className={`rounded-full px-3 py-1 text-xs font-black ${
+                    isConnected
+                      ? "bg-emerald-400/15 text-emerald-300"
+                      : "bg-amber-400/15 text-amber-300"
+                  }`}
+                >
+                  {isConnected
+                    ? "Connected"
+                    : "Setup required"}
+                </span>
+              )}
+          </div>
 
-          {selected.id === "sumup" && (
-            <p className="mt-3 text-slate-300">
-              SumUp integration is available and will be connected to your
-              existing online checkout in the next step.
-            </p>
-          )}
+          {selected.id === "sumup" &&
+            isConnected && (
+              <div className="mt-5 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-5">
+                <p className="font-black text-emerald-300">
+                  ✓ Online payments connected
+                </p>
+
+                <p className="mt-2 text-sm text-slate-300">
+                  Your salon is configured to accept online
+                  payments through SumUp.
+                </p>
+
+                {merchantReference === "legacy_env" && (
+                  <p className="mt-2 text-xs text-slate-500">
+                    Existing payment connection active.
+                  </p>
+                )}
+              </div>
+            )}
+
+          {selected.id === "sumup" &&
+            !isConnected && (
+              <div className="mt-6 space-y-5">
+                <div>
+                  <h3 className="text-xl font-black text-white">
+                    Set up payment details
+                  </h3>
+
+                  <p className="mt-2 max-w-2xl text-sm text-slate-400">
+                    Enter the payment details supplied by
+                    SumUp for your business. These details are
+                    stored securely and are never shown back
+                    on this screen.
+                  </p>
+                </div>
+
+                <div className="grid gap-4">
+                  <label className="space-y-2">
+                    <span className="text-xs font-black uppercase tracking-wide text-slate-400">
+                      API Key
+                    </span>
+
+                    <input
+                      type="password"
+                      value={sumupApiKey}
+                      onChange={(event) =>
+                        setSumupApiKey(event.target.value)
+                      }
+                      autoComplete="off"
+                      placeholder="Enter your SumUp API key"
+                      className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white outline-none focus:border-amber-400"
+                    />
+                  </label>
+
+                  <label className="space-y-2">
+                    <span className="text-xs font-black uppercase tracking-wide text-slate-400">
+                      Merchant Code
+                    </span>
+
+                    <input
+                      type="text"
+                      value={sumupMerchantCode}
+                      onChange={(event) =>
+                        setSumupMerchantCode(
+                          event.target.value
+                        )
+                      }
+                      autoComplete="off"
+                      placeholder="Enter your SumUp merchant code"
+                      className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white outline-none focus:border-amber-400"
+                    />
+                  </label>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    void saveSumupPaymentDetails();
+                  }}
+                  disabled={savingCredentials}
+                  className="rounded-xl bg-amber-400 px-5 py-3 font-black text-black transition hover:bg-amber-300 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {savingCredentials
+                    ? "Saving..."
+                    : "Save payment details"}
+                </button>
+              </div>
+            )}
 
           {selected.id === "manual" && (
             <p className="mt-3 text-slate-300">
-              Online checkout will be disabled. Customers will pay directly at
-              your salon.
+              Your salon can use any card terminal or payment
+              provider in store. TanSalonOS will record the
+              transaction as a card payment, but online
+              customer checkout is disabled.
             </p>
           )}
 
           {selected.id === "other" && (
             <div className="mt-5">
-              <label className="space-y-2">
-                <span className="text-xs font-black uppercase tracking-wide text-slate-400">
-                  Provider Name
-                </span>
-
-                <input
-                  type="text"
-                  placeholder="Enter payment provider"
-                  className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white"
-                />
-              </label>
+              <p className="text-slate-300">
+                This option records that your salon uses a
+                different payment provider. Online checkout
+                requires a supported TanSalonOS payment
+                connector.
+              </p>
             </div>
+          )}
+
+          {!selected.available && (
+            <p className="mt-3 text-slate-400">
+              Support for this provider is coming soon.
+            </p>
           )}
         </div>
       )}
