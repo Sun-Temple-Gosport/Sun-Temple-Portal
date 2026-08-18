@@ -10,9 +10,11 @@ const allowedProviders = [
   "sumup",
   "stripe",
   "square",
-  "zettle",
   "dojo",
   "worldpay",
+  "opayo",
+  "adyen",
+  "zettle",
   "manual",
   "other",
 ] as const;

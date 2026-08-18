@@ -7,9 +7,11 @@ type ProviderId =
   | "sumup"
   | "stripe"
   | "square"
-  | "zettle"
   | "dojo"
   | "worldpay"
+  | "opayo"
+  | "adyen"
+  | "zettle"
   | "manual"
   | "other";
 
@@ -18,16 +20,25 @@ type ConnectionStatus =
   | "connected"
   | "error";
 
+type Notice = {
+  type: "success" | "error";
+  text: string;
+};
+
+type CredentialField = {
+  key: string;
+  label: string;
+  placeholder: string;
+  secret?: boolean;
+};
+
 type Provider = {
   id: ProviderId;
   name: string;
   description: string;
-  available: boolean;
-};
-
-type Notice = {
-  type: "success" | "error";
-  text: string;
+  badge: string;
+  fields: CredentialField[];
+  note?: string;
 };
 
 const providers: Provider[] = [
@@ -35,50 +46,191 @@ const providers: Provider[] = [
     id: "sumup",
     name: "SumUp",
     description: "Accept online payments using SumUp.",
-    available: true,
+    badge: "Set up",
+    fields: [
+      {
+        key: "api_key",
+        label: "API Key",
+        placeholder: "Enter your SumUp API key",
+        secret: true,
+      },
+      {
+        key: "merchant_code",
+        label: "Merchant Code",
+        placeholder: "Enter your SumUp merchant code",
+      },
+    ],
+    note:
+      "Use the API key and merchant code belonging to your own SumUp business account.",
   },
   {
     id: "stripe",
     name: "Stripe",
-    description: "Accept cards and online payments through Stripe.",
-    available: false,
+    description: "Accept online card payments through Stripe.",
+    badge: "Set up",
+    fields: [
+      {
+        key: "secret_key",
+        label: "Secret Key",
+        placeholder: "sk_live_...",
+        secret: true,
+      },
+      {
+        key: "webhook_signing_secret",
+        label: "Webhook Signing Secret",
+        placeholder: "whsec_...",
+        secret: true,
+      },
+    ],
+    note:
+      "Use your live Stripe secret key and the signing secret for the TanSalonOS payment webhook.",
   },
   {
     id: "square",
     name: "Square",
-    description: "Connect your Square payment account.",
-    available: false,
+    description: "Accept online payments using Square Checkout.",
+    badge: "Set up",
+    fields: [
+      {
+        key: "access_token",
+        label: "Access Token",
+        placeholder: "Enter your Square access token",
+        secret: true,
+      },
+      {
+        key: "location_id",
+        label: "Location ID",
+        placeholder: "Enter your Square location ID",
+      },
+    ],
+    note:
+      "Square uses your access token and salon location ID to create a Square-hosted checkout.",
   },
   {
     id: "zettle",
     name: "Zettle",
-    description: "Connect PayPal Zettle payments.",
-    available: false,
+    description: "Connect your PayPal Zettle account.",
+    badge: "Set up",
+    fields: [
+      {
+        key: "api_key",
+        label: "API Key",
+        placeholder: "Enter your Zettle API key",
+        secret: true,
+      },
+      {
+        key: "client_id",
+        label: "Client ID",
+        placeholder: "Enter your Zettle client ID",
+      },
+    ],
+    note:
+      "Zettle's public web APIs do not currently create browser card payments. These credentials are for the Zettle account/POS integration.",
   },
   {
     id: "dojo",
     name: "Dojo",
-    description: "Connect your Dojo payment service.",
-    available: false,
+    description: "Accept online payments using Dojo.",
+    badge: "Set up",
+    fields: [
+      {
+        key: "api_key",
+        label: "API Key",
+        placeholder: "sk_prod_...",
+        secret: true,
+      },
+    ],
+    note:
+      "Create the API key for the correct salon location in the Dojo Developer Portal.",
   },
-  {
+    {
     id: "worldpay",
     name: "Worldpay",
-    description: "Connect a Worldpay merchant account.",
-    available: false,
+    description: "Accept online payments through Worldpay.",
+    badge: "Set up",
+    fields: [
+      {
+        key: "api_username",
+        label: "API Username",
+        placeholder: "Enter your Worldpay API username",
+      },
+      {
+        key: "api_password",
+        label: "API Password",
+        placeholder: "Enter your Worldpay API password",
+        secret: true,
+      },
+    ],
+    note:
+      "Use the Access Worldpay API credentials supplied through your Worldpay account.",
+  },
+  {
+    id: "opayo",
+    name: "Opayo",
+    description: "Accept online payments through Opayo.",
+    badge: "Set up",
+    fields: [
+      {
+        key: "integration_key",
+        label: "Integration Key",
+        placeholder: "Enter your Opayo integration key",
+        secret: true,
+      },
+      {
+        key: "integration_password",
+        label: "Integration Password",
+        placeholder: "Enter your Opayo integration password",
+        secret: true,
+      },
+      {
+        key: "vendor_name",
+        label: "Vendor Name",
+        placeholder: "Enter your Opayo vendor name",
+      },
+    ],
+    note:
+      "Enter the Integration Key, Integration Password and Vendor Name from your Opayo account.",
+  },
+  {
+    id: "adyen",
+    name: "Adyen",
+    description: "Accept online payments through Adyen.",
+    badge: "Set up",
+    fields: [
+      {
+        key: "api_key",
+        label: "API Key",
+        placeholder: "Enter your Adyen API key",
+        secret: true,
+      },
+      {
+        key: "merchant_account",
+        label: "Merchant Account",
+        placeholder: "Enter your Adyen merchant account",
+      },
+      {
+        key: "client_key",
+        label: "Client Key",
+        placeholder: "Enter your Adyen client key",
+      },
+    ],
+    note:
+      "Enter the API Key and Merchant Account for your Adyen account, plus the Client Key used by Adyen's web payment components.",
   },
   {
     id: "manual",
     name: "In-store payments only",
     description:
-      "Do not accept online payments. Customers pay directly at the salon.",
-    available: true,
+      "Use any physical card terminal and record the payment in TanSalonOS.",
+    badge: "In-store",
+    fields: [],
   },
   {
     id: "other",
     name: "Other provider",
-    description: "Tell us which payment provider your salon uses.",
-    available: true,
+    description: "Record another payment provider used by your salon.",
+    badge: "Other",
+    fields: [],
   },
 ];
 
@@ -92,21 +244,25 @@ export default function PaymentProviderManager() {
   const [merchantReference, setMerchantReference] =
     useState<string | null>(null);
 
+  const [hasSavedCredentials, setHasSavedCredentials] =
+    useState(false);
+
+  const [credentialValues, setCredentialValues] =
+    useState<Record<string, string>>({});
+
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+
   const [savingCredentials, setSavingCredentials] =
     useState(false);
+
   const [verifying, setVerifying] = useState(false);
 
-  const [notice, setNotice] = useState<Notice | null>(null);
+  const [notice, setNotice] =
+    useState<Notice | null>(null);
 
-  const [salonId, setSalonId] = useState<string | null>(
-    null
-  );
-
-  const [sumupApiKey, setSumupApiKey] = useState("");
-  const [sumupMerchantCode, setSumupMerchantCode] =
-    useState("");
+  const [salonId, setSalonId] =
+    useState<string | null>(null);
 
   useEffect(() => {
     async function loadCurrentSalon() {
@@ -120,6 +276,7 @@ export default function PaymentProviderManager() {
           type: "error",
           text: "Could not determine the logged-in user.",
         });
+
         setLoading(false);
         return;
       }
@@ -138,6 +295,7 @@ export default function PaymentProviderManager() {
             profileError?.message ||
             "Could not determine the current salon.",
         });
+
         setLoading(false);
         return;
       }
@@ -168,7 +326,7 @@ export default function PaymentProviderManager() {
         supabase
           .from("salon_payment_connections")
           .select(
-            "provider, connection_status, merchant_reference"
+            "provider, connection_status, merchant_reference, credentials_secret_id"
           )
           .eq("salon_id", salonId)
           .maybeSingle(),
@@ -179,6 +337,7 @@ export default function PaymentProviderManager() {
           type: "error",
           text: settingsError.message,
         });
+
         setLoading(false);
         return;
       }
@@ -188,6 +347,7 @@ export default function PaymentProviderManager() {
           type: "error",
           text: connectionError.message,
         });
+
         setLoading(false);
         return;
       }
@@ -208,6 +368,10 @@ export default function PaymentProviderManager() {
         connectionData?.merchant_reference ?? null
       );
 
+      setHasSavedCredentials(
+        !!connectionData?.credentials_secret_id
+      );
+
       setLoading(false);
     }
 
@@ -215,7 +379,7 @@ export default function PaymentProviderManager() {
   }, [salonId]);
 
   async function selectProvider(provider: Provider) {
-    if (!provider.available || !salonId) {
+    if (!salonId) {
       return;
     }
 
@@ -229,23 +393,30 @@ export default function PaymentProviderManager() {
 
     if (sessionError || !session?.access_token) {
       setSaving(false);
+
       setNotice({
         type: "error",
         text: "Your login session could not be verified.",
       });
+
       return;
     }
 
-    const response = await fetch("/api/payments/provider", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${session.access_token}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        provider: provider.id,
-      }),
-    });
+    const previousProvider = selectedProvider;
+
+    const response = await fetch(
+      "/api/payments/provider",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          provider: provider.id,
+        }),
+      }
+    );
 
     const data = await response.json();
 
@@ -258,11 +429,12 @@ export default function PaymentProviderManager() {
           data.error ||
           "Could not save payment provider.",
       });
+
       return;
     }
 
     const providerChanged =
-      selectedProvider !== provider.id;
+      previousProvider !== provider.id;
 
     setSelectedProvider(provider.id);
 
@@ -273,10 +445,9 @@ export default function PaymentProviderManager() {
 
     if (providerChanged) {
       setMerchantReference(null);
+      setHasSavedCredentials(false);
+      setCredentialValues({});
     }
-
-    setSumupApiKey("");
-    setSumupMerchantCode("");
 
     setNotice({
       type: "success",
@@ -284,12 +455,36 @@ export default function PaymentProviderManager() {
     });
   }
 
-  async function saveSumupPaymentDetails() {
-    if (!sumupApiKey.trim() || !sumupMerchantCode.trim()) {
+  function updateCredential(
+    key: string,
+    value: string
+  ) {
+    setCredentialValues((current) => ({
+      ...current,
+      [key]: value,
+    }));
+  }
+
+  async function savePaymentDetails(
+    provider: Provider
+  ) {
+    const credentials = Object.fromEntries(
+      provider.fields.map((field) => [
+        field.key,
+        credentialValues[field.key]?.trim() ?? "",
+      ])
+    );
+
+    const missingField = provider.fields.find(
+      (field) => !credentials[field.key]
+    );
+
+    if (missingField) {
       setNotice({
         type: "error",
-        text: "Enter both your SumUp API key and merchant code.",
+        text: `Enter your ${missingField.label}.`,
       });
+
       return;
     }
 
@@ -303,10 +498,12 @@ export default function PaymentProviderManager() {
 
     if (sessionError || !session?.access_token) {
       setSavingCredentials(false);
+
       setNotice({
         type: "error",
         text: "Your login session could not be verified.",
       });
+
       return;
     }
 
@@ -319,10 +516,7 @@ export default function PaymentProviderManager() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          credentials: {
-            api_key: sumupApiKey,
-            merchant_code: sumupMerchantCode,
-          },
+          credentials,
         }),
       }
     );
@@ -338,16 +532,17 @@ export default function PaymentProviderManager() {
           data.error ||
           "Could not save payment details.",
       });
+
       return;
     }
 
-    setSumupApiKey("");
-    setSumupMerchantCode("");
+    setCredentialValues({});
+    setHasSavedCredentials(true);
 
     setNotice({
       type: "success",
       text:
-        "Payment details have been saved securely. They now need to be verified before online payments are activated.",
+        `${provider.name} payment details have been saved securely.`,
     });
   }
 
@@ -362,20 +557,25 @@ export default function PaymentProviderManager() {
 
     if (sessionError || !session?.access_token) {
       setVerifying(false);
+
       setNotice({
         type: "error",
         text: "Your login session could not be verified.",
       });
+
       return;
     }
 
-    const response = await fetch("/api/payments/verify", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${session.access_token}`,
-        "Content-Type": "application/json",
-      },
-    });
+    const response = await fetch(
+      "/api/payments/verify",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+          "Content-Type": "application/json",
+        },
+      }
+    );
 
     const data = await response.json();
 
@@ -395,6 +595,7 @@ export default function PaymentProviderManager() {
     }
 
     setConnectionStatus("connected");
+
     setMerchantReference(
       data.merchantReference ?? null
     );
@@ -407,7 +608,8 @@ export default function PaymentProviderManager() {
   }
 
   const selected = providers.find(
-    (provider) => provider.id === selectedProvider
+    (provider) =>
+      provider.id === selectedProvider
   );
 
   const isConnected =
@@ -436,7 +638,9 @@ export default function PaymentProviderManager() {
                 : "text-emerald-400"
             }`}
           >
-            {notice.type === "success" ? "✓ " : ""}
+            {notice.type === "success"
+              ? "✓ "
+              : ""}
             {notice.text}
           </p>
         </div>
@@ -452,9 +656,9 @@ export default function PaymentProviderManager() {
         </h1>
 
         <p className="mt-2 max-w-2xl text-slate-400">
-          Choose how your salon accepts customer payments.
-          Your online payment details are stored securely and
-          belong only to your salon.
+          Choose the payment provider used by your
+          salon. TanSalonOS will show the exact account
+          details required for that provider.
         </p>
       </div>
 
@@ -470,7 +674,7 @@ export default function PaymentProviderManager() {
               onClick={() => {
                 void selectProvider(provider);
               }}
-              disabled={!provider.available || saving}
+              disabled={saving}
               className={`rounded-2xl border p-5 text-left transition disabled:cursor-not-allowed disabled:opacity-60 ${
                 active
                   ? "border-amber-400 bg-amber-400/10"
@@ -488,16 +692,8 @@ export default function PaymentProviderManager() {
                   </p>
                 </div>
 
-                <span
-                  className={`shrink-0 rounded-full px-3 py-1 text-xs font-black ${
-                    provider.available
-                      ? "bg-emerald-400/15 text-emerald-300"
-                      : "bg-slate-800 text-slate-400"
-                  }`}
-                >
-                  {provider.available
-                    ? "Available"
-                    : "Coming Soon"}
+                <span className="shrink-0 rounded-full bg-emerald-400/15 px-3 py-1 text-xs font-black text-emerald-300">
+                  {provider.badge}
                 </span>
               </div>
             </button>
@@ -518,35 +714,35 @@ export default function PaymentProviderManager() {
               </h2>
             </div>
 
-            {selected.id !== "manual" &&
-              selected.id !== "other" && (
-                <span
-                  className={`rounded-full px-3 py-1 text-xs font-black ${
-                    isConnected
-                      ? "bg-emerald-400/15 text-emerald-300"
-                      : "bg-amber-400/15 text-amber-300"
-                  }`}
-                >
-                  {isConnected
-                    ? "Connected"
-                    : "Setup required"}
-                </span>
-              )}
+            {selected.fields.length > 0 && (
+              <span
+                className={`rounded-full px-3 py-1 text-xs font-black ${
+                  isConnected
+                    ? "bg-emerald-400/15 text-emerald-300"
+                    : "bg-amber-400/15 text-amber-300"
+                }`}
+              >
+                {isConnected
+                  ? "Connected"
+                  : "Setup required"}
+              </span>
+            )}
           </div>
 
-          {selected.id === "sumup" &&
-            isConnected && (
+          {isConnected &&
+            selected.fields.length > 0 && (
               <div className="mt-5 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-5">
                 <p className="font-black text-emerald-300">
-                  ✓ Online payments connected
+                  ✓ Payment connection active
                 </p>
 
                 <p className="mt-2 text-sm text-slate-300">
-                  Your salon is configured to accept online
-                  payments through SumUp.
+                  This salon is connected to{" "}
+                  {selected.name}.
                 </p>
 
-                {merchantReference === "legacy_env" && (
+                {merchantReference ===
+                  "legacy_env" && (
                   <p className="mt-2 text-xs text-slate-500">
                     Existing payment connection active.
                   </p>
@@ -554,70 +750,77 @@ export default function PaymentProviderManager() {
               </div>
             )}
 
-          {selected.id === "sumup" &&
-            !isConnected && (
+          {!isConnected &&
+            selected.fields.length > 0 && (
               <div className="mt-6 space-y-5">
                 <div>
                   <h3 className="text-xl font-black text-white">
-                    Set up payment details
+                    Set up {selected.name}
                   </h3>
 
-                  <p className="mt-2 max-w-2xl text-sm text-slate-400">
-                    Enter the payment details supplied by
-                    SumUp for your business. These details are
-                    stored securely and are never shown back
-                    on this screen.
-                  </p>
+                  {selected.note && (
+                    <p className="mt-2 max-w-2xl text-sm text-slate-400">
+                      {selected.note}
+                    </p>
+                  )}
                 </div>
 
+                {hasSavedCredentials && (
+                  <div className="rounded-xl border border-sky-500/30 bg-sky-500/10 p-4 text-sm text-sky-200">
+                    Payment details are already saved
+                    securely. Re-enter them only if you
+                    want to replace them.
+                  </div>
+                )}
+
                 <div className="grid gap-4">
-                  <label className="space-y-2">
-                    <span className="text-xs font-black uppercase tracking-wide text-slate-400">
-                      API Key
-                    </span>
+                  {selected.fields.map((field) => (
+                    <label
+                      key={field.key}
+                      className="space-y-2"
+                    >
+                      <span className="text-xs font-black uppercase tracking-wide text-slate-400">
+                        {field.label}
+                      </span>
 
-                    <input
-                      type="password"
-                      value={sumupApiKey}
-                      onChange={(event) =>
-                        setSumupApiKey(
-                          event.target.value
-                        )
-                      }
-                      autoComplete="off"
-                      placeholder="Enter your SumUp API key"
-                      className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white outline-none focus:border-amber-400"
-                    />
-                  </label>
-
-                  <label className="space-y-2">
-                    <span className="text-xs font-black uppercase tracking-wide text-slate-400">
-                      Merchant Code
-                    </span>
-
-                    <input
-                      type="text"
-                      value={sumupMerchantCode}
-                      onChange={(event) =>
-                        setSumupMerchantCode(
-                          event.target.value
-                        )
-                      }
-                      autoComplete="off"
-                      placeholder="Enter your SumUp merchant code"
-                      className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white outline-none focus:border-amber-400"
-                    />
-                  </label>
+                      <input
+                        type={
+                          field.secret
+                            ? "password"
+                            : "text"
+                        }
+                        value={
+                          credentialValues[
+                            field.key
+                          ] ?? ""
+                        }
+                        onChange={(event) =>
+                          updateCredential(
+                            field.key,
+                            event.target.value
+                          )
+                        }
+                        autoComplete="off"
+                        placeholder={
+                          field.placeholder
+                        }
+                        className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white outline-none focus:border-amber-400"
+                      />
+                    </label>
+                  ))}
                 </div>
 
                 <div className="flex flex-wrap gap-3">
                   <button
                     type="button"
                     onClick={() => {
-                      void saveSumupPaymentDetails();
+                      void savePaymentDetails(
+                        selected
+                      );
                     }}
                     disabled={
-                      savingCredentials || verifying
+                      savingCredentials ||
+                      verifying
                     }
                     className="rounded-xl bg-amber-400 px-5 py-3 font-black text-black transition hover:bg-amber-300 disabled:cursor-not-allowed disabled:opacity-60"
                   >
@@ -626,47 +829,41 @@ export default function PaymentProviderManager() {
                       : "Save payment details"}
                   </button>
 
-                  <button
-                    type="button"
-                    onClick={() => {
-                      void verifyPaymentDetails();
-                    }}
-                    disabled={
-                      savingCredentials || verifying
-                    }
-                    className="rounded-xl border border-emerald-500/40 bg-emerald-500/10 px-5 py-3 font-black text-emerald-300 transition hover:bg-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    {verifying
-                      ? "Verifying..."
-                      : "Verify & activate"}
-                  </button>
+                  {selected.id === "sumup" &&
+                    hasSavedCredentials && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          void verifyPaymentDetails();
+                        }}
+                        disabled={
+                          savingCredentials ||
+                          verifying
+                        }
+                        className="rounded-xl border border-emerald-500/40 bg-emerald-500/10 px-5 py-3 font-black text-emerald-300 transition hover:bg-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {verifying
+                          ? "Verifying..."
+                          : "Verify & activate"}
+                      </button>
+                    )}
                 </div>
               </div>
             )}
 
           {selected.id === "manual" && (
-            <p className="mt-3 text-slate-300">
-              Your salon can use any card terminal or payment
-              provider in store. TanSalonOS will record the
-              transaction as a card payment, but online
-              customer checkout is disabled.
+            <p className="mt-4 text-slate-300">
+              Use whichever physical card terminal your
+              salon already has. TanSalonOS records the
+              transaction as a card payment.
             </p>
           )}
 
           {selected.id === "other" && (
-            <div className="mt-5">
-              <p className="text-slate-300">
-                This option records that your salon uses a
-                different payment provider. Online checkout
-                requires a supported TanSalonOS payment
-                connector.
-              </p>
-            </div>
-          )}
-
-          {!selected.available && (
-            <p className="mt-3 text-slate-400">
-              Support for this provider is coming soon.
+            <p className="mt-4 text-slate-300">
+              We will keep this option for providers
+              outside the standard TanSalonOS payment
+              connectors.
             </p>
           )}
         </div>
