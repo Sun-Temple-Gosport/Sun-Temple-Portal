@@ -108,6 +108,36 @@ if (settingsError || !vipSettings) {
     { status: 500 }
   );
 }
+const {
+  data: salonSettings,
+  error: salonSettingsError,
+} = await supabaseAdmin
+  .from("salon_settings")
+  .select("payment_provider")
+  .eq("salon_id", customer.salon_id)
+  .maybeSingle();
+
+if (salonSettingsError) {
+  console.error(
+    "VIP checkout salon settings lookup failed:",
+    salonSettingsError
+  );
+
+  return NextResponse.json(
+    { error: "Could not load salon payment settings." },
+    { status: 500 }
+  );
+}
+
+if (salonSettings?.payment_provider !== "sumup") {
+  return NextResponse.json(
+    {
+      error:
+        "Online VIP payments are not currently available for this salon.",
+    },
+    { status: 400 }
+  );
+}
 
     const normalPrice = Number(vipSettings.price);
 
