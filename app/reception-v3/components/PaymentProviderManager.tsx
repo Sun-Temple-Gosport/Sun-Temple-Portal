@@ -61,8 +61,9 @@ const providers: Provider[] = [
       },
     ],
     note:
-      "Use the API key and merchant code belonging to your own SumUp business account.",
+      "Enter the API Key and Merchant Code belonging to your SumUp business account.",
   },
+
   {
     id: "stripe",
     name: "Stripe",
@@ -83,8 +84,9 @@ const providers: Provider[] = [
       },
     ],
     note:
-      "Use your live Stripe secret key and the signing secret for the TanSalonOS payment webhook.",
+      "Enter your Stripe live Secret Key and the Webhook Signing Secret used for TanSalonOS payment notifications.",
   },
+
   {
     id: "square",
     name: "Square",
@@ -104,29 +106,9 @@ const providers: Provider[] = [
       },
     ],
     note:
-      "Square uses your access token and salon location ID to create a Square-hosted checkout.",
+      "Enter the Access Token and Location ID for the Square account and location used by your salon.",
   },
-  {
-    id: "zettle",
-    name: "Zettle",
-    description: "Connect your PayPal Zettle account.",
-    badge: "Set up",
-    fields: [
-      {
-        key: "api_key",
-        label: "API Key",
-        placeholder: "Enter your Zettle API key",
-        secret: true,
-      },
-      {
-        key: "client_id",
-        label: "Client ID",
-        placeholder: "Enter your Zettle client ID",
-      },
-    ],
-    note:
-      "Zettle's public web APIs do not currently create browser card payments. These credentials are for the Zettle account/POS integration.",
-  },
+
   {
     id: "dojo",
     name: "Dojo",
@@ -141,9 +123,10 @@ const providers: Provider[] = [
       },
     ],
     note:
-      "Create the API key for the correct salon location in the Dojo Developer Portal.",
+      "Enter the API Key created for your salon location in the Dojo Developer Portal.",
   },
-    {
+
+  {
     id: "worldpay",
     name: "Worldpay",
     description: "Accept online payments through Worldpay.",
@@ -162,8 +145,9 @@ const providers: Provider[] = [
       },
     ],
     note:
-      "Use the Access Worldpay API credentials supplied through your Worldpay account.",
+      "Enter the Access Worldpay API username and password supplied for your merchant account.",
   },
+
   {
     id: "opayo",
     name: "Opayo",
@@ -191,6 +175,7 @@ const providers: Provider[] = [
     note:
       "Enter the Integration Key, Integration Password and Vendor Name from your Opayo account.",
   },
+
   {
     id: "adyen",
     name: "Adyen",
@@ -213,10 +198,38 @@ const providers: Provider[] = [
         label: "Client Key",
         placeholder: "Enter your Adyen client key",
       },
+      {
+        key: "live_url_prefix",
+        label: "Live URL Prefix",
+        placeholder: "Example: 1797a841fbb37ca7-YourCompany",
+      },
     ],
     note:
-      "Enter the API Key and Merchant Account for your Adyen account, plus the Client Key used by Adyen's web payment components.",
+      "Enter the API Key, Merchant Account, Client Key and Live URL Prefix from your Adyen account.",
   },
+
+  {
+    id: "zettle",
+    name: "Zettle",
+    description: "Connect your PayPal Zettle account.",
+    badge: "Set up",
+    fields: [
+      {
+        key: "api_key",
+        label: "API Key",
+        placeholder: "Enter your Zettle API key",
+        secret: true,
+      },
+      {
+        key: "client_id",
+        label: "Client ID",
+        placeholder: "Enter your Zettle client ID",
+      },
+    ],
+    note:
+      "Enter the API Key and Client ID created for your Zettle integration.",
+  },
+
   {
     id: "manual",
     name: "In-store payments only",
@@ -225,10 +238,12 @@ const providers: Provider[] = [
     badge: "In-store",
     fields: [],
   },
+
   {
     id: "other",
     name: "Other provider",
-    description: "Record another payment provider used by your salon.",
+    description:
+      "Record another payment provider used by your salon.",
     badge: "Other",
     fields: [],
   },
@@ -308,7 +323,9 @@ export default function PaymentProviderManager() {
 
   useEffect(() => {
     async function loadPaymentProvider() {
-      if (!salonId) return;
+      if (!salonId) {
+        return;
+      }
 
       setLoading(true);
       setNotice(null);
@@ -656,9 +673,9 @@ export default function PaymentProviderManager() {
         </h1>
 
         <p className="mt-2 max-w-2xl text-slate-400">
-          Choose the payment provider used by your
-          salon. TanSalonOS will show the exact account
-          details required for that provider.
+          Choose the payment provider used by your salon.
+          TanSalonOS will show the correct setup details for
+          that provider.
         </p>
       </div>
 
@@ -776,7 +793,7 @@ export default function PaymentProviderManager() {
                 <div className="grid gap-4">
                   {selected.fields.map((field) => (
                     <label
-                      key={field.key}
+                      key={`${selected.id}-${field.key}`}
                       className="space-y-2"
                     >
                       <span className="text-xs font-black uppercase tracking-wide text-slate-400">
@@ -829,24 +846,23 @@ export default function PaymentProviderManager() {
                       : "Save payment details"}
                   </button>
 
-                  {selected.id === "sumup" &&
-                    hasSavedCredentials && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          void verifyPaymentDetails();
-                        }}
-                        disabled={
-                          savingCredentials ||
-                          verifying
-                        }
-                        className="rounded-xl border border-emerald-500/40 bg-emerald-500/10 px-5 py-3 font-black text-emerald-300 transition hover:bg-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-60"
-                      >
-                        {verifying
-                          ? "Verifying..."
-                          : "Verify & activate"}
-                      </button>
-                    )}
+                  {hasSavedCredentials && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        void verifyPaymentDetails();
+                      }}
+                      disabled={
+                        savingCredentials ||
+                        verifying
+                      }
+                      className="rounded-xl border border-emerald-500/40 bg-emerald-500/10 px-5 py-3 font-black text-emerald-300 transition hover:bg-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {verifying
+                        ? "Verifying..."
+                        : "Verify & activate"}
+                    </button>
+                  )}
                 </div>
               </div>
             )}
@@ -861,8 +877,8 @@ export default function PaymentProviderManager() {
 
           {selected.id === "other" && (
             <p className="mt-4 text-slate-300">
-              We will keep this option for providers
-              outside the standard TanSalonOS payment
+              Use this option if your salon uses a payment
+              provider outside the standard TanSalonOS
               connectors.
             </p>
           )}

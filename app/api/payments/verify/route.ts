@@ -1,19 +1,650 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
+export const runtime = "nodejs";
+
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
+type ProviderId =
+  | "sumup"
+  | "stripe"
+  | "square"
+  | "dojo"
+  | "worldpay"
+  | "opayo"
+  | "adyen"
+  | "zettle";
+
 type StoredCredentials = {
   api_key?: string;
   merchant_code?: string;
+
+  secret_key?: string;
+  webhook_signing_secret?: string;
+
+  access_token?: string;
+  location_id?: string;
+
+  api_username?: string;
+  api_password?: string;
+
+  integration_key?: string;
+  integration_password?: string;
+  vendor_name?: string;
+
+  merchant_account?: string;
+  client_key?: string;
+  live_url_prefix?: string;
+
+  client_id?: string;
 };
+
+type VerificationResult = {
+  ok: boolean;
+  merchantReference?: string;
+  error?: string;
+};
+
+function credential(
+  credentials: StoredCredentials,
+  key: keyof StoredCredentials
+) {
+  const value = credentials[key];
+
+  return typeof value === "string"
+    ? value.trim()
+    : "";
+}
+
+async function verifySumUp(
+  credentials: StoredCredentials
+): Promise<VerificationResult> {
+  const apiKey = credential(credentials, "api_key");
+  const merchantCode = credential(
+    credentials,
+    "merchant_code"
+  );
+
+  if (!apiKey || !merchantCode) {
+    return {
+      ok: false,
+      error:
+        "Your saved SumUp payment details are incomplete.",
+    };
+  }
+
+  const response = await fetch(
+    `https://api.sumup.com/v1/merchants/${encodeURIComponent(
+      merchantCode
+    )}`,
+    {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        Accept: "application/json",
+      },
+      cache: "no-store",
+    }
+  );
+
+  if (!response.ok) {
+    return {
+      ok: false,
+      error:
+        "SumUp could not verify those payment details. Please check your API key and merchant code.",
+    };
+  }
+
+  const data = await response.json();
+
+  if (
+    typeof data?.merchant_code !== "string" ||
+    data.merchant_code !== merchantCode
+  ) {
+    return {
+      ok: false,
+      error:
+        "SumUp returned unexpected merchant details.",
+    };
+  }
+
+  return {
+    ok: true,
+    merchantReference: merchantCode,
+  };
+}
+
+async function verifyStripe(
+  credentials: StoredCredentials
+): Promise<VerificationResult> {
+  const secretKey = credential(
+    credentials,
+    "secret_key"
+  );
+
+  const webhookSigningSecret = credential(
+    credentials,
+    "webhook_signing_secret"
+  );
+
+  if (!secretKey || !webhookSigningSecret) {
+    return {
+      ok: false,
+      error:
+        "Your saved Stripe payment details are incomplete.",
+    };
+  }
+
+  const authorization = Buffer.from(
+    `${secretKey}:`
+  ).toString("base64");
+
+  const response = await fetch(
+    "https://api.stripe.com/v1/balance",
+    {
+      method: "GET",
+      headers: {
+        Authorization: `Basic ${authorization}`,
+      },
+      cache: "no-store",
+    }
+  );
+
+  if (!response.ok) {
+    return {
+      ok: false,
+      error:
+        "Stripe could not verify your Secret Key.",
+    };
+  }
+
+  const data = await response.json();
+
+  if (data?.object !== "balance") {
+    return {
+      ok: false,
+      error:
+        "Stripe returned an unexpected verification response.",
+    };
+  }
+
+  return {
+    ok: true,
+    merchantReference:
+      data?.livemode === true
+        ? "stripe_live"
+        : "stripe_test",
+  };
+}
+
+async function verifySquare(
+  credentials: StoredCredentials
+): Promise<VerificationResult> {
+  const accessToken = credential(
+    credentials,
+    "access_token"
+  );
+
+  const locationId = credential(
+    credentials,
+    "location_id"
+  );
+
+  if (!accessToken || !locationId) {
+    return {
+      ok: false,
+      error:
+        "Your saved Square payment details are incomplete.",
+    };
+  }
+
+  const response = await fetch(
+    `https://connect.squareup.com/v2/locations/${encodeURIComponent(
+      locationId
+    )}`,
+    {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Square-Version": "2026-07-15",
+        Accept: "application/json",
+      },
+      cache: "no-store",
+    }
+  );
+
+  if (!response.ok) {
+    return {
+      ok: false,
+      error:
+        "Square could not verify your Access Token and Location ID.",
+    };
+  }
+
+  const data = await response.json();
+
+  if (
+    typeof data?.location?.id !== "string" ||
+    data.location.id !== locationId
+  ) {
+    return {
+      ok: false,
+      error:
+        "Square returned an unexpected location.",
+    };
+  }
+
+  return {
+    ok: true,
+    merchantReference: locationId,
+  };
+}
+
+async function verifyZettle(
+  credentials: StoredCredentials
+): Promise<VerificationResult> {
+  const apiKey = credential(credentials, "api_key");
+  const clientId = credential(
+    credentials,
+    "client_id"
+  );
+
+  if (!apiKey || !clientId) {
+    return {
+      ok: false,
+      error:
+        "Your saved Zettle payment details are incomplete.",
+    };
+  }
+
+  const body = new URLSearchParams({
+    grant_type:
+      "urn:ietf:params:oauth:grant-type:jwt-bearer",
+    client_id: clientId,
+    assertion: apiKey,
+  });
+
+  const response = await fetch(
+    "https://oauth.zettle.com/token",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type":
+          "application/x-www-form-urlencoded",
+      },
+      body: body.toString(),
+      cache: "no-store",
+    }
+  );
+
+  if (!response.ok) {
+    return {
+      ok: false,
+      error:
+        "Zettle could not verify your API Key and Client ID.",
+    };
+  }
+
+  const data = await response.json();
+
+  if (
+    typeof data?.access_token !== "string" ||
+    !data.access_token
+  ) {
+    return {
+      ok: false,
+      error:
+        "Zettle returned an unexpected verification response.",
+    };
+  }
+
+  return {
+    ok: true,
+    merchantReference: clientId,
+  };
+}
+
+async function verifyDojo(
+  credentials: StoredCredentials
+): Promise<VerificationResult> {
+  const apiKey = credential(credentials, "api_key");
+
+  if (!apiKey) {
+    return {
+      ok: false,
+      error:
+        "Your saved Dojo payment details are incomplete.",
+    };
+  }
+
+  const createResponse = await fetch(
+    "https://api.dojo.tech/payment-intents",
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Basic ${apiKey}`,
+        Version: "2024-02-05",
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: JSON.stringify({
+        amount: {
+          value: 1,
+          currencyCode: "GBP",
+        },
+        reference: `TanSalonOS-verify-${Date.now()}`,
+        description:
+          "TanSalonOS payment connection verification",
+        paymentMethods: ["Card"],
+      }),
+      cache: "no-store",
+    }
+  );
+
+  if (!createResponse.ok) {
+    return {
+      ok: false,
+      error:
+        "Dojo could not verify your API Key.",
+    };
+  }
+
+  const data = await createResponse.json();
+
+  const paymentIntentId =
+    typeof data?.id === "string"
+      ? data.id
+      : null;
+
+  if (!paymentIntentId) {
+    return {
+      ok: false,
+      error:
+        "Dojo returned an unexpected verification response.",
+    };
+  }
+
+  const cancelResponse = await fetch(
+    `https://api.dojo.tech/payment-intents/${encodeURIComponent(
+      paymentIntentId
+    )}`,
+    {
+      method: "DELETE",
+      headers: {
+        Authorization: `Basic ${apiKey}`,
+        Version: "2024-02-05",
+        Accept: "application/json",
+      },
+      cache: "no-store",
+    }
+  );
+
+  if (!cancelResponse.ok) {
+    console.error(
+      "Dojo verification payment intent could not be cancelled:",
+      cancelResponse.status
+    );
+  }
+
+  return {
+    ok: true,
+    merchantReference: "dojo_verified",
+  };
+}
+
+async function verifyWorldpay(
+  credentials: StoredCredentials
+): Promise<VerificationResult> {
+  const username = credential(
+    credentials,
+    "api_username"
+  );
+
+  const password = credential(
+    credentials,
+    "api_password"
+  );
+
+  if (!username || !password) {
+    return {
+      ok: false,
+      error:
+        "Your saved Worldpay payment details are incomplete.",
+    };
+  }
+
+  const authorization = Buffer.from(
+    `${username}:${password}`
+  ).toString("base64");
+
+  const response = await fetch(
+    "https://access.worldpay.com/",
+    {
+      method: "GET",
+      headers: {
+        Authorization: `Basic ${authorization}`,
+        Accept: "application/json",
+      },
+      cache: "no-store",
+    }
+  );
+
+  if (!response.ok) {
+    return {
+      ok: false,
+      error:
+        "Worldpay could not verify your API Username and Password.",
+    };
+  }
+
+  return {
+    ok: true,
+    merchantReference: "worldpay_verified",
+  };
+}
+
+async function verifyOpayo(
+  credentials: StoredCredentials
+): Promise<VerificationResult> {
+  const integrationKey = credential(
+    credentials,
+    "integration_key"
+  );
+
+  const integrationPassword = credential(
+    credentials,
+    "integration_password"
+  );
+
+  const vendorName = credential(
+    credentials,
+    "vendor_name"
+  );
+
+  if (
+    !integrationKey ||
+    !integrationPassword ||
+    !vendorName
+  ) {
+    return {
+      ok: false,
+      error:
+        "Your saved Opayo payment details are incomplete.",
+    };
+  }
+
+  const authorization = Buffer.from(
+    `${integrationKey}:${integrationPassword}`
+  ).toString("base64");
+
+  const response = await fetch(
+    "https://live.opayo.eu.elavon.com/api/v1/merchant-session-keys",
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Basic ${authorization}`,
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: JSON.stringify({
+        vendorName,
+      }),
+      cache: "no-store",
+    }
+  );
+
+  if (!response.ok) {
+    return {
+      ok: false,
+      error:
+        "Opayo could not verify your Integration Key, Integration Password and Vendor Name.",
+    };
+  }
+
+  const data = await response.json();
+
+  if (
+    typeof data?.merchantSessionKey !== "string" ||
+    !data.merchantSessionKey
+  ) {
+    return {
+      ok: false,
+      error:
+        "Opayo returned an unexpected verification response.",
+    };
+  }
+
+  return {
+    ok: true,
+    merchantReference: vendorName,
+  };
+}
+
+async function verifyAdyen(
+  credentials: StoredCredentials
+): Promise<VerificationResult> {
+  const apiKey = credential(credentials, "api_key");
+
+  const merchantAccount = credential(
+    credentials,
+    "merchant_account"
+  );
+
+  const clientKey = credential(
+    credentials,
+    "client_key"
+  );
+
+  const liveUrlPrefix = credential(
+    credentials,
+    "live_url_prefix"
+  );
+
+  if (
+    !apiKey ||
+    !merchantAccount ||
+    !clientKey ||
+    !liveUrlPrefix
+  ) {
+    return {
+      ok: false,
+      error:
+        "Your saved Adyen payment details are incomplete.",
+    };
+  }
+
+  if (
+    !/^[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*$/.test(
+      liveUrlPrefix
+    )
+  ) {
+    return {
+      ok: false,
+      error:
+        "Your Adyen Live URL Prefix is not valid.",
+    };
+  }
+
+  const response = await fetch(
+    `https://${liveUrlPrefix}-checkout-live.adyenpayments.com/checkout/v72/paymentMethods`,
+    {
+      method: "POST",
+      headers: {
+        "X-API-Key": apiKey,
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: JSON.stringify({
+        merchantAccount,
+        countryCode: "GB",
+        channel: "Web",
+      }),
+      cache: "no-store",
+    }
+  );
+
+  if (!response.ok) {
+    return {
+      ok: false,
+      error:
+        "Adyen could not verify your API Key, Merchant Account and Live URL Prefix.",
+    };
+  }
+
+  const data = await response.json();
+
+  if (!Array.isArray(data?.paymentMethods)) {
+    return {
+      ok: false,
+      error:
+        "Adyen returned an unexpected verification response.",
+    };
+  }
+
+  return {
+    ok: true,
+    merchantReference: merchantAccount,
+  };
+}
+
+async function verifyProvider(
+  provider: ProviderId,
+  credentials: StoredCredentials
+): Promise<VerificationResult> {
+  switch (provider) {
+    case "sumup":
+      return verifySumUp(credentials);
+
+    case "stripe":
+      return verifyStripe(credentials);
+
+    case "square":
+      return verifySquare(credentials);
+
+    case "dojo":
+      return verifyDojo(credentials);
+
+    case "worldpay":
+      return verifyWorldpay(credentials);
+
+    case "opayo":
+      return verifyOpayo(credentials);
+
+    case "adyen":
+      return verifyAdyen(credentials);
+
+    case "zettle":
+      return verifyZettle(credentials);
+  }
+}
 
 export async function POST(request: Request) {
   try {
-    const authHeader = request.headers.get("authorization");
+    const authHeader =
+      request.headers.get("authorization");
 
     if (!authHeader?.startsWith("Bearer ")) {
       return NextResponse.json(
@@ -22,26 +653,34 @@ export async function POST(request: Request) {
       );
     }
 
-    const accessToken = authHeader.slice("Bearer ".length);
+    const accessToken =
+      authHeader.slice("Bearer ".length);
 
     const {
       data: { user },
       error: userError,
-    } = await supabaseAdmin.auth.getUser(accessToken);
+    } = await supabaseAdmin.auth.getUser(
+      accessToken
+    );
 
     if (userError || !user) {
       return NextResponse.json(
-        { error: "Invalid or expired login session." },
+        {
+          error:
+            "Invalid or expired login session.",
+        },
         { status: 401 }
       );
     }
 
-    const { data: profile, error: profileError } =
-      await supabaseAdmin
-        .from("profiles")
-        .select("salon_id, role")
-        .eq("id", user.id)
-        .maybeSingle();
+    const {
+      data: profile,
+      error: profileError,
+    } = await supabaseAdmin
+      .from("profiles")
+      .select("salon_id, role")
+      .eq("id", user.id)
+      .maybeSingle();
 
     if (profileError) {
       console.error(
@@ -50,14 +689,18 @@ export async function POST(request: Request) {
       );
 
       return NextResponse.json(
-        { error: "Could not load owner profile." },
+        {
+          error:
+            "Could not load owner profile.",
+        },
         { status: 500 }
       );
     }
 
     if (
       !profile?.salon_id ||
-      String(profile.role).toLowerCase() !== "owner"
+      String(profile.role).toLowerCase() !==
+        "owner"
     ) {
       return NextResponse.json(
         { error: "Owner access is required." },
@@ -83,31 +726,58 @@ export async function POST(request: Request) {
       );
 
       return NextResponse.json(
-        { error: "Could not load payment connection." },
+        {
+          error:
+            "Could not load payment connection.",
+        },
         { status: 500 }
       );
     }
 
     if (!paymentConnection) {
       return NextResponse.json(
-        { error: "Choose a payment provider first." },
-        { status: 400 }
-      );
-    }
-
-    if (paymentConnection.provider !== "sumup") {
-      return NextResponse.json(
         {
           error:
-            "Automatic verification is not yet available for this payment provider.",
+            "Choose a payment provider first.",
         },
         { status: 400 }
       );
     }
 
-    if (!paymentConnection.credentials_secret_id) {
+    const provider =
+      paymentConnection.provider as ProviderId;
+
+    const supportedProviders: ProviderId[] = [
+      "sumup",
+      "stripe",
+      "square",
+      "dojo",
+      "worldpay",
+      "opayo",
+      "adyen",
+      "zettle",
+    ];
+
+    if (
+      !supportedProviders.includes(provider)
+    ) {
       return NextResponse.json(
-        { error: "Save your payment details first." },
+        {
+          error:
+            "This payment option does not require online verification.",
+        },
+        { status: 400 }
+      );
+    }
+
+    if (
+      !paymentConnection.credentials_secret_id
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            "Save your payment details first.",
+        },
         { status: 400 }
       );
     }
@@ -129,7 +799,10 @@ export async function POST(request: Request) {
       );
 
       return NextResponse.json(
-        { error: "Could not load payment details securely." },
+        {
+          error:
+            "Could not load payment details securely.",
+        },
         { status: 500 }
       );
     }
@@ -137,48 +810,38 @@ export async function POST(request: Request) {
     const credentials =
       credentialsData as StoredCredentials | null;
 
-    const apiKey = credentials?.api_key?.trim();
-    const merchantCode =
-      credentials?.merchant_code?.trim();
-
-    if (!apiKey || !merchantCode) {
+    if (!credentials) {
       return NextResponse.json(
         {
           error:
-            "Your saved payment details are incomplete. Please enter them again.",
+            "No saved payment details were found.",
         },
         { status: 400 }
       );
     }
 
-    const sumupResponse = await fetch(
-      `https://api.sumup.com/v1/merchants/${encodeURIComponent(
-        merchantCode
-      )}`,
-      {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          Accept: "application/json",
-        },
-        cache: "no-store",
-      }
-    );
-
-    if (!sumupResponse.ok) {
-      console.error(
-        "SumUp payment verification failed with status:",
-        sumupResponse.status
+    const verification =
+      await verifyProvider(
+        provider,
+        credentials
       );
 
-      const { error: statusError } = await supabaseAdmin
-        .from("salon_payment_connections")
-        .update({
-          connection_status: "error",
-          merchant_reference: null,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("salon_id", profile.salon_id);
+    if (!verification.ok) {
+      const { error: statusError } =
+        await supabaseAdmin
+          .from(
+            "salon_payment_connections"
+          )
+          .update({
+            connection_status: "error",
+            merchant_reference: null,
+            updated_at:
+              new Date().toISOString(),
+          })
+          .eq(
+            "salon_id",
+            profile.salon_id
+          );
 
       if (statusError) {
         console.error(
@@ -190,41 +853,31 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           error:
-            "SumUp could not verify those payment details. Please check your API key and merchant code.",
+            verification.error ||
+            "The payment provider could not verify those details.",
         },
         { status: 400 }
       );
     }
 
-    const merchantData = await sumupResponse.json();
-
-    const verifiedMerchantCode =
-      typeof merchantData?.merchant_code === "string"
-        ? merchantData.merchant_code
-        : null;
-
-    if (
-      !verifiedMerchantCode ||
-      verifiedMerchantCode !== merchantCode
-    ) {
-      return NextResponse.json(
-        {
-          error:
-            "The payment provider returned unexpected merchant details.",
-        },
-        { status: 400 }
-      );
-    }
+    const merchantReference =
+      verification.merchantReference ??
+      `${provider}_verified`;
 
     const { error: activateError } =
       await supabaseAdmin
         .from("salon_payment_connections")
         .update({
           connection_status: "connected",
-          merchant_reference: verifiedMerchantCode,
-          updated_at: new Date().toISOString(),
+          merchant_reference:
+            merchantReference,
+          updated_at:
+            new Date().toISOString(),
         })
-        .eq("salon_id", profile.salon_id);
+        .eq(
+          "salon_id",
+          profile.salon_id
+        );
 
     if (activateError) {
       console.error(
@@ -243,15 +896,21 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       success: true,
-      provider: "sumup",
-      merchantReference: verifiedMerchantCode,
+      provider,
+      merchantReference,
       connectionStatus: "connected",
     });
   } catch (error) {
-    console.error("Payment verification route failed:", error);
+    console.error(
+      "Payment verification route failed:",
+      error
+    );
 
     return NextResponse.json(
-      { error: "Unexpected payment verification error." },
+      {
+        error:
+          "Unexpected payment verification error.",
+      },
       { status: 500 }
     );
   }
