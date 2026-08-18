@@ -110,9 +110,34 @@ export async function POST(request: Request) {
     }
 
     const providerChanged =
-      existingConnection?.provider !== body.provider;
+  existingConnection?.provider !== body.provider;
 
-    const connectionStatus =
+if (
+  providerChanged &&
+  existingConnection?.credentials_secret_id
+) {
+  const { error: deleteCredentialsError } =
+    await supabaseAdmin.rpc(
+      "delete_salon_payment_credentials",
+      {
+        p_salon_id: profile.salon_id,
+      }
+    );
+
+  if (deleteCredentialsError) {
+    console.error(
+      "Old payment credentials cleanup failed:",
+      deleteCredentialsError
+    );
+
+    return NextResponse.json(
+      { error: "Could not change payment provider safely." },
+      { status: 500 }
+    );
+  }
+}
+
+const connectionStatus =
       providerChanged || !existingConnection
         ? "not_configured"
         : existingConnection.connection_status;
