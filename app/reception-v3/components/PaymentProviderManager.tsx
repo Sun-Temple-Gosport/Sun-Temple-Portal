@@ -143,29 +143,47 @@ useEffect(() => {
 
 async function selectProvider(provider: Provider) {
   if (!provider.available || !salonId) {
-  return;
-}
+    return;
+  }
 
   setSaving(true);
   setMessage("");
 
-  const { error } = await supabase
-    .from("salon_settings")
-    .update({
-      payment_provider: provider.id,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("salon_id", salonId);
+  const {
+    data: { session },
+    error: sessionError,
+  } = await supabase.auth.getSession();
+
+  if (sessionError || !session?.access_token) {
+    setSaving(false);
+    setMessage("Your login session could not be verified.");
+    return;
+  }
+
+  const response = await fetch("/api/payments/provider", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${session.access_token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      provider: provider.id,
+    }),
+  });
+
+  const data = await response.json();
 
   setSaving(false);
 
-  if (error) {
-    setMessage(error.message);
+  if (!response.ok) {
+    setMessage(data.error || "Could not save payment provider.");
     return;
   }
 
   setSelectedProvider(provider.id);
-  setMessage(`${provider.name} has been saved as your payment provider.`);
+  setMessage(
+    `${provider.name} has been saved as your payment provider.`
+  );
 }
   const selected = providers.find(
     (provider) => provider.id === selectedProvider
