@@ -37,7 +37,7 @@ if (!session?.access_token) {
   return;
 }
 
-const res = await fetch("/api/sumup/checkout", {
+const res = await fetch("/api/payments/checkout", {
   method: "POST",
   headers: {
     "Content-Type": "application/json",
@@ -54,11 +54,11 @@ const res = await fetch("/api/sumup/checkout", {
 
     const data = await res.json();
 
-    if (data.hosted_checkout_url) {
-      window.location.href = data.hosted_checkout_url;
-    } else {
-      alert(JSON.stringify(data, null, 2));
-    }
+    if (data.type === "redirect" && data.checkoutUrl) {
+  window.location.href = data.checkoutUrl;
+} else {
+  alert(JSON.stringify(data, null, 2));
+}
   }
 
   return (
@@ -66,7 +66,7 @@ const res = await fetch("/api/sumup/checkout", {
       onClick={handleCheckout}
       className="mt-10 w-full rounded-full bg-[#d6a84f] py-4 font-bold text-black"
     >
-      Pay with SumUp
+      Pay securely
     </button>
   );
 }
