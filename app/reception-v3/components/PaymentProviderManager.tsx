@@ -25,6 +25,11 @@ type Provider = {
   available: boolean;
 };
 
+type Notice = {
+  type: "success" | "error";
+  text: string;
+};
+
 const providers: Provider[] = [
   {
     id: "sumup",
@@ -91,9 +96,13 @@ export default function PaymentProviderManager() {
   const [saving, setSaving] = useState(false);
   const [savingCredentials, setSavingCredentials] =
     useState(false);
+  const [verifying, setVerifying] = useState(false);
 
-  const [message, setMessage] = useState("");
-  const [salonId, setSalonId] = useState<string | null>(null);
+  const [notice, setNotice] = useState<Notice | null>(null);
+
+  const [salonId, setSalonId] = useState<string | null>(
+    null
+  );
 
   const [sumupApiKey, setSumupApiKey] = useState("");
   const [sumupMerchantCode, setSumupMerchantCode] =
@@ -107,7 +116,10 @@ export default function PaymentProviderManager() {
       } = await supabase.auth.getUser();
 
       if (userError || !user) {
-        setMessage("Could not determine the logged-in user.");
+        setNotice({
+          type: "error",
+          text: "Could not determine the logged-in user.",
+        });
         setLoading(false);
         return;
       }
@@ -120,10 +132,12 @@ export default function PaymentProviderManager() {
           .maybeSingle();
 
       if (profileError || !profile?.salon_id) {
-        setMessage(
-          profileError?.message ||
-            "Could not determine the current salon."
-        );
+        setNotice({
+          type: "error",
+          text:
+            profileError?.message ||
+            "Could not determine the current salon.",
+        });
         setLoading(false);
         return;
       }
@@ -139,7 +153,7 @@ export default function PaymentProviderManager() {
       if (!salonId) return;
 
       setLoading(true);
-      setMessage("");
+      setNotice(null);
 
       const [
         { data: settingsData, error: settingsError },
@@ -161,13 +175,19 @@ export default function PaymentProviderManager() {
       ]);
 
       if (settingsError) {
-        setMessage(settingsError.message);
+        setNotice({
+          type: "error",
+          text: settingsError.message,
+        });
         setLoading(false);
         return;
       }
 
       if (connectionError) {
-        setMessage(connectionError.message);
+        setNotice({
+          type: "error",
+          text: connectionError.message,
+        });
         setLoading(false);
         return;
       }
@@ -200,7 +220,7 @@ export default function PaymentProviderManager() {
     }
 
     setSaving(true);
-    setMessage("");
+    setNotice(null);
 
     const {
       data: { session },
@@ -209,7 +229,10 @@ export default function PaymentProviderManager() {
 
     if (sessionError || !session?.access_token) {
       setSaving(false);
-      setMessage("Your login session could not be verified.");
+      setNotice({
+        type: "error",
+        text: "Your login session could not be verified.",
+      });
       return;
     }
 
@@ -229,11 +252,17 @@ export default function PaymentProviderManager() {
     setSaving(false);
 
     if (!response.ok) {
-      setMessage(
-        data.error || "Could not save payment provider."
-      );
+      setNotice({
+        type: "error",
+        text:
+          data.error ||
+          "Could not save payment provider.",
+      });
       return;
     }
+
+    const providerChanged =
+      selectedProvider !== provider.id;
 
     setSelectedProvider(provider.id);
 
@@ -242,30 +271,30 @@ export default function PaymentProviderManager() {
         "not_configured"
     );
 
-    if (
-      selectedProvider !== provider.id
-    ) {
+    if (providerChanged) {
       setMerchantReference(null);
     }
 
     setSumupApiKey("");
     setSumupMerchantCode("");
 
-    setMessage(
-      `${provider.name} has been saved as your payment provider.`
-    );
+    setNotice({
+      type: "success",
+      text: `${provider.name} has been saved as your payment provider.`,
+    });
   }
 
   async function saveSumupPaymentDetails() {
     if (!sumupApiKey.trim() || !sumupMerchantCode.trim()) {
-      setMessage(
-        "Enter both your SumUp API key and merchant code."
-      );
+      setNotice({
+        type: "error",
+        text: "Enter both your SumUp API key and merchant code.",
+      });
       return;
     }
 
     setSavingCredentials(true);
-    setMessage("");
+    setNotice(null);
 
     const {
       data: { session },
@@ -274,7 +303,10 @@ export default function PaymentProviderManager() {
 
     if (sessionError || !session?.access_token) {
       setSavingCredentials(false);
-      setMessage("Your login session could not be verified.");
+      setNotice({
+        type: "error",
+        text: "Your login session could not be verified.",
+      });
       return;
     }
 
@@ -300,18 +332,78 @@ export default function PaymentProviderManager() {
     setSavingCredentials(false);
 
     if (!response.ok) {
-      setMessage(
-        data.error || "Could not save payment details."
-      );
+      setNotice({
+        type: "error",
+        text:
+          data.error ||
+          "Could not save payment details.",
+      });
       return;
     }
 
     setSumupApiKey("");
     setSumupMerchantCode("");
 
-    setMessage(
-      "Payment details have been saved securely. They now need to be verified before online payments are activated."
+    setNotice({
+      type: "success",
+      text:
+        "Payment details have been saved securely. They now need to be verified before online payments are activated.",
+    });
+  }
+
+  async function verifyPaymentDetails() {
+    setVerifying(true);
+    setNotice(null);
+
+    const {
+      data: { session },
+      error: sessionError,
+    } = await supabase.auth.getSession();
+
+    if (sessionError || !session?.access_token) {
+      setVerifying(false);
+      setNotice({
+        type: "error",
+        text: "Your login session could not be verified.",
+      });
+      return;
+    }
+
+    const response = await fetch("/api/payments/verify", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${session.access_token}`,
+        "Content-Type": "application/json",
+      },
+    });
+
+    const data = await response.json();
+
+    setVerifying(false);
+
+    if (!response.ok) {
+      setConnectionStatus("error");
+
+      setNotice({
+        type: "error",
+        text:
+          data.error ||
+          "Could not verify your payment details.",
+      });
+
+      return;
+    }
+
+    setConnectionStatus("connected");
+    setMerchantReference(
+      data.merchantReference ?? null
     );
+
+    setNotice({
+      type: "success",
+      text:
+        "Payment details verified. Online payments are now active.",
+    });
   }
 
   const selected = providers.find(
@@ -329,10 +421,23 @@ export default function PaymentProviderManager() {
         </div>
       )}
 
-      {message && (
-        <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4">
-          <p className="font-black text-emerald-400">
-            ✓ {message}
+      {notice && (
+        <div
+          className={`rounded-2xl border p-4 ${
+            notice.type === "error"
+              ? "border-red-500/30 bg-red-500/10"
+              : "border-emerald-500/30 bg-emerald-500/10"
+          }`}
+        >
+          <p
+            className={`font-black ${
+              notice.type === "error"
+                ? "text-red-400"
+                : "text-emerald-400"
+            }`}
+          >
+            {notice.type === "success" ? "✓ " : ""}
+            {notice.text}
           </p>
         </div>
       )}
@@ -475,7 +580,9 @@ export default function PaymentProviderManager() {
                       type="password"
                       value={sumupApiKey}
                       onChange={(event) =>
-                        setSumupApiKey(event.target.value)
+                        setSumupApiKey(
+                          event.target.value
+                        )
                       }
                       autoComplete="off"
                       placeholder="Enter your SumUp API key"
@@ -503,18 +610,37 @@ export default function PaymentProviderManager() {
                   </label>
                 </div>
 
-                <button
-                  type="button"
-                  onClick={() => {
-                    void saveSumupPaymentDetails();
-                  }}
-                  disabled={savingCredentials}
-                  className="rounded-xl bg-amber-400 px-5 py-3 font-black text-black transition hover:bg-amber-300 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {savingCredentials
-                    ? "Saving..."
-                    : "Save payment details"}
-                </button>
+                <div className="flex flex-wrap gap-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      void saveSumupPaymentDetails();
+                    }}
+                    disabled={
+                      savingCredentials || verifying
+                    }
+                    className="rounded-xl bg-amber-400 px-5 py-3 font-black text-black transition hover:bg-amber-300 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {savingCredentials
+                      ? "Saving..."
+                      : "Save payment details"}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      void verifyPaymentDetails();
+                    }}
+                    disabled={
+                      savingCredentials || verifying
+                    }
+                    className="rounded-xl border border-emerald-500/40 bg-emerald-500/10 px-5 py-3 font-black text-emerald-300 transition hover:bg-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {verifying
+                      ? "Verifying..."
+                      : "Verify & activate"}
+                  </button>
+                </div>
               </div>
             )}
 
