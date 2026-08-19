@@ -244,69 +244,7 @@ async function verifySquare(
   };
 }
 
-async function verifyZettle(
-  credentials: StoredCredentials
-): Promise<VerificationResult> {
-  const apiKey = credential(credentials, "api_key");
-  const clientId = credential(
-    credentials,
-    "client_id"
-  );
 
-  if (!apiKey || !clientId) {
-    return {
-      ok: false,
-      error:
-        "Your saved Zettle payment details are incomplete.",
-    };
-  }
-
-  const body = new URLSearchParams({
-    grant_type:
-      "urn:ietf:params:oauth:grant-type:jwt-bearer",
-    client_id: clientId,
-    assertion: apiKey,
-  });
-
-  const response = await fetch(
-    "https://oauth.zettle.com/token",
-    {
-      method: "POST",
-      headers: {
-        "Content-Type":
-          "application/x-www-form-urlencoded",
-      },
-      body: body.toString(),
-      cache: "no-store",
-    }
-  );
-
-  if (!response.ok) {
-    return {
-      ok: false,
-      error:
-        "Zettle could not verify your API Key and Client ID.",
-    };
-  }
-
-  const data = await response.json();
-
-  if (
-    typeof data?.access_token !== "string" ||
-    !data.access_token
-  ) {
-    return {
-      ok: false,
-      error:
-        "Zettle returned an unexpected verification response.",
-    };
-  }
-
-  return {
-    ok: true,
-    merchantReference: clientId,
-  };
-}
 
 async function verifyDojo(
   credentials: StoredCredentials
