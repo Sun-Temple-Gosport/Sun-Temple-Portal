@@ -3,6 +3,7 @@ import type {
   ProviderCheckoutContext,
 } from "./providerTypes";
 
+import { createSquareCheckout } from "./providers/square";
 import { createStripeCheckout } from "./providers/stripe";
 import { createSumUpCheckout } from "./providers/sumup";
 
@@ -11,15 +12,13 @@ export async function createProviderCheckout(
 ): Promise<CheckoutResult> {
   switch (context.provider) {
     case "sumup":
-  return createSumUpCheckout(context);
+      return createSumUpCheckout(context);
 
     case "stripe":
-  return createStripeCheckout(context);
+      return createStripeCheckout(context);
 
     case "square":
-      throw new Error(
-        "Square checkout connector is not implemented yet."
-      );
+      return createSquareCheckout(context);
 
     case "dojo":
       throw new Error(
