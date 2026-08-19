@@ -118,6 +118,23 @@ export async function startBedSession(
   });
 }
 
+export async function startPaygBedSession(
+  bedName: string,
+  minutes: number,
+  amount: number,
+  paymentMethod: "cash" | "card"
+) {
+  return await supabase.rpc(
+    "start_payg_bed_session",
+    {
+      p_bed_name: bedName,
+      p_minutes: minutes,
+      p_amount: amount,
+      p_payment_method: paymentMethod,
+    }
+  );
+}
+
 export async function loadCustomersToday(startOfToday: string) {
   const {
     data: { user },

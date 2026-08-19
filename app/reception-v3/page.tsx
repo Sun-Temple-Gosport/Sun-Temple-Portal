@@ -14,6 +14,7 @@ import {
   loadSessionsToday as loadSessionsTodayService,
   finishBedSession as finishBedSessionService,
   startBedSession as startBedSessionService,
+  startPaygBedSession as startPaygBedSessionService,
   loadCustomersToday as loadCustomersTodayService,
   loadActiveSessions as loadActiveSessionsService,
 } from "./services/beds";
@@ -578,10 +579,16 @@ async function loadSessionsToday() {
   }
 
   const uniqueCustomers = new Set(
-    (data ?? []).map((row) => row.customer_id)
-  );
+  (data ?? [])
+    .map((row) => row.customer_id)
+    .filter(
+      (customerId): customerId is string =>
+        typeof customerId === "string" &&
+        customerId.length > 0
+    )
+);
 
-  setCustomersToday(uniqueCustomers.size);
+setCustomersToday(uniqueCustomers.size);
 }
 
   
@@ -1049,6 +1056,67 @@ setRecentCustomers((prev) => {
   return true;
 }
 
+async function startPaygSession(
+  bedName: string,
+  minutes: number,
+  amount: number,
+  paymentMethod: "cash" | "card"
+) {
+  if (!minutes || minutes <= 0) {
+    showMessage("Please enter valid PAYG minutes.");
+    return false;
+  }
+
+  if (!amount || amount <= 0) {
+    showMessage("Please enter a valid PAYG price.");
+    return false;
+  }
+
+  const { error } =
+    await startPaygBedSessionService(
+      bedName,
+      minutes,
+      amount,
+      paymentMethod
+    );
+
+  if (error) {
+    showMessage(error.message);
+    return false;
+  }
+
+  await logAudit({
+    action: "PAYG Session Started",
+    customerName: "PAYG",
+    details: `${bedName} · ${minutes} minutes · £${amount.toFixed(
+      2
+    )} · ${paymentMethod.toUpperCase()}`,
+  });
+
+  setActivities((current) => [
+    {
+      id: crypto.randomUUID(),
+      text: `✓ PAYG ${minutes} mins on ${bedName} (£${amount.toFixed(
+        2
+      )} ${paymentMethod.toUpperCase()})`,
+      time: new Date().toLocaleTimeString("en-GB", {
+        hour: "2-digit",
+        minute: "2-digit",
+      }),
+    },
+    ...current,
+  ]);
+
+  showMessage(
+    `✓ PAYG ${bedName} started for ${minutes} minutes.`
+  );
+
+  await loadActiveSessions();
+  await refreshDashboardStats();
+
+  return true;
+}
+
   async function finishBedSession(sessionId: string) {
   const { error } = await finishBedSessionService(sessionId);
 
@@ -1210,6 +1278,7 @@ setRecentCustomers((prev) => {
   sessions={sessions}
   beds={beds}
   onStartSession={startBedSession}
+  onStartPaygSession={startPaygSession}
   onFinishSession={finishBedSession}
 />
           </div>

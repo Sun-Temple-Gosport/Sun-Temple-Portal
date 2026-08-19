@@ -9,8 +9,19 @@ type Props = {
   selectedCustomer: CustomerBalance | null;
   sessions: BedSession[];
   beds?: string[];
-  onStartSession: (bedName: string, minutes: number) => Promise<boolean>;
-  onFinishSession: (sessionId: string) => Promise<void>;
+  onStartSession: (
+    bedName: string,
+    minutes: number
+  ) => Promise<boolean>;
+    onStartPaygSession: (
+    bedName: string,
+    minutes: number,
+    amount: number,
+    paymentMethod: "cash" | "card"
+  ) => Promise<boolean>;
+  onFinishSession: (
+    sessionId: string
+  ) => Promise<void>;
 };
 
 
@@ -34,12 +45,22 @@ export default function BedDashboard({
   sessions,
   beds = [],
   onStartSession,
+  onStartPaygSession,
   onFinishSession,
 }: Props) {
   const [now, setNow] = useState(Date.now());
   const [selectedBed, setSelectedBed] = useState<string>(beds[0] ?? "");
-  const [selectedMinutes, setSelectedMinutes] = useState<number>(10);
-  const [customMinutes, setCustomMinutes] = useState("");
+const [selectedMinutes, setSelectedMinutes] = useState<number>(10);
+const [customMinutes, setCustomMinutes] = useState("");
+
+const [sessionMode, setSessionMode] =
+  useState<"customer" | "payg">("customer");
+
+const [paygAmount, setPaygAmount] =
+  useState("");
+
+const [paygPaymentMethod, setPaygPaymentMethod] =
+  useState<"cash" | "card">("card");
   const [starting, setStarting] = useState(false);
   const [finishingId, setFinishingId] = useState<string | null>(null);
 
@@ -69,17 +90,45 @@ export default function BedDashboard({
   );
 
   async function startSession() {
-    if (selectedBedSession) return;
+  if (selectedBedSession) return;
 
-    setStarting(true);
-    const success = await onStartSession(selectedBed, selectedMinutes);
-    setStarting(false);
+  setStarting(true);
 
-    if (success) {
-      const nextFreeBed = freeBeds.find((bed) => bed !== selectedBed);
-      if (nextFreeBed) setSelectedBed(nextFreeBed);
+  let success = false;
+
+  if (sessionMode === "payg") {
+    const amount = Number(paygAmount);
+
+    success = await onStartPaygSession(
+      selectedBed,
+      selectedMinutes,
+      amount,
+      paygPaymentMethod
+    );
+  } else {
+    success = await onStartSession(
+      selectedBed,
+      selectedMinutes
+    );
+  }
+
+  setStarting(false);
+
+  if (success) {
+    if (sessionMode === "payg") {
+      setPaygAmount("");
+      setCustomMinutes("");
+    }
+
+    const nextFreeBed = freeBeds.find(
+      (bed) => bed !== selectedBed
+    );
+
+    if (nextFreeBed) {
+      setSelectedBed(nextFreeBed);
     }
   }
+}
 
   async function finishSession(sessionId: string) {
     setFinishingId(sessionId);
@@ -181,86 +230,208 @@ export default function BedDashboard({
       </div>
 
       <div className="grid gap-5 lg:grid-cols-[1fr_1fr]">
-        <div className="rounded-3xl border border-slate-800 bg-slate-950 p-5">
-          <p className="text-xs font-black uppercase tracking-[0.2em] text-amber-400">
-            Start Session
-          </p>
+        <div className="rounded-3xl border border-slate-800 bg-slate-950 p-4">
+  <div className="flex flex-wrap items-center justify-between gap-3">
+    <div>
+      <p className="text-xs font-black uppercase tracking-[0.2em] text-amber-400">
+        Start Session
+      </p>
 
-          <h3 className="mt-2 text-3xl font-black text-white">
-            {selectedBed}
-          </h3>
+      <h3 className="mt-1 text-2xl font-black text-white">
+        {selectedBed}
+      </h3>
+    </div>
 
-          <div className="mt-4 rounded-2xl border border-slate-800 bg-slate-900 p-4">
-            <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-500">
-              Selected Customer
-            </p>
+    <div className="flex rounded-xl border border-slate-800 bg-slate-900 p-1">
+      <button
+        type="button"
+        onClick={() => setSessionMode("customer")}
+        className={`rounded-lg px-3 py-2 text-xs font-black transition ${
+          sessionMode === "customer"
+            ? "bg-amber-400 text-black"
+            : "text-slate-400 hover:text-white"
+        }`}
+      >
+        Customer
+      </button>
 
-            <p className="mt-2 text-xl font-black text-white">
-              {selectedCustomer?.full_name || "No customer selected"}
-            </p>
+      <button
+        type="button"
+        onClick={() => setSessionMode("payg")}
+        className={`rounded-lg px-3 py-2 text-xs font-black transition ${
+          sessionMode === "payg"
+            ? "bg-emerald-400 text-black"
+            : "text-slate-400 hover:text-white"
+        }`}
+      >
+        PAYG
+      </button>
+    </div>
+  </div>
 
-            <p className="mt-1 text-sm font-bold text-slate-400">
-              {selectedCustomer
-                ? `${selectedCustomer.total_minutes ?? 0} mins available`
-                : "Search and select a customer first"}
-            </p>
-          </div>
+  <div className="mt-3 rounded-xl border border-slate-800 bg-slate-900 px-3 py-2">
+    {sessionMode === "payg" ? (
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-sm font-black text-emerald-300">
+          PAYG Walk-in
+        </p>
 
-          <div className="mt-5 flex flex-wrap gap-2">
-  {sessionMinutes.map((minutes) => (
+        <p className="text-xs font-bold text-slate-500">
+          No account required
+        </p>
+      </div>
+    ) : (
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-sm font-black text-white">
+          {selectedCustomer?.full_name || "No customer selected"}
+        </p>
+
+        <p className="text-xs font-bold text-slate-400">
+          {selectedCustomer
+            ? `${selectedCustomer.total_minutes ?? 0} mins`
+            : "Select customer"}
+        </p>
+      </div>
+    )}
+  </div>
+
+  <div className="mt-3">
+    <p className="text-xs font-black uppercase tracking-[0.15em] text-slate-500">
+      Minutes
+    </p>
+
+    <div className="mt-2 flex flex-wrap gap-2">
+      {sessionMinutes.map((minutes) => (
+        <button
+          key={minutes}
+          type="button"
+          onClick={() => setSelectedMinutes(minutes)}
+          className={`rounded-lg px-3 py-2 text-xs font-black transition ${
+            selectedMinutes === minutes
+              ? "bg-amber-400 text-black"
+              : "border border-slate-700 bg-slate-900 text-slate-300 hover:border-amber-400"
+          }`}
+        >
+          {minutes}m
+        </button>
+      ))}
+    </div>
+  </div>
+
+  <div className="mt-3 flex gap-2">
+    <input
+      type="number"
+      min={1}
+      placeholder={
+        sessionMode === "payg"
+          ? "Any minutes"
+          : "Custom minutes"
+      }
+      value={customMinutes}
+      onChange={(event) =>
+        setCustomMinutes(event.target.value)
+      }
+      className="min-w-0 flex-1 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white placeholder:text-slate-500"
+    />
+
     <button
-      key={minutes}
       type="button"
-      onClick={() => setSelectedMinutes(minutes)}
-      className={`rounded-xl px-5 py-2 text-sm font-bold transition ${
-        selectedMinutes === minutes
-          ? "bg-amber-400 text-black"
-          : "border border-slate-700 bg-slate-900 text-slate-300 hover:border-amber-400"
-      }`}
-    >
-      {minutes}
-      <span className="ml-1 text-xs uppercase">mins</span>
-    </button>
-  ))}
-</div>
+      onClick={() => {
+        const mins = Number(customMinutes);
 
-<div className="mt-4 flex gap-2">
-  <input
-    type="number"
-    min={1}
-    placeholder="Custom minutes"
-    value={customMinutes}
-    onChange={(e) => setCustomMinutes(e.target.value)}
-    className="flex-1 rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 text-white placeholder:text-slate-500"
-  />
+        if (mins > 0) {
+          setSelectedMinutes(mins);
+        }
+      }}
+      className="rounded-lg bg-amber-400 px-4 py-2 text-xs font-black text-black hover:bg-amber-300"
+    >
+      Set
+    </button>
+  </div>
+
+  {sessionMode === "payg" && (
+    <div className="mt-3 grid gap-3 sm:grid-cols-2">
+      <label>
+        <span className="text-xs font-black uppercase tracking-[0.15em] text-slate-500">
+          Price
+        </span>
+
+        <div className="mt-1 flex items-center rounded-lg border border-slate-700 bg-slate-900">
+          <span className="pl-3 text-sm font-black text-slate-400">
+            £
+          </span>
+
+          <input
+            type="number"
+            min="0"
+            step="0.01"
+            value={paygAmount}
+            onChange={(event) =>
+              setPaygAmount(event.target.value)
+            }
+            placeholder="0.00"
+            className="min-w-0 flex-1 bg-transparent px-2 py-2 text-sm font-black text-white outline-none placeholder:text-slate-600"
+          />
+        </div>
+      </label>
+
+      <div>
+        <p className="text-xs font-black uppercase tracking-[0.15em] text-slate-500">
+          Payment
+        </p>
+
+        <div className="mt-1 grid grid-cols-2 gap-1">
+          <button
+            type="button"
+            onClick={() =>
+              setPaygPaymentMethod("card")
+            }
+            className={`rounded-lg px-3 py-2 text-xs font-black transition ${
+              paygPaymentMethod === "card"
+                ? "bg-sky-400 text-black"
+                : "border border-slate-700 bg-slate-900 text-slate-300"
+            }`}
+          >
+            Card
+          </button>
+
+          <button
+            type="button"
+            onClick={() =>
+              setPaygPaymentMethod("cash")
+            }
+            className={`rounded-lg px-3 py-2 text-xs font-black transition ${
+              paygPaymentMethod === "cash"
+                ? "bg-emerald-400 text-black"
+                : "border border-slate-700 bg-slate-900 text-slate-300"
+            }`}
+          >
+            Cash
+          </button>
+        </div>
+      </div>
+    </div>
+  )}
 
   <button
     type="button"
-    onClick={() => {
-      const mins = Number(customMinutes);
-
-      if (mins > 0) {
-        setSelectedMinutes(mins);
-      }
-    }}
-    className="rounded-xl bg-amber-400 px-5 py-3 font-black text-black hover:bg-amber-300"
+    disabled={
+      (sessionMode === "customer" && !selectedCustomer) ||
+      !!selectedBedSession ||
+      starting
+    }
+    onClick={startSession}
+    className="mt-4 w-full rounded-xl bg-emerald-400 px-4 py-2.5 text-xs font-black uppercase text-black transition hover:bg-emerald-300 disabled:cursor-not-allowed disabled:bg-slate-800 disabled:text-slate-500"
   >
-    Set
+    {starting
+      ? "Starting..."
+      : selectedBedSession
+      ? "Bed Not Available"
+      : sessionMode === "payg"
+      ? `Start PAYG · ${selectedBed}`
+      : `Start Session · ${selectedBed}`}
   </button>
 </div>
-          <button
-            type="button"
-            disabled={!selectedCustomer || !!selectedBedSession || starting}
-            onClick={startSession}
-            className="mt-4 w-full rounded-2xl bg-emerald-400 px-4 py-3 text-sm font-black uppercase text-black transition hover:bg-emerald-300 disabled:cursor-not-allowed disabled:bg-slate-800 disabled:text-slate-500"
-          >
-            {starting
-              ? "Starting..."
-              : selectedBedSession
-              ? "Bed Not Available"
-              : "Start Session"}
-          </button>
-        </div>
 
         <div className="rounded-3xl border border-slate-800 bg-slate-950 p-5">
           <p className="text-xs font-black uppercase tracking-[0.2em] text-amber-400">
