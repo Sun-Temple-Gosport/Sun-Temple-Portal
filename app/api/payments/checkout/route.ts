@@ -273,8 +273,7 @@ export async function POST(request: Request) {
       "worldpay",
       "opayo",
       "adyen",
-      "zettle",
-    ];
+      ];
 
     if (!supportedProviders.includes(provider)) {
       return NextResponse.json(

@@ -16,7 +16,7 @@ type ProviderId =
   | "worldpay"
   | "opayo"
   | "adyen"
-  | "zettle";
+  
 
 type StoredCredentials = {
   api_key?: string;
@@ -678,8 +678,6 @@ async function verifyProvider(
     case "adyen":
       return verifyAdyen(credentials);
 
-    case "zettle":
-      return verifyZettle(credentials);
   }
 }
 
@@ -797,7 +795,6 @@ export async function POST(request: Request) {
       "worldpay",
       "opayo",
       "adyen",
-      "zettle",
     ];
 
     if (

@@ -14,7 +14,6 @@ const allowedProviders = [
   "worldpay",
   "opayo",
   "adyen",
-  "zettle",
   "manual",
   "other",
 ] as const;

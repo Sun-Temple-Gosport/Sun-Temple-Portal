@@ -11,7 +11,6 @@ type ProviderId =
   | "worldpay"
   | "opayo"
   | "adyen"
-  | "zettle"
   | "manual"
   | "other";
 
@@ -213,27 +212,7 @@ const providers: Provider[] = [
       "Enter the API Key, Merchant Account, Client Key and Live URL Prefix from your Adyen account.",
   },
 
-  {
-    id: "zettle",
-    name: "Zettle",
-    description: "Connect your PayPal Zettle account.",
-    badge: "Set up",
-    fields: [
-      {
-        key: "api_key",
-        label: "API Key",
-        placeholder: "Enter your Zettle API key",
-        secret: true,
-      },
-      {
-        key: "client_id",
-        label: "Client ID",
-        placeholder: "Enter your Zettle client ID",
-      },
-    ],
-    note:
-      "Enter the API Key and Client ID created for your Zettle integration.",
-  },
+  
 
   {
     id: "manual",

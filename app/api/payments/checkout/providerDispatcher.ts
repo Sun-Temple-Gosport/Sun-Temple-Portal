@@ -36,11 +36,6 @@ export async function createProviderCheckout(
     case "adyen":
       return createAdyenCheckout(context);
 
-    case "zettle":
-      throw new Error(
-        "Zettle checkout connector is not implemented yet."
-      );
-
     default: {
       const exhaustiveCheck: never = context.provider;
 
