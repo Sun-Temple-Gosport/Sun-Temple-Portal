@@ -3,6 +3,7 @@ import type {
   ProviderCheckoutContext,
 } from "./providerTypes";
 
+import { createAdyenCheckout } from "./providers/adyen";
 import { createDojoCheckout } from "./providers/dojo";
 import { createOpayoCheckout } from "./providers/opayo";
 import { createSquareCheckout } from "./providers/square";
@@ -33,9 +34,7 @@ export async function createProviderCheckout(
       return createOpayoCheckout(context);
 
     case "adyen":
-      throw new Error(
-        "Adyen checkout connector is not implemented yet."
-      );
+      return createAdyenCheckout(context);
 
     case "zettle":
       throw new Error(
