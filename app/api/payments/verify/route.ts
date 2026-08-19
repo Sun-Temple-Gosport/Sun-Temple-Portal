@@ -326,7 +326,7 @@ async function verifyDojo(
       method: "POST",
       headers: {
         Authorization: `Basic ${apiKey}`,
-        Version: "2024-02-05",
+        Version: "2026-02-27",
         "Content-Type": "application/json",
         Accept: "application/json",
       },
@@ -375,7 +375,7 @@ async function verifyDojo(
       method: "DELETE",
       headers: {
         Authorization: `Basic ${apiKey}`,
-        Version: "2024-02-05",
+        Version: "2026-02-27",
         Accept: "application/json",
       },
       cache: "no-store",

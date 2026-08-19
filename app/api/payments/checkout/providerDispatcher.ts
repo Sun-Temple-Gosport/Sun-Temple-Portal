@@ -3,6 +3,7 @@ import type {
   ProviderCheckoutContext,
 } from "./providerTypes";
 
+import { createDojoCheckout } from "./providers/dojo";
 import { createSquareCheckout } from "./providers/square";
 import { createStripeCheckout } from "./providers/stripe";
 import { createSumUpCheckout } from "./providers/sumup";
@@ -21,9 +22,7 @@ export async function createProviderCheckout(
       return createSquareCheckout(context);
 
     case "dojo":
-      throw new Error(
-        "Dojo checkout connector is not implemented yet."
-      );
+      return createDojoCheckout(context);
 
     case "worldpay":
       throw new Error(
