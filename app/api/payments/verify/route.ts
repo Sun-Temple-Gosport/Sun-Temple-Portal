@@ -28,8 +28,9 @@ type StoredCredentials = {
   access_token?: string;
   location_id?: string;
 
-  api_username?: string;
+    api_username?: string;
   api_password?: string;
+  merchant_entity?: string;
 
   integration_key?: string;
   integration_password?: string;
@@ -408,7 +409,16 @@ async function verifyWorldpay(
     "api_password"
   );
 
-  if (!username || !password) {
+  const merchantEntity = credential(
+    credentials,
+    "merchant_entity"
+  );
+
+  if (
+    !username ||
+    !password ||
+    !merchantEntity
+  ) {
     return {
       ok: false,
       error:
@@ -421,13 +431,35 @@ async function verifyWorldpay(
   ).toString("base64");
 
   const response = await fetch(
-    "https://access.worldpay.com/",
+    "https://access.worldpay.com/payment_pages",
     {
-      method: "GET",
+      method: "POST",
       headers: {
         Authorization: `Basic ${authorization}`,
-        Accept: "application/json",
+        "Content-Type":
+          "application/vnd.worldpay.payment_pages-v1.hal+json",
+        Accept:
+          "application/vnd.worldpay.payment_pages-v1.hal+json",
       },
+      body: JSON.stringify({
+        transactionReference:
+          `TanSalonOS-verify-${Date.now()}`,
+
+        merchant: {
+          entity: merchantEntity,
+        },
+
+        narrative: {
+          line1: "TanSalonOS Verify",
+        },
+
+        value: {
+          currency: "GBP",
+          amount: 1,
+        },
+
+        expiry: "300",
+      }),
       cache: "no-store",
     }
   );
@@ -436,13 +468,23 @@ async function verifyWorldpay(
     return {
       ok: false,
       error:
-        "Worldpay could not verify your API Username and Password.",
+        "Worldpay could not verify your API credentials and Merchant Entity.",
+    };
+  }
+
+  const data = await response.json();
+
+  if (typeof data?.url !== "string") {
+    return {
+      ok: false,
+      error:
+        "Worldpay returned an unexpected verification response.",
     };
   }
 
   return {
     ok: true,
-    merchantReference: "worldpay_verified",
+    merchantReference: merchantEntity,
   };
 }
 

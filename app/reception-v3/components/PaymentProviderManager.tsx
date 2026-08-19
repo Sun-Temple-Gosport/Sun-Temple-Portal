@@ -127,26 +127,31 @@ const providers: Provider[] = [
   },
 
   {
-    id: "worldpay",
-    name: "Worldpay",
-    description: "Accept online payments through Worldpay.",
-    badge: "Set up",
-    fields: [
-      {
-        key: "api_username",
-        label: "API Username",
-        placeholder: "Enter your Worldpay API username",
-      },
-      {
-        key: "api_password",
-        label: "API Password",
-        placeholder: "Enter your Worldpay API password",
-        secret: true,
-      },
-    ],
-    note:
-      "Enter the Access Worldpay API username and password supplied for your merchant account.",
-  },
+  id: "worldpay",
+  name: "Worldpay",
+  description: "Accept online payments through Worldpay.",
+  badge: "Set up",
+  fields: [
+    {
+      key: "api_username",
+      label: "API Username",
+      placeholder: "Enter your Worldpay API username",
+    },
+    {
+      key: "api_password",
+      label: "API Password",
+      placeholder: "Enter your Worldpay API password",
+      secret: true,
+    },
+    {
+      key: "merchant_entity",
+      label: "Merchant Entity",
+      placeholder: "Example: POxxxxxxxxx",
+    },
+  ],
+  note:
+    "Enter your Worldpay API username, password and Merchant Entity from your Worldpay account.",
+},
 
   {
     id: "opayo",

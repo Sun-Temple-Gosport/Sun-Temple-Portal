@@ -7,6 +7,7 @@ import { createDojoCheckout } from "./providers/dojo";
 import { createSquareCheckout } from "./providers/square";
 import { createStripeCheckout } from "./providers/stripe";
 import { createSumUpCheckout } from "./providers/sumup";
+import { createWorldpayCheckout } from "./providers/worldpay";
 
 export async function createProviderCheckout(
   context: ProviderCheckoutContext
@@ -25,9 +26,7 @@ export async function createProviderCheckout(
       return createDojoCheckout(context);
 
     case "worldpay":
-      throw new Error(
-        "Worldpay checkout connector is not implemented yet."
-      );
+      return createWorldpayCheckout(context);
 
     case "opayo":
       throw new Error(
