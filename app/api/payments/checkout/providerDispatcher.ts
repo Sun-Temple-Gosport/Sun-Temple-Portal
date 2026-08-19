@@ -4,6 +4,7 @@ import type {
 } from "./providerTypes";
 
 import { createDojoCheckout } from "./providers/dojo";
+import { createOpayoCheckout } from "./providers/opayo";
 import { createSquareCheckout } from "./providers/square";
 import { createStripeCheckout } from "./providers/stripe";
 import { createSumUpCheckout } from "./providers/sumup";
@@ -29,9 +30,7 @@ export async function createProviderCheckout(
       return createWorldpayCheckout(context);
 
     case "opayo":
-      throw new Error(
-        "Opayo checkout connector is not implemented yet."
-      );
+      return createOpayoCheckout(context);
 
     case "adyen":
       throw new Error(
