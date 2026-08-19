@@ -30,9 +30,16 @@ export default function MyMinutes() {
       } = await supabase.auth.getUser();
 
       if (!user) {
-        window.location.href = "/login";
-        return;
-      }
+  const requestedSalonSlug = new URLSearchParams(
+    window.location.search
+  ).get("salon");
+
+  window.location.href = requestedSalonSlug
+    ? `/login?salon=${encodeURIComponent(requestedSalonSlug)}`
+    : "/login";
+
+  return;
+}
 
       const { data: profileData, error: profileError } = await supabase
         .from("profiles")
@@ -177,11 +184,15 @@ export default function MyMinutes() {
 
           <div className="mt-10 flex flex-wrap gap-4">
             <a
-              href="/buy-minutes"
-              className="rounded-full bg-[#d6a84f] px-8 py-4 font-bold text-black"
-            >
-              Buy More Minutes
-            </a>
+  href={
+    salonSlug
+      ? `/buy-minutes?salon=${encodeURIComponent(salonSlug)}`
+      : "/buy-minutes"
+  }
+  className="rounded-full bg-[#d6a84f] px-8 py-4 font-bold text-black"
+>
+  Buy More Minutes
+</a>
 
             <button
               type="button"

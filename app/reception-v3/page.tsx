@@ -113,6 +113,8 @@ const todayActivityDateKey = currentSalonId
 
   const [editingCustomer, setEditingCustomer] = useState(false);
   const [ownerSettingsOpen, setOwnerSettingsOpen] = useState(false);
+const [ownerSettingsMode, setOwnerSettingsMode] =
+  useState<"business" | "products">("products");
   const [packages, setPackages] = useState<PackageOption[]>([]);
   const [customerNotes, setCustomerNotes] = useState<CustomerNote[]>([]);
 const [sessions, setSessions] = useState<BedSession[]>([]);
@@ -282,8 +284,20 @@ const {
   }
   setCurrentSalonId(profile.salon_id);
 
-  const { data, error } = await supabase
-    .from("salon_settings")
+const { data: salon, error: salonError } = await supabase
+  .from("salons")
+  .select("name")
+  .eq("id", profile.salon_id)
+  .maybeSingle();
+
+if (salonError) {
+  console.error("Could not load salon name:", salonError.message);
+} else if (salon?.name?.trim()) {
+  setSalonName(salon.name.trim());
+}
+
+const { data, error } = await supabase
+  .from("salon_settings")
     .select("salon_name, tagline, logo_url")
     .eq("salon_id", profile.salon_id)
     .maybeSingle();
@@ -1211,9 +1225,10 @@ async function startPaygSession(
       setOwnerView(view);
     }}
     onOpenSettings={() => {
-      loadPackages();
-      setOwnerSettingsOpen(true);
-    }}
+  setOwnerSettingsMode("products");
+  loadPackages();
+  setOwnerSettingsOpen(true);
+}}
     onEnterStaffMode={() => {
   setOwnerView("dashboard");
   setIsOwnerMode(false);
@@ -1241,11 +1256,16 @@ async function startPaygSession(
     occupancy={occupancy}
     cashUpSales={cashUpSales}
     onSaveCashUp={saveCashUp}
-    onOpenBusinessSettings={() => {
+onOpenBusinessSettings={() => {
+  setOwnerSettingsMode("business");
+  setOwnerSettingsOpen(true);
+}}
+onOpenProductSettings={() => {
+  setOwnerSettingsMode("products");
   loadPackages();
   setOwnerSettingsOpen(true);
 }}
-  />
+/>
 )}
 
 {!isOwnerMode && (
@@ -1299,6 +1319,7 @@ async function startPaygSession(
 
      <OwnerSettings
   open={ownerSettingsOpen}
+  mode={ownerSettingsMode}
   packages={packages}
   onClose={() => setOwnerSettingsOpen(false)}
   onSave={savePackage}

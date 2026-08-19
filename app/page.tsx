@@ -32,6 +32,7 @@ const [tagline, setTagline] = useState(
 );
 const [logoUrl, setLogoUrl] = useState<string | null>(null);
 const [heroImageUrl, setHeroImageUrl] = useState<string | null>(null);
+const [publicSalonSlug, setPublicSalonSlug] = useState("");
 const [salonImages, setSalonImages] = useState<SalonImage[]>([]);
 const [address, setAddress] = useState("");
 const [phone, setPhone] = useState("");
@@ -66,9 +67,11 @@ if (!salonSlug) {
   return;
 }
 
-    const { data: salon, error: salonError } = await publicSupabase
-      .from("salons")
-      .select("id")
+setPublicSalonSlug(salonSlug);
+
+   const { data: salon, error: salonError } = await publicSupabase
+  .from("salons")
+  .select("id, name")
       .eq("slug", salonSlug)
       .eq("active", true)
       .maybeSingle();
@@ -80,6 +83,7 @@ if (!salonSlug) {
       );
       return;
     }
+    setSalonName(salon.name || "Your Salon");
 
     const [{ data: brandingData, error: brandingError }, { data: imageData, error: imageError }] =
       await Promise.all([
@@ -163,7 +167,11 @@ if (!salonSlug) {
             <a href="#contact" className="hover:text-[#d6a84f]">Contact</a>
 
            <a
-  href="/my-minutes"
+ href={
+  publicSalonSlug
+    ? `/my-minutes?salon=${encodeURIComponent(publicSalonSlug)}`
+    : "/my-minutes"
+}
   className="rounded-full bg-[#d6a84f] px-6 py-3 font-semibold text-black transition hover:scale-105"
 >
   Log in/Create account
@@ -174,11 +182,13 @@ if (!salonSlug) {
 
       {/* Hero */}
       <section
-        className="flex min-h-screen items-center bg-cover bg-center"
-        style={{
-  backgroundImage: `url(${heroImageUrl || "/hero.jpg"})`,
-}}
-      >
+  className="flex min-h-screen items-center bg-cover bg-center"
+  style={{
+    backgroundImage: heroImageUrl
+      ? `url(${heroImageUrl})`
+      : "linear-gradient(135deg, #18181b 0%, #050505 55%, #111827 100%)",
+  }}
+>
         <div className="w-full bg-black/60">
           <div className="mx-auto max-w-7xl px-6 py-40">
             <p className="text-sm font-semibold uppercase tracking-[0.4em] text-[#d6a84f]">
@@ -197,7 +207,11 @@ if (!salonSlug) {
 
             <div className="mt-10 flex gap-4">
               <a
-  href="/my-minutes"
+  href={
+  publicSalonSlug
+    ? `/my-minutes?salon=${encodeURIComponent(publicSalonSlug)}`
+    : "/my-minutes"
+}
   className="rounded-full border border-[#d6a84f] px-6 py-3 font-semibold text-white transition hover:bg-[#d6a84f] hover:text-black"
 >
   Log in/Create account

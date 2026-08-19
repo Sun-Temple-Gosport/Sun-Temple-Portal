@@ -58,51 +58,7 @@ export async function recordSale(
   });
 }
 
-export async function recordPaygSale(
-  sale: Sale
-) {
-  const {
-    data: { user },
-    error: userError,
-  } = await supabase.auth.getUser();
 
-  if (userError || !user) {
-    return {
-      error:
-        userError ??
-        new Error("User is not logged in."),
-    };
-  }
-
-  const { data: profile, error: profileError } =
-    await supabase
-      .from("profiles")
-      .select("salon_id")
-      .eq("id", user.id)
-      .maybeSingle();
-
-  if (profileError || !profile?.salon_id) {
-    return {
-      error:
-        profileError ??
-        new Error(
-          "Could not determine the current salon."
-        ),
-    };
-  }
-
-  return await supabase
-    .from("reception_sales")
-    .insert({
-      customer_id: null,
-      customer_name: "PAYG",
-      minutes: sale.minutes,
-      amount: sale.amount,
-      payment_method:
-        sale.payment_method || "card",
-      salon_id: profile.salon_id,
-    });
-}
 
 export async function loadCustomerSales(customerId: string) {
   const {

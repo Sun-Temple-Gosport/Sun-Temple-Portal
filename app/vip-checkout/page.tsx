@@ -29,9 +29,18 @@ export default function VipCheckoutPage() {
       } = await supabase.auth.getUser();
 
       if (!user) {
-        router.replace("/login");
-        return;
-      }
+  const requestedSalonSlug = new URLSearchParams(
+    window.location.search
+  ).get("salon");
+
+  router.replace(
+    requestedSalonSlug
+      ? `/login?salon=${encodeURIComponent(requestedSalonSlug)}`
+      : "/login"
+  );
+
+  return;
+}
 
       const { data: profile, error: profileError } = await supabase
         .from("profiles")

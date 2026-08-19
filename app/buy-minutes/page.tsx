@@ -48,7 +48,16 @@ const [salonSlug, setSalonSlug] = useState("");
       } = await supabase.auth.getUser();
 
       if (!user) {
-  router.replace("/login");
+  const requestedSalonSlug = new URLSearchParams(
+    window.location.search
+  ).get("salon");
+
+  router.replace(
+    requestedSalonSlug
+      ? `/login?salon=${encodeURIComponent(requestedSalonSlug)}`
+      : "/login"
+  );
+
   return;
 }
 

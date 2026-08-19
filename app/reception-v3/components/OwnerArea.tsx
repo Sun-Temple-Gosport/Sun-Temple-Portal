@@ -56,6 +56,7 @@ type Props = {
     details: SaveCashUpDetails
   ) => Promise<boolean>;
   onOpenBusinessSettings: () => void;
+  onOpenProductSettings: () => void;
 };
 
 function StaffManagementPlaceholder() {
@@ -113,13 +114,15 @@ export default function OwnerArea({
   occupancy,
   cashUpSales,
   onSaveCashUp,
-  onOpenBusinessSettings,
+onOpenBusinessSettings,
+onOpenProductSettings,
 }: Props) {
 if (ownerView === "launch") {
   return (
     <LaunchCentre
-      onOpenBusinessSettings={onOpenBusinessSettings}
-      onNavigate={(view) => {
+  onOpenBusinessSettings={onOpenBusinessSettings}
+  onOpenProductSettings={onOpenProductSettings}
+  onNavigate={(view) => {
   window.dispatchEvent(
     new CustomEvent("launch-centre-navigate", {
       detail: view,

@@ -19,10 +19,18 @@ export default function CheckoutButton({
     } = await supabase.auth.getUser();
 
     if (!user) {
-      alert("Please log in first.");
-      window.location.href = "/login";
-      return;
-    }
+  alert("Please log in first.");
+
+  const requestedSalonSlug = new URLSearchParams(
+    window.location.search
+  ).get("salon");
+
+  window.location.href = requestedSalonSlug
+    ? `/login?salon=${encodeURIComponent(requestedSalonSlug)}`
+    : "/login";
+
+  return;
+}
 
     
 

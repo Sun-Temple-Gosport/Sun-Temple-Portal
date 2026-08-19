@@ -25,6 +25,24 @@ function getExpiryDate() {
   return expiry.toISOString();
 }
 
+async function getSalonSlug(salonId: string | null | undefined) {
+  if (!salonId) return null;
+
+  const { data, error } = await supabaseAdmin
+    .from("salons")
+    .select("slug")
+    .eq("id", salonId)
+    .eq("active", true)
+    .maybeSingle();
+
+  if (error) {
+    console.error("Could not resolve payment salon:", error.message);
+    return null;
+  }
+
+  return data?.slug ?? null;
+}
+
 function ErrorPage({ message }: { message: string }) {
   return (
     <main className="flex min-h-screen items-center justify-center bg-[#050505] px-6 text-white">
@@ -84,6 +102,7 @@ if (!purchase) {
     return <ErrorPage message="Purchase not found." />;
   }
 
+  const vipSalonSlug = await getSalonSlug(vipMembership.salon_id);
   const vipResponse = await fetch(
   `https://api.sumup.com/v0.1/checkouts/${vipMembership.sumup_checkout_id}`,
   {
@@ -144,7 +163,11 @@ if (!updatedVip) {
         </p>
 
         <a
-          href="/my-minutes"
+          href={
+  vipSalonSlug
+    ? `/my-minutes?salon=${encodeURIComponent(vipSalonSlug)}`
+    : "/my-minutes"
+}
           className="mt-8 inline-block rounded-full bg-[#d6a84f] px-8 py-4 font-bold text-black"
         >
           View My Minutes
@@ -217,7 +240,11 @@ return (
 </p>
 
 <a
-  href="/my-minutes"
+  href={
+  vipSalonSlug
+    ? `/my-minutes?salon=${encodeURIComponent(vipSalonSlug)}`
+    : "/my-minutes"
+}
   className="mt-10 inline-block rounded-full bg-[#d6a84f] px-8 py-4 font-bold text-black"
 >
   View My Minutes

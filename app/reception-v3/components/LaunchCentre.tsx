@@ -106,10 +106,12 @@ const remainingSections: SetupSection[] = [
 
 type Props = {
   onOpenBusinessSettings: () => void;
+  onOpenProductSettings?: () => void;
   onNavigate: (view: "staff" | "beds" | "payments") => void;
 };
 export default function LaunchCentre({
   onOpenBusinessSettings,
+  onOpenProductSettings,
   onNavigate,
 }: Props) {
     const [salonSettings, setSalonSettings] =
@@ -120,6 +122,7 @@ export default function LaunchCentre({
 const [hasVipMembership, setHasVipMembership] = useState(false);
 const [hasSalonPhotos, setHasSalonPhotos] = useState(false);
 const [salonId, setSalonId] = useState<string | null>(null);
+const [salonSlug, setSalonSlug] = useState("");
   
 
 useEffect(() => {
@@ -153,7 +156,24 @@ useEffect(() => {
 
     setSalonId(profile.salon_id);
 
-    const { data, error } = await supabase
+const { data: salon, error: salonError } = await supabase
+  .from("salons")
+  .select("slug")
+  .eq("id", profile.salon_id)
+  .eq("active", true)
+  .maybeSingle();
+
+if (salonError || !salon?.slug) {
+  console.error(
+    "Could not determine Launch Centre salon slug:",
+    salonError?.message || "Salon slug missing."
+  );
+  return;
+}
+
+setSalonSlug(salon.slug);
+
+const { data, error } = await supabase
       .from("salon_settings")
       .select(
         "salon_name, logo_url, hero_image_url, address, phone, opening_hours, payment_provider, website, website_reviewed, registration_test_complete, login_test_complete, website_published, buy_minutes_test_complete, my_minutes_test_complete, website_review_complete, contact_details_review_complete, opening_hours_review_complete, salon_photos_review_complete, launch_complete"
@@ -232,11 +252,17 @@ useEffect(() => {
 
   void loadBedStatus();
 }, []);
-useEffect(() => {
+
+  useEffect(() => {
+  if (!salonId) {
+    return;
+  }
+
   async function loadProductStatus() {
     const { data: packageData, error: packageError } = await supabase
       .from("packages")
       .select("id, minutes, active")
+      .eq("salon_id", salonId)
       .eq("active", true);
 
     if (packageError) {
@@ -250,25 +276,10 @@ useEffect(() => {
     setHasMinutePackages(
       (packageData ?? []).some((pkg) => Number(pkg.minutes) > 0)
     );
-
-   const { data: vipData, error: vipError } = await supabase
-  .from("vip_settings")
-  .select("id")
-  .limit(1);
-
-    if (vipError) {
-      console.error(
-        "Could not load Launch Centre VIP status:",
-        vipError.message
-      );
-      return;
-    }
-
-    setHasVipMembership((vipData ?? []).length > 0);
   }
 
   void loadProductStatus();
-}, []);
+}, [salonId]);
   const openingHoursComplete =
   !!salonSettings?.opening_hours &&
   Object.values(salonSettings.opening_hours).every(
@@ -317,7 +328,7 @@ async function markRegistrationTestComplete() {
       registration_test_complete: true,
       updated_at: new Date().toISOString(),
     })
-    .eq("id", 1);
+    .eq("salon_id", salonId);
 
   if (error) {
     console.error(
@@ -343,7 +354,7 @@ async function markLoginTestComplete() {
       login_test_complete: true,
       updated_at: new Date().toISOString(),
     })
-    .eq("id", 1);
+    .eq("salon_id", salonId);
 
   if (error) {
     console.error("Could not mark login test complete:", error.message);
@@ -366,7 +377,7 @@ async function markBuyMinutesTestComplete() {
       buy_minutes_test_complete: true,
       updated_at: new Date().toISOString(),
     })
-    .eq("id", 1);
+    .eq("salon_id", salonId);
 
   if (error) {
     console.error("Could not mark buy minutes test complete:", error.message);
@@ -389,7 +400,7 @@ async function markMyMinutesTestComplete() {
       my_minutes_test_complete: true,
       updated_at: new Date().toISOString(),
     })
-    .eq("id", 1);
+    .eq("salon_id", salonId);
 
   if (error) {
     console.error("Could not mark My Minutes test complete:", error.message);
@@ -412,7 +423,7 @@ async function markWebsiteReviewComplete() {
       website_review_complete: true,
       updated_at: new Date().toISOString(),
     })
-    .eq("id", 1);
+    .eq("salon_id", salonId);
 
   if (error) {
     console.error("Could not mark website review complete:", error.message);
@@ -435,7 +446,7 @@ async function markContactDetailsReviewComplete() {
       contact_details_review_complete: true,
       updated_at: new Date().toISOString(),
     })
-    .eq("id", 1);
+    .eq("salon_id", salonId);
 
   if (error) {
     console.error(
@@ -461,7 +472,7 @@ async function markOpeningHoursReviewComplete() {
       opening_hours_review_complete: true,
       updated_at: new Date().toISOString(),
     })
-    .eq("id", 1);
+    .eq("salon_id", salonId);
 
   if (error) {
     console.error(
@@ -487,7 +498,7 @@ async function markSalonPhotosReviewComplete() {
       salon_photos_review_complete: true,
       updated_at: new Date().toISOString(),
     })
-    .eq("id", 1);
+    .eq("salon_id", salonId);
 
   if (error) {
     console.error(
@@ -513,7 +524,7 @@ async function markLaunchComplete() {
       launch_complete: true,
       updated_at: new Date().toISOString(),
     })
-    .eq("id", 1);
+    .eq("salon_id", salonId);
 
   if (error) {
     console.error("Could not launch salon:", error.message);
@@ -664,8 +675,8 @@ const progress = Math.round((completedItems / allItems.length) * 100);
         </p>
         <div className="mt-6">
   <a
-    href="/"
-    target="_blank"
+  href={salonSlug ? `/?salon=${encodeURIComponent(salonSlug)}` : "/"}
+  target="_blank"
     rel="noopener noreferrer"
     className="inline-flex items-center rounded-xl border border-amber-400 px-5 py-3 font-black text-amber-400 transition hover:bg-amber-400 hover:text-black"
   >
@@ -739,16 +750,23 @@ const progress = Math.round((completedItems / allItems.length) * 100);
     </span>
 
     <div className="flex items-center gap-2">
-      {section.title === "Customer Portal" &&
-        item.label === "Test customer registration" && (
-          <button
-            type="button"
-            onClick={() => window.open("/register", "_blank")}
-            className="rounded-lg border border-amber-400 px-3 py-2 text-xs font-black text-amber-400 hover:bg-amber-400 hover:text-black"
-          >
-            Open
-          </button>
-        )}
+     {section.title === "Customer Portal" &&
+  item.label === "Test customer registration" && (
+    <button
+      type="button"
+      onClick={() => {
+        if (!salonSlug) return;
+
+        window.open(
+          `/register?salon=${encodeURIComponent(salonSlug)}`,
+          "_blank"
+        );
+      }}
+      className="rounded-lg border border-amber-400 px-3 py-2 text-xs font-black text-amber-400 hover:bg-amber-400 hover:text-black"
+    >
+      Open
+    </button>
+)}
         {section.title === "Customer Portal" &&
   item.label === "Test buying minutes" &&
   !item.complete && (
@@ -784,25 +802,38 @@ const progress = Math.round((completedItems / allItems.length) * 100);
   )}
 
       {section.title === "Customer Portal" &&
-        item.label === "Test customer login" && (
-            
-          <button
-            type="button"
-            onClick={() => window.open("/login", "_blank")}
-            className="rounded-lg border border-amber-400 px-3 py-2 text-xs font-black text-amber-400 hover:bg-amber-400 hover:text-black"
-          >
-            Open
-          </button>
-        )}
-        {section.title === "Website" &&
-  item.label === "Review website" && (
+  item.label === "Test customer login" && (
     <button
       type="button"
-      onClick={() => window.open("/", "_blank")}
+      onClick={() => {
+        if (!salonSlug) return;
+
+        window.open(
+          `/login?salon=${encodeURIComponent(salonSlug)}`,
+          "_blank"
+        );
+      }}
       className="rounded-lg border border-amber-400 px-3 py-2 text-xs font-black text-amber-400 hover:bg-amber-400 hover:text-black"
     >
       Open
     </button>
+)}
+        {section.title === "Website" &&
+  item.label === "Review website" && (
+    <button
+  type="button"
+  onClick={() => {
+    if (!salonSlug) return;
+
+    window.open(
+      `/?salon=${encodeURIComponent(salonSlug)}`,
+      "_blank"
+    );
+  }}
+  className="rounded-lg border border-amber-400 px-3 py-2 text-xs font-black text-amber-400 hover:bg-amber-400 hover:text-black"
+>
+  Open
+</button>
   )}
 
 {section.title === "Website" &&
@@ -908,19 +939,38 @@ const progress = Math.round((completedItems / allItems.length) * 100);
           onOpenBusinessSettings();
           break;
 
-        case "Products":
-          onOpenBusinessSettings();
-          break;
+       case "Products":
+  onOpenProductSettings?.();
+  break;
 
         case "Payments":
-          onNavigate("payments");
-          return;
-          case "Launch":
+  onNavigate("payments");
+  return;
+
+case "Customer Portal":
+  if (!salonSlug) return;
+
+  window.open(
+    `/register?salon=${encodeURIComponent(salonSlug)}`,
+    "_blank"
+  );
+  return;
+
+case "Website":
+  if (!salonSlug) return;
+
+  window.open(
+    `/?salon=${encodeURIComponent(salonSlug)}`,
+    "_blank"
+  );
+  return;
+
+case "Launch":
   void markLaunchComplete();
   return;
 
-        default:
-          break;
+default:
+  break;
       }
     }}
     className="mt-6 w-full rounded-xl border border-amber-400 px-5 py-3 font-black text-amber-400 transition hover:bg-amber-400 hover:text-black"
