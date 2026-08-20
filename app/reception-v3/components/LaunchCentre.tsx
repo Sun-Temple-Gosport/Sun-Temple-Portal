@@ -119,8 +119,42 @@ export default function LaunchCentre({
   const [bedsConfigured, setBedsConfigured] = useState(false);
   const [hasMinutePackages, setHasMinutePackages] = useState(false);
 const [hasSalonPhotos, setHasSalonPhotos] = useState(false);
+const [hasConnectedPaymentProvider, setHasConnectedPaymentProvider] =
+  useState(false);
 const [salonId, setSalonId] = useState<string | null>(null);
 const [salonSlug, setSalonSlug] = useState("");
+
+useEffect(() => {
+  if (!salonId) {
+    setHasConnectedPaymentProvider(false);
+    return;
+  }
+
+  async function loadPaymentConnection() {
+    const { data, error } = await supabase
+      .from("salon_payment_connections")
+      .select("connection_status")
+      .eq("salon_id", salonId)
+      .eq("connection_status", "connected")
+      .maybeSingle();
+
+    if (error) {
+      console.error(
+        "Could not load payment connection:",
+        error.message
+      );
+
+      setHasConnectedPaymentProvider(false);
+      return;
+    }
+
+    setHasConnectedPaymentProvider(
+      data?.connection_status === "connected"
+    );
+  }
+
+  void loadPaymentConnection();
+}, [salonId]);
   
 
 useEffect(() => {
@@ -598,7 +632,9 @@ const dynamicRemainingSections = remainingSections.map((section) => {
         },
         {
   label: "Connect payment provider",
-  complete: salonSettings?.payment_provider === "manual",
+  complete:
+    salonSettings?.payment_provider === "manual" ||
+    hasConnectedPaymentProvider,
 },
       ],
     };
