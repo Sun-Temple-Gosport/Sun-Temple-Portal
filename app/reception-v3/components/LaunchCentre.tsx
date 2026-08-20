@@ -49,13 +49,12 @@ type SetupSection = {
 const remainingSections: SetupSection[] = [
   
   {
-    title: "Products",
-    description: "Set up the packages and memberships you sell.",
-    items: [
-      { label: "Minute packages", complete: false },
-      { label: "VIP membership", complete: false },
-    ],
-  },
+  title: "Products",
+  description: "Set up the minute packages you sell.",
+  items: [
+    { label: "Minute packages", complete: false },
+  ],
+},
   {
     title: "Staff & Equipment",
     description: "Prepare Reception for day-to-day trading.",
@@ -119,7 +118,6 @@ export default function LaunchCentre({
   const [hasStaff, setHasStaff] = useState(false);
   const [bedsConfigured, setBedsConfigured] = useState(false);
   const [hasMinutePackages, setHasMinutePackages] = useState(false);
-const [hasVipMembership, setHasVipMembership] = useState(false);
 const [hasSalonPhotos, setHasSalonPhotos] = useState(false);
 const [salonId, setSalonId] = useState<string | null>(null);
 const [salonSlug, setSalonSlug] = useState("");
@@ -548,10 +546,6 @@ const dynamicRemainingSections = remainingSections.map((section) => {
       {
         label: "Minute packages",
         complete: hasMinutePackages,
-      },
-      {
-        label: "VIP membership",
-        complete: hasVipMembership,
       },
     ],
   };
