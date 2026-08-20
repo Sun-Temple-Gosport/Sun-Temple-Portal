@@ -124,6 +124,7 @@ const [hasConnectedPaymentProvider, setHasConnectedPaymentProvider] =
 const [salonId, setSalonId] = useState<string | null>(null);
 const [salonSlug, setSalonSlug] = useState("");
 
+
 useEffect(() => {
   if (!salonId) {
     setHasConnectedPaymentProvider(false);
@@ -628,9 +629,13 @@ const dynamicRemainingSections = remainingSections.map((section) => {
       ...section,
       items: [
         {
-          label: "Test customer registration",
-          complete: !!salonSettings?.registration_test_complete,
-        },
+  label: "Test customer registration",
+  complete:
+    !!salonSettings?.registration_test_complete ||
+    !!salonSettings?.login_test_complete ||
+    !!salonSettings?.buy_minutes_test_complete ||
+    !!salonSettings?.my_minutes_test_complete,
+},
         {
   label: "Test customer login",
   complete: !!salonSettings?.login_test_complete,
