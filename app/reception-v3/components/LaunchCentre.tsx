@@ -250,22 +250,46 @@ const { data, error } = await supabase
 }, [salonId]);
 useEffect(() => {
   async function loadStaffStatus() {
-    const { data, error } = await supabase.rpc("list_staff_members");
+    const {
+      data: { session },
+      error: sessionError,
+    } = await supabase.auth.getSession();
 
-    if (error) {
+    if (sessionError || !session) {
       console.error(
-        "Could not load Launch Centre staff status:",
-        error.message
+        "Could not load Launch Centre staff status: no owner session."
       );
       return;
     }
 
-    setHasStaff((data ?? []).length > 0);
+    try {
+      const response = await fetch("/api/staff/list", {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        console.error(
+          result.error || "Could not load Launch Centre staff status."
+        );
+        return;
+      }
+
+      setHasStaff((result.staff ?? []).length > 0);
+    } catch (error) {
+      console.error(
+        "Could not connect to the Launch Centre staff list API.",
+        error
+      );
+    }
   }
 
   void loadStaffStatus();
-}, []);
-useEffect(() => {
+}, []);useEffect(() => {
   async function loadBedStatus() {
     const { data, error } = await supabase
       .from("beds")
@@ -279,7 +303,7 @@ useEffect(() => {
       return;
     }
 
-    setBedsConfigured((data ?? []).length >= 4);
+    setBedsConfigured((data ?? []).length > 0);
   }
 
   void loadBedStatus();
