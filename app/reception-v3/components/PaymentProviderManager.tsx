@@ -29,6 +29,10 @@ type CredentialField = {
   label: string;
   placeholder: string;
   secret?: boolean;
+  options?: {
+    label: string;
+    value: string;
+  }[];
 };
 
 type Provider = {
@@ -86,6 +90,21 @@ note:
     description: "Accept online payments using Square Checkout.",
     badge: "Set up",
     fields: [
+      {
+  key: "environment",
+  label: "Environment",
+  placeholder: "Choose Sandbox or Live",
+  options: [
+    {
+      label: "Sandbox",
+      value: "sandbox",
+    },
+    {
+      label: "Live",
+      value: "live",
+    },
+  ],
+},
       {
         key: "access_token",
         label: "Access Token",
@@ -778,29 +797,59 @@ export default function PaymentProviderManager() {
                         {field.label}
                       </span>
 
-                      <input
-                        type={
-                          field.secret
-                            ? "password"
-                            : "text"
-                        }
-                        value={
-                          credentialValues[
-                            field.key
-                          ] ?? ""
-                        }
-                        onChange={(event) =>
-                          updateCredential(
-                            field.key,
-                            event.target.value
-                          )
-                        }
-                        autoComplete="off"
-                        placeholder={
-                          field.placeholder
-                        }
-                        className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white outline-none focus:border-amber-400"
-                      />
+                      {field.options ? (
+  <select
+    value={
+      credentialValues[
+        field.key
+      ] ?? ""
+    }
+    onChange={(event) =>
+      updateCredential(
+        field.key,
+        event.target.value
+      )
+    }
+    className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white outline-none focus:border-amber-400"
+  >
+    <option value="">
+      {field.placeholder}
+    </option>
+
+    {field.options.map((option) => (
+      <option
+        key={option.value}
+        value={option.value}
+      >
+        {option.label}
+      </option>
+    ))}
+  </select>
+) : (
+  <input
+    type={
+      field.secret
+        ? "password"
+        : "text"
+    }
+    value={
+      credentialValues[
+        field.key
+      ] ?? ""
+    }
+    onChange={(event) =>
+      updateCredential(
+        field.key,
+        event.target.value
+      )
+    }
+    autoComplete="off"
+    placeholder={
+      field.placeholder
+    }
+    className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white outline-none focus:border-amber-400"
+  />
+)}
                     </label>
                   ))}
                 </div>

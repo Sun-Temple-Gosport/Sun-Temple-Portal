@@ -24,10 +24,44 @@ type StripeCheckoutSession = {
   metadata?: Record<string, string> | null;
 };
 
+type SquarePaymentLinkResponse = {
+  payment_link?: {
+    id?: string;
+    order_id?: string;
+  };
+};
+
+type SquareOrderResponse = {
+  order?: {
+    id?: string;
+    location_id?: string;
+    tenders?: {
+      id?: string;
+    }[];
+  };
+};
+
+type SquarePaymentResponse = {
+  payment?: {
+    id?: string;
+    status?: string;
+    location_id?: string;
+    order_id?: string;
+    note?: string;
+    amount_money?: {
+      amount?: number;
+      currency?: string;
+    };
+  };
+};
+
 type StoredCredentials = {
   api_key?: string;
   merchant_code?: string;
   secret_key?: string;
+  environment?: string;
+access_token?: string;
+location_id?: string;
 };
 
 const supabaseAdmin = createClient(
@@ -448,7 +482,122 @@ if (paymentProvider === "sumup") {
     String(stripeCheckout.metadata?.package_id ?? "") ===
       String(purchase.package_id);
 
-  paymentProviderLabel = "Stripe";
+    paymentProviderLabel = "Stripe";
+} else if (paymentProvider === "square") {
+  const accessToken =
+    credentials.access_token?.trim();
+
+  const locationId =
+    credentials.location_id?.trim();
+
+  const environment =
+    credentials.environment?.trim().toLowerCase();
+
+  if (!accessToken || !locationId) {
+    return (
+      <ErrorPage message="The salon's Square payment details are incomplete." />
+    );
+  }
+
+  const squareBaseUrl =
+    environment === "sandbox"
+      ? "https://connect.squareupsandbox.com"
+      : "https://connect.squareup.com";
+
+  const squareHeaders = {
+    Authorization: `Bearer ${accessToken}`,
+    "Square-Version": "2026-07-15",
+    "Content-Type": "application/json",
+  };
+
+  const paymentLinkResponse = await fetch(
+    `${squareBaseUrl}/v2/online-checkout/payment-links/${encodeURIComponent(
+      providerCheckoutId
+    )}`,
+    {
+      headers: squareHeaders,
+      cache: "no-store",
+    }
+  );
+
+  if (!paymentLinkResponse.ok) {
+    return (
+      <ErrorPage message="Unable to verify the Square checkout." />
+    );
+  }
+
+  const paymentLinkData =
+    (await paymentLinkResponse.json()) as SquarePaymentLinkResponse;
+
+  const orderId =
+    paymentLinkData.payment_link?.order_id;
+
+  if (!orderId) {
+    return (
+      <ErrorPage message="Square checkout order could not be found." />
+    );
+  }
+
+  const orderResponse = await fetch(
+    `${squareBaseUrl}/v2/orders/${encodeURIComponent(
+      orderId
+    )}`,
+    {
+      headers: squareHeaders,
+      cache: "no-store",
+    }
+  );
+
+  if (!orderResponse.ok) {
+    return (
+      <ErrorPage message="Unable to verify the Square order." />
+    );
+  }
+
+  const orderData =
+    (await orderResponse.json()) as SquareOrderResponse;
+
+  const paymentId =
+    orderData.order?.tenders?.[0]?.id;
+
+  if (!paymentId) {
+    return (
+      <ErrorPage message="Square payment could not be found." />
+    );
+  }
+
+  const paymentResponse = await fetch(
+    `${squareBaseUrl}/v2/payments/${encodeURIComponent(
+      paymentId
+    )}`,
+    {
+      headers: squareHeaders,
+      cache: "no-store",
+    }
+  );
+
+  if (!paymentResponse.ok) {
+    return (
+      <ErrorPage message="Unable to verify the payment with Square." />
+    );
+  }
+
+  const paymentData =
+    (await paymentResponse.json()) as SquarePaymentResponse;
+
+  const expectedAmount =
+    Math.round(Number(purchase.amount_paid) * 100);
+
+  paymentMatches =
+    paymentData.payment?.status === "COMPLETED" &&
+    paymentData.payment?.location_id === locationId &&
+    paymentData.payment?.order_id === orderId &&
+    Number(paymentData.payment?.amount_money?.amount) ===
+      expectedAmount &&
+    paymentData.payment?.amount_money?.currency?.toLowerCase() ===
+      "gbp";
+
+  paymentProviderLabel = "Square";
 } else {
   return (
     <ErrorPage

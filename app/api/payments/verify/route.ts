@@ -19,6 +19,7 @@ type ProviderId =
   
 
 type StoredCredentials = {
+  environment?: string;
   api_key?: string;
   merchant_code?: string;
 
@@ -183,6 +184,15 @@ async function verifySquare(
     credentials,
     "access_token"
   );
+  const environment = credential(
+  credentials,
+  "environment"
+).toLowerCase();
+
+const squareBaseUrl =
+  environment === "sandbox"
+    ? "https://connect.squareupsandbox.com"
+    : "https://connect.squareup.com";
 
   const locationId = credential(
     credentials,
@@ -198,7 +208,7 @@ async function verifySquare(
   }
 
   const response = await fetch(
-    `https://connect.squareup.com/v2/locations/${encodeURIComponent(
+  `${squareBaseUrl}/v2/locations/${encodeURIComponent(
       locationId
     )}`,
     {
@@ -213,6 +223,7 @@ async function verifySquare(
   );
 
   if (!response.ok) {
+    
     return {
       ok: false,
       error:

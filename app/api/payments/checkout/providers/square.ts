@@ -11,6 +11,13 @@ export async function createSquareCheckout(
 
   const locationId =
     context.credentials.location_id?.trim();
+    const environment =
+  context.credentials.environment?.trim().toLowerCase();
+
+const squareBaseUrl =
+  environment === "sandbox"
+    ? "https://connect.squareupsandbox.com"
+    : "https://connect.squareup.com";
 
   if (!accessToken || !locationId) {
     throw new Error(
@@ -31,7 +38,7 @@ export async function createSquareCheckout(
     Math.round(context.input.amount * 100);
 
   const response = await fetch(
-    "https://connect.squareup.com/v2/online-checkout/payment-links",
+  `${squareBaseUrl}/v2/online-checkout/payment-links`,
     {
       method: "POST",
       headers: {
