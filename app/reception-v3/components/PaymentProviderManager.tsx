@@ -70,21 +70,15 @@ const providers: Provider[] = [
     badge: "Set up",
     fields: [
       {
-        key: "secret_key",
-        label: "Secret Key",
-        placeholder: "sk_live_...",
-        secret: true,
-      },
-      {
-        key: "webhook_signing_secret",
-        label: "Webhook Signing Secret",
-        placeholder: "whsec_...",
-        secret: true,
-      },
-    ],
-    note:
-      "Enter your Stripe live Secret Key and the Webhook Signing Secret used for TanSalonOS payment notifications.",
-  },
+  key: "secret_key",
+  label: "Secret Key",
+  placeholder: "sk_test_... or sk_live_...",
+  secret: true,
+},
+],
+note:
+  "Enter the Stripe Secret Key for this salon's Stripe account.",
+},
 
   {
     id: "square",

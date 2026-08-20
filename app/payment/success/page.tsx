@@ -3,6 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 interface Props {
   searchParams: Promise<{
     checkoutReference?: string;
+    provider?: string;
   }>;
 }
 
@@ -12,6 +13,21 @@ type SumUpCheckout = {
   status?: "PENDING" | "FAILED" | "PAID" | "EXPIRED";
   amount?: number;
   currency?: string;
+};
+
+type StripeCheckoutSession = {
+  id?: string;
+  payment_status?: string;
+  client_reference_id?: string | null;
+  amount_total?: number | null;
+  currency?: string | null;
+  metadata?: Record<string, string> | null;
+};
+
+type StoredCredentials = {
+  api_key?: string;
+  merchant_code?: string;
+  secret_key?: string;
 };
 
 const supabaseAdmin = createClient(
@@ -71,7 +87,9 @@ you need assistance.
 
 export default async function PaymentSuccess({ searchParams }: Props) {
   const params = await searchParams;
-  const checkoutReference = params.checkoutReference;
+const checkoutReference = params.checkoutReference;
+const returnedProvider =
+  params.provider?.trim().toLowerCase() ?? "";
 
   if (!checkoutReference) {
     return <ErrorPage message="Payment reference missing." />;
@@ -275,36 +293,175 @@ return (
     );
   }
 
-  if (!purchase.sumup_checkout_id) {
-    return <ErrorPage message="SumUp checkout ID missing." />;
+  const purchaseProvider =
+  typeof purchase.payment_provider === "string"
+    ? purchase.payment_provider.trim().toLowerCase()
+    : "";
+
+const paymentProvider =
+  purchaseProvider || returnedProvider;
+
+if (
+  purchaseProvider &&
+  returnedProvider &&
+  purchaseProvider !== returnedProvider
+) {
+  return (
+    <ErrorPage message="The payment provider does not match this purchase." />
+  );
+}
+
+if (!paymentProvider) {
+  return (
+    <ErrorPage message="The payment provider could not be identified." />
+  );
+}
+
+const providerCheckoutId =
+  typeof purchase.sumup_checkout_id === "string"
+    ? purchase.sumup_checkout_id.trim()
+    : "";
+
+if (!providerCheckoutId) {
+  return (
+    <ErrorPage message="Payment checkout ID missing." />
+  );
+}
+
+const {
+  data: credentialsData,
+  error: credentialsError,
+} = await supabaseAdmin.rpc(
+  "get_salon_payment_credentials",
+  {
+    p_salon_id: purchase.salon_id,
+  }
+);
+
+if (credentialsError) {
+  console.error(
+    "Payment credential retrieval failed:",
+    credentialsError
+  );
+
+  return (
+    <ErrorPage message="Unable to load the salon payment details securely." />
+  );
+}
+
+const credentials =
+  credentialsData as StoredCredentials | null;
+
+if (!credentials) {
+  return (
+    <ErrorPage message="No saved payment details were found for this salon." />
+  );
+}
+
+let paymentMatches = false;
+let paymentProviderLabel = "";
+
+if (paymentProvider === "sumup") {
+  const apiKey = credentials.api_key?.trim();
+
+  if (!apiKey) {
+    return (
+      <ErrorPage message="The salon's SumUp payment details are incomplete." />
+    );
   }
 
   const sumUpResponse = await fetch(
-    `https://api.sumup.com/v0.1/checkouts/${purchase.sumup_checkout_id}`,
+    `https://api.sumup.com/v0.1/checkouts/${encodeURIComponent(
+      providerCheckoutId
+    )}`,
     {
       headers: {
-        Authorization: `Bearer ${process.env.SUMUP_API_KEY}`,
+        Authorization: `Bearer ${apiKey}`,
       },
       cache: "no-store",
     }
   );
 
   if (!sumUpResponse.ok) {
-    return <ErrorPage message="Unable to verify the payment with SumUp." />;
+    return (
+      <ErrorPage message="Unable to verify the payment with SumUp." />
+    );
   }
 
   const sumUpCheckout =
     (await sumUpResponse.json()) as SumUpCheckout;
 
-  const paymentMatches =
+  paymentMatches =
     sumUpCheckout.status === "PAID" &&
     sumUpCheckout.checkout_reference === checkoutReference &&
-    Number(sumUpCheckout.amount) === Number(purchase.amount_paid) &&
+    Number(sumUpCheckout.amount) ===
+      Number(purchase.amount_paid) &&
     sumUpCheckout.currency === "GBP";
 
-  if (!paymentMatches) {
-    return <ErrorPage message="Payment has not been verified as paid." />;
+  paymentProviderLabel = "SumUp";
+} else if (paymentProvider === "stripe") {
+  const secretKey = credentials.secret_key?.trim();
+
+  if (!secretKey) {
+    return (
+      <ErrorPage message="The salon's Stripe payment details are incomplete." />
+    );
   }
+
+  const authorization = Buffer.from(
+    `${secretKey}:`
+  ).toString("base64");
+
+  const stripeResponse = await fetch(
+    `https://api.stripe.com/v1/checkout/sessions/${encodeURIComponent(
+      providerCheckoutId
+    )}`,
+    {
+      headers: {
+        Authorization: `Basic ${authorization}`,
+      },
+      cache: "no-store",
+    }
+  );
+
+  if (!stripeResponse.ok) {
+    return (
+      <ErrorPage message="Unable to verify the payment with Stripe." />
+    );
+  }
+
+  const stripeCheckout =
+    (await stripeResponse.json()) as StripeCheckoutSession;
+
+  const expectedAmount =
+    Math.round(Number(purchase.amount_paid) * 100);
+
+  paymentMatches =
+    stripeCheckout.payment_status === "paid" &&
+    stripeCheckout.client_reference_id === checkoutReference &&
+    Number(stripeCheckout.amount_total) === expectedAmount &&
+    stripeCheckout.currency?.toLowerCase() === "gbp" &&
+    stripeCheckout.metadata?.salon_id ===
+      purchase.salon_id &&
+    stripeCheckout.metadata?.customer_id ===
+      purchase.customer_id &&
+    String(stripeCheckout.metadata?.package_id ?? "") ===
+      String(purchase.package_id);
+
+  paymentProviderLabel = "Stripe";
+} else {
+  return (
+    <ErrorPage
+      message={`Payment verification for ${paymentProvider} is not available yet.`}
+    />
+  );
+}
+
+if (!paymentMatches) {
+  return (
+    <ErrorPage message="Payment has not been verified as paid." />
+  );
+}
 
   const { data: existingBatch, error: existingBatchError } =
   await supabaseAdmin
@@ -348,7 +505,7 @@ if (existingBatch) {
     customer_id: purchase.customer_id,
     minutes: purchase.minutes_added,
     transaction_type: "purchase",
-    reason: `Online SumUp purchase - ${checkoutReference}`,
+    reason: `Online ${paymentProviderLabel} purchase - ${checkoutReference}`,
   });
 
   if (transactionError) {
@@ -367,12 +524,17 @@ if (existingBatch) {
   });
 
   if (batchError) {
-    await supabaseAdmin
-  .from("minute_transactions")
-  .delete()
+  
+
+  await supabaseAdmin
+    .from("minute_transactions")
+    .delete()
   .eq("salon_id", purchase.salon_id)
   .eq("customer_id", purchase.customer_id)
-  .eq("reason", `Online SumUp purchase - ${checkoutReference}`);
+  .eq(
+  "reason",
+  `Online ${paymentProviderLabel} purchase - ${checkoutReference}`
+);
 
     return <ErrorPage message="The payment was verified, but the minute balance could not be updated." />;
   }

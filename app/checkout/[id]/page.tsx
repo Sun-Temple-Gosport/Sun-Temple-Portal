@@ -254,7 +254,15 @@ const [
           </p>
         )}
 
-        {paymentProvider === "sumup" ? (
+        {[
+  "sumup",
+  "stripe",
+  "square",
+  "dojo",
+  "worldpay",
+  "opayo",
+  "adyen",
+].includes(paymentProvider ?? "") ? (
   <CheckoutButton
     amount={checkoutPrice}
     description={`${pkg.minutes} Minute Package`}

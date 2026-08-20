@@ -126,18 +126,13 @@ async function verifyStripe(
     "secret_key"
   );
 
-  const webhookSigningSecret = credential(
-    credentials,
-    "webhook_signing_secret"
-  );
-
-  if (!secretKey || !webhookSigningSecret) {
-    return {
-      ok: false,
-      error:
-        "Your saved Stripe payment details are incomplete.",
-    };
-  }
+  if (!secretKey) {
+  return {
+    ok: false,
+    error:
+      "Your saved Stripe payment details are incomplete.",
+  };
+}
 
   const authorization = Buffer.from(
     `${secretKey}:`
