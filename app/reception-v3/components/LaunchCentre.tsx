@@ -678,7 +678,10 @@ const dynamicRemainingSections = remainingSections.map((section) => {
       },
       {
   label: "Check contact details",
-  complete: salonSettings?.contact_details_review_complete ?? false,
+  complete:
+    !!salonSettings?.contact_details_review_complete ||
+    (!!salonSettings?.address?.trim() &&
+      !!salonSettings?.phone?.trim()),
 },
 
       {
