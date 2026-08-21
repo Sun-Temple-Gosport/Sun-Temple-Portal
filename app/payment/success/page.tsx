@@ -1,9 +1,21 @@
+import {
+  createHash,
+  createHmac,
+  timingSafeEqual,
+} from "crypto";
 import { createClient } from "@supabase/supabase-js";
 
 interface Props {
   searchParams: Promise<{
     checkoutReference?: string;
     provider?: string;
+    transactionID?: string;
+transactionId?: string;
+    vendorTxCode?: string;
+registrationID?: string;
+expiry?: string;
+state?: string;
+signature?: string;
   }>;
 }
 
@@ -56,6 +68,16 @@ type SquarePaymentLinkResponse = {
   };
 };
 
+type OpayoTransaction = {
+  transactionId?: string;
+  transactionType?: string;
+  status?: string;
+  amount?: {
+    totalAmount?: number;
+  };
+  currency?: string;
+};
+
 type SquareOrderResponse = {
   order?: {
     id?: string;
@@ -65,6 +87,7 @@ type SquareOrderResponse = {
     }[];
   };
 };
+
 
 type SquarePaymentResponse = {
   payment?: {
@@ -90,6 +113,9 @@ location_id?: string;
 api_username?: string;
 api_password?: string;
 merchant_entity?: string;
+integration_key?: string;
+integration_password?: string;
+vendor_name?: string;
 };
 
 const supabaseAdmin = createClient(
@@ -354,6 +380,27 @@ return (
       </main>
     );
   }
+
+  const { data: opayoSecret, error: opayoSecretError } =
+  purchase.payment_provider === "opayo"
+    ? await supabaseAdmin
+        .from("payment_checkout_secrets")
+        .select(
+          "registration_id, hmac_key, hmac_algorithm, expires_at"
+        )
+        .eq("purchase_id", purchase.id)
+        .eq("salon_id", purchase.salon_id)
+        .eq("provider", "opayo")
+        .maybeSingle()
+    : { data: null, error: null };
+
+if (purchase.payment_provider === "opayo") {
+  if (opayoSecretError || !opayoSecret) {
+    return (
+      <ErrorPage message="Unable to load secure Opayo payment verification data." />
+    );
+  }
+}
 
   const purchaseProvider =
   typeof purchase.payment_provider === "string"
@@ -749,6 +796,278 @@ if (paymentProvider === "sumup") {
     worldpayPayment.value?.currency?.toUpperCase() === "GBP";
 
   paymentProviderLabel = "Worldpay";
+} else if (paymentProvider === "opayo") {
+  const integrationKey =
+    credentials.integration_key?.trim();
+
+  const integrationPassword =
+    credentials.integration_password?.trim();
+
+  const environment =
+    credentials.environment?.trim().toLowerCase();
+
+  if (
+    !integrationKey ||
+    !integrationPassword ||
+    (environment !== "sandbox" && environment !== "live")
+  ) {
+    return (
+      <ErrorPage message="The salon's Opayo payment details are incomplete." />
+    );
+  }
+
+  if (!opayoSecret) {
+    return (
+      <ErrorPage message="Unable to load secure Opayo payment verification data." />
+    );
+  }
+
+  const getOpayoParam = (...names: string[]) => {
+  const entries = Object.entries(params);
+
+  for (const name of names) {
+    const match = entries.find(
+      ([key]) =>
+        key.toLowerCase() === name.toLowerCase()
+    );
+
+    if (
+      match &&
+      typeof match[1] === "string"
+    ) {
+      return match[1].trim();
+    }
+  }
+
+  return "";
+};
+
+const transactionId =
+  getOpayoParam(
+    "transactionId",
+    "transactionID"
+  );
+
+const vendorTxCode =
+  getOpayoParam("vendorTxCode");
+
+const registrationId =
+  getOpayoParam(
+    "registrationId",
+    "registrationID"
+  );
+
+const returnedExpiry =
+  getOpayoParam(
+    "expiry",
+    "validUntil"
+  );
+
+const state =
+  getOpayoParam(
+    "state",
+    "state1"
+  ).toLowerCase();
+
+const rawSignature =
+  getOpayoParam("signature");
+
+  if (
+    !transactionId ||
+    !vendorTxCode ||
+    !registrationId ||
+    !returnedExpiry ||
+    !state ||
+    !rawSignature
+  ) {
+    return (
+      <ErrorPage message="Opayo returned incomplete payment verification data." />
+    );
+  }
+
+  if (
+    state !== "success" ||
+    vendorTxCode !== checkoutReference ||
+    registrationId !== opayoSecret.registration_id ||
+    registrationId !== providerCheckoutId
+  ) {
+    return (
+      <ErrorPage message="The Opayo payment return does not match this purchase." />
+    );
+  }
+
+  const returnedExpiryTime =
+    Date.parse(returnedExpiry);
+
+  const storedExpiryTime =
+    Date.parse(opayoSecret.expires_at);
+
+  if (
+    !Number.isFinite(returnedExpiryTime) ||
+    !Number.isFinite(storedExpiryTime) ||
+    returnedExpiryTime !== storedExpiryTime
+  ) {
+    return (
+      <ErrorPage message="The Opayo payment return has an invalid expiry value." />
+    );
+  }
+
+  const hmacAlgorithm =
+    opayoSecret.hmac_algorithm
+      ?.trim()
+      .toLowerCase();
+
+  if (hmacAlgorithm !== "hmacsha256") {
+    return (
+      <ErrorPage message="The Opayo payment signature algorithm is not supported." />
+    );
+  }
+
+  let returnedSignature = rawSignature;
+
+  try {
+    returnedSignature =
+      decodeURIComponent(rawSignature);
+  } catch {
+    returnedSignature = rawSignature;
+  }
+
+  returnedSignature = returnedSignature
+    .replace(/ /g, "+")
+    .trim();
+
+  /*
+   * Opayo HPP documents the return signature as SHA-256 over the
+   * concatenated values below, including the stored hmacKey,
+   * followed by Base64 encoding.
+   */
+  const rawState =
+  getOpayoParam(
+    "state",
+    "state1"
+  );
+
+const signatureValues =
+  transactionId +
+  vendorTxCode +
+  registrationId +
+  returnedExpiry +
+  rawState;
+
+/*
+ * Opayo describes the response algorithm as HmacSHA256,
+ * but its documentation also describes a legacy-style
+ * hash with hmacKey prepended.
+ *
+ * Support both documented interpretations while both
+ * remain protected by the secret checkout hmacKey.
+ */
+const hmacExpectedSignature =
+  createHmac(
+    "sha256",
+    opayoSecret.hmac_key
+  )
+    .update(signatureValues, "utf8")
+    .digest("base64");
+
+const legacyExpectedSignature =
+  createHash("sha256")
+    .update(
+      opayoSecret.hmac_key +
+        signatureValues,
+      "utf8"
+    )
+    .digest("base64");
+
+const returnedSignatureBuffer =
+  Buffer.from(
+    returnedSignature,
+    "base64"
+  );
+
+const hmacSignatureBuffer =
+  Buffer.from(
+    hmacExpectedSignature,
+    "base64"
+  );
+
+const legacySignatureBuffer =
+  Buffer.from(
+    legacyExpectedSignature,
+    "base64"
+  );
+
+const matchesHmac =
+  returnedSignatureBuffer.length ===
+    hmacSignatureBuffer.length &&
+  timingSafeEqual(
+    returnedSignatureBuffer,
+    hmacSignatureBuffer
+  );
+
+const matchesLegacy =
+  returnedSignatureBuffer.length ===
+    legacySignatureBuffer.length &&
+  timingSafeEqual(
+    returnedSignatureBuffer,
+    legacySignatureBuffer
+  );
+
+const signatureMatches =
+  matchesHmac || matchesLegacy;
+
+  const opayoBaseUrl =
+    environment === "sandbox"
+      ? "https://sandbox.opayo.eu.elavon.com"
+      : "https://live.opayo.eu.elavon.com";
+
+  const authorization = Buffer.from(
+    `${integrationKey}:${integrationPassword}`
+  ).toString("base64");
+
+  const opayoResponse = await fetch(
+    `${opayoBaseUrl}/api/v1/transactions/${encodeURIComponent(
+      transactionId
+    )}`,
+    {
+      method: "GET",
+      headers: {
+        Authorization: `Basic ${authorization}`,
+        Accept: "application/json",
+      },
+      cache: "no-store",
+    }
+  );
+
+  if (!opayoResponse.ok) {
+    const opayoError = await opayoResponse.text();
+
+    console.error(
+      "Opayo transaction verification failed:",
+      opayoResponse.status,
+      opayoError
+    );
+
+    return (
+      <ErrorPage message="Unable to verify the payment with Opayo." />
+    );
+  }
+
+  const opayoTransaction =
+    (await opayoResponse.json()) as OpayoTransaction;
+
+  const expectedAmount =
+    Math.round(Number(purchase.amount_paid) * 100);
+
+  paymentMatches =
+    opayoTransaction.transactionId === transactionId &&
+    opayoTransaction.transactionType === "Payment" &&
+    opayoTransaction.status === "Ok" &&
+    Number(opayoTransaction.amount?.totalAmount) ===
+      expectedAmount &&
+    opayoTransaction.currency?.toUpperCase() === "GBP";
+
+  paymentProviderLabel = "Opayo";
 } else {
   return (
     <ErrorPage

@@ -460,6 +460,15 @@ async function verifyOpayo(
     "vendor_name"
   );
 
+  const environment = credential(
+  credentials,
+  "environment"
+).toLowerCase();
+
+const opayoBaseUrl =
+  environment === "sandbox"
+    ? "https://sandbox.opayo.eu.elavon.com"
+    : "https://live.opayo.eu.elavon.com";
   if (
     !integrationKey ||
     !integrationPassword ||
@@ -477,7 +486,7 @@ async function verifyOpayo(
   ).toString("base64");
 
   const response = await fetch(
-    "https://live.opayo.eu.elavon.com/api/v1/merchant-session-keys",
+  `${opayoBaseUrl}/api/v1/merchant-session-keys`,
     {
       method: "POST",
       headers: {
@@ -493,12 +502,20 @@ async function verifyOpayo(
   );
 
   if (!response.ok) {
-    return {
-      ok: false,
-      error:
-        "Opayo could not verify your Integration Key, Integration Password and Vendor Name.",
-    };
-  }
+  const errorText = await response.text();
+
+  console.error(
+    "Opayo verification failed:",
+    response.status,
+    errorText
+  );
+
+  return {
+    ok: false,
+    error:
+      "Opayo could not verify your Integration Key, Integration Password and Vendor Name.",
+  };
+}
 
   const data = await response.json();
 

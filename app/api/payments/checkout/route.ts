@@ -410,24 +410,28 @@ export async function POST(request: Request) {
       isVip ? " - VIP" : ""
     }`;
 
-    const { error: purchaseError } =
-      await supabaseAdmin
-        .from("purchases")
-        .insert({
-          salon_id: customer.salon_id,
-          customer_id:
-            customer.customer_id,
-          package_id: pkg.id,
-          minutes_added: pkg.minutes,
-          amount_paid: amount,
-          expiry_date: expiry
-            .toISOString()
-            .split("T")[0],
-          payment_provider: provider,
-          checkout_reference:
-            body.checkoutReference,
-          payment_status: "pending",
-        });
+    const {
+  data: createdPurchase,
+  error: purchaseError,
+} = await supabaseAdmin
+  .from("purchases")
+  .insert({
+    salon_id: customer.salon_id,
+    customer_id:
+      customer.customer_id,
+    package_id: pkg.id,
+    minutes_added: pkg.minutes,
+    amount_paid: amount,
+    expiry_date: expiry
+      .toISOString()
+      .split("T")[0],
+    payment_provider: provider,
+    checkout_reference:
+      body.checkoutReference,
+    payment_status: "pending",
+  })
+  .select("id")
+  .single();
 
     if (purchaseError) {
       console.error(
@@ -490,10 +494,50 @@ export async function POST(request: Request) {
         }
       }
 
-      return NextResponse.json({
-        provider,
-        ...result,
-      });
+      if ("secureData" in result && result.secureData) {
+  if (!createdPurchase?.id) {
+    throw new Error(
+      "Could not link secure payment verification data to the purchase."
+    );
+  }
+
+  const secureData = result.secureData;
+
+  const { error: secretError } = await supabaseAdmin
+    .from("payment_checkout_secrets")
+    .insert({
+      purchase_id: createdPurchase.id,
+      salon_id: customer.salon_id,
+      provider: secureData.provider,
+      registration_id: secureData.registrationId,
+      hmac_key: secureData.hmacKey,
+      hmac_algorithm: secureData.hmacAlgorithm,
+      expires_at: secureData.expiry,
+    });
+
+  if (secretError) {
+    console.error(
+      "Could not save secure checkout verification data:",
+      secretError
+    );
+
+    throw new Error(
+      "Could not secure the payment checkout."
+    );
+  }
+
+  return NextResponse.json({
+    provider,
+    type: result.type,
+    checkoutUrl: result.checkoutUrl,
+    providerCheckoutId: result.providerCheckoutId,
+  });
+}
+
+return NextResponse.json({
+  provider,
+  ...result,
+});
     } catch (providerError) {
       console.error(
         `${provider} checkout connector failed:`,

@@ -187,6 +187,21 @@ note:
     badge: "Set up",
     fields: [
       {
+  key: "environment",
+  label: "Environment",
+  placeholder: "Choose Sandbox or Live",
+  options: [
+    {
+      label: "Sandbox",
+      value: "sandbox",
+    },
+    {
+      label: "Live",
+      value: "live",
+    },
+  ],
+},
+      {
         key: "integration_key",
         label: "Integration Key",
         placeholder: "Enter your Opayo integration key",
@@ -498,11 +513,15 @@ export default function PaymentProviderManager() {
     provider: Provider
   ) {
     const credentials = Object.fromEntries(
-      provider.fields.map((field) => [
-        field.key,
-        credentialValues[field.key]?.trim() ?? "",
-      ])
-    );
+  provider.fields.map((field) => [
+    field.key,
+    (
+      credentialValues[field.key] ??
+      field.options?.[0]?.value ??
+      ""
+    ).trim(),
+  ])
+);
 
     const missingField = provider.fields.find(
       (field) => !credentials[field.key]
