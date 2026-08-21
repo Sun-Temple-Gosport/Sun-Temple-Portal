@@ -24,6 +24,16 @@ type StripeCheckoutSession = {
   metadata?: Record<string, string> | null;
 };
 
+type DojoPaymentIntent = {
+  id?: string;
+  status?: string;
+  reference?: string;
+  amount?: {
+    value?: number;
+    currencyCode?: string;
+  };
+};
+
 type SquarePaymentLinkResponse = {
   payment_link?: {
     id?: string;
@@ -597,7 +607,52 @@ if (paymentProvider === "sumup") {
     paymentData.payment?.amount_money?.currency?.toLowerCase() ===
       "gbp";
 
-  paymentProviderLabel = "Square";
+    paymentProviderLabel = "Square";
+} else if (paymentProvider === "dojo") {
+  const apiKey =
+    credentials.api_key?.trim();
+
+  if (!apiKey) {
+    return (
+      <ErrorPage message="The salon's Dojo payment details are incomplete." />
+    );
+  }
+
+  const dojoResponse = await fetch(
+    `https://api.dojo.tech/payment-intents/${encodeURIComponent(
+      providerCheckoutId
+    )}`,
+    {
+      method: "GET",
+      headers: {
+        Authorization: `Basic ${apiKey}`,
+        Version: "2026-02-27",
+        Accept: "application/json",
+      },
+      cache: "no-store",
+    }
+  );
+
+  if (!dojoResponse.ok) {
+    return (
+      <ErrorPage message="Unable to verify the payment with Dojo." />
+    );
+  }
+
+  const dojoPayment =
+    (await dojoResponse.json()) as DojoPaymentIntent;
+
+  const expectedAmount =
+    Math.round(Number(purchase.amount_paid) * 100);
+
+  paymentMatches =
+    dojoPayment.id === providerCheckoutId &&
+    dojoPayment.status === "Captured" &&
+    dojoPayment.reference === checkoutReference &&
+    Number(dojoPayment.amount?.value) === expectedAmount &&
+    dojoPayment.amount?.currencyCode?.toUpperCase() === "GBP";
+
+  paymentProviderLabel = "Dojo";
 } else {
   return (
     <ErrorPage
