@@ -22,10 +22,19 @@ export type CheckoutInput = {
   description: string;
 };
 
+export type SecureCheckoutData = {
+  provider: "opayo";
+  registrationId: string;
+  hmacKey: string;
+  hmacAlgorithm: string;
+  expiry: string;
+};
+
 export type RedirectCheckoutResult = {
   type: "redirect";
   checkoutUrl: string;
   providerCheckoutId?: string;
+  secureData?: SecureCheckoutData;
 };
 
 export type EmbeddedCheckoutResult = {

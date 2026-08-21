@@ -15,6 +15,11 @@ export async function createOpayoCheckout(
   const vendorName =
     context.credentials.vendor_name?.trim();
 
+  const environment =
+    context.credentials.environment
+      ?.trim()
+      .toLowerCase();
+
   if (
     !integrationKey ||
     !integrationPassword ||
@@ -22,6 +27,15 @@ export async function createOpayoCheckout(
   ) {
     throw new Error(
       "Opayo payment credentials are incomplete."
+    );
+  }
+
+  if (
+    environment !== "sandbox" &&
+    environment !== "live"
+  ) {
+    throw new Error(
+      "Opayo environment is not configured."
     );
   }
 
@@ -34,12 +48,18 @@ export async function createOpayoCheckout(
     );
   }
 
+  const opayoBaseUrl =
+    environment === "sandbox"
+      ? "https://sandbox.opayo.eu.elavon.com"
+      : "https://live.opayo.eu.elavon.com";
+
   const amountInPence =
     Math.round(context.input.amount * 100);
 
-  const authorization = Buffer.from(
-    `${integrationKey}:${integrationPassword}`
-  ).toString("base64");
+  const authorization =
+    Buffer.from(
+      `${integrationKey}:${integrationPassword}`
+    ).toString("base64");
 
   const successUrl =
     `${siteUrl}/payment/success?checkoutReference=${encodeURIComponent(
@@ -49,40 +69,138 @@ export async function createOpayoCheckout(
   const failureUrl =
     `${siteUrl}/buy-minutes`;
 
+  /*
+   * Opayo HPP currently requires billing-address
+   * information when registering a Payment.
+   *
+   * For the shared Opayo sandbox account we use
+   * Opayo's published test customer/address data.
+   *
+   * We deliberately DO NOT send fake address data
+   * to the Live environment.
+   */
+  if (environment === "live") {
+    throw new Error(
+      "Opayo Live checkout requires customer billing address support."
+    );
+  }
+
   const response = await fetch(
-    "https://live.opayo.eu.elavon.com/hosted-payment-pages/vendor/v1/payment-pages",
+    `${opayoBaseUrl}/hosted-payment-pages/vendor/v1/payment-pages`,
     {
       method: "POST",
+
       headers: {
-        Authorization: `Basic ${authorization}`,
-        "Content-Type": "application/json",
-        Accept: "application/json",
+        Authorization:
+          `Basic ${authorization}`,
+        "Content-Type":
+          "application/json",
+        Accept:
+          "application/json",
       },
+
       body: JSON.stringify({
         transactionDetails: {
           transactionType: "Payment",
+
           vendorName,
+
           vendorTxCode:
             context.input.checkoutReference,
-          amount: amountInPence,
-          currency: "GBP",
+
+          amount:
+            amountInPence,
+
+          currency:
+            context.input.currency,
+
           description:
             context.input.description,
+
+          entryMethod: "Ecommerce",
+
+          customerFirstName:
+            "Test",
+
+          customerLastName:
+            "Customer",
+
+          customerEmail:
+            "test@test.com",
+
+          customerPhone:
+            "+44012345678",
+
+          billingAddress: {
+            address1:
+              "407 St. John Street",
+
+            city:
+              "London",
+
+            postalCode:
+              "EC1V 4AB",
+
+            country:
+              "GB",
+          },
+
+          supportedPaymentMethods: {
+            card: {
+              enabled: true,
+              enableSaveCard: false,
+            },
+          },
         },
 
-        successUrl,
-        failureUrl,
-        expiryUrl: failureUrl,
+        customerDataCapture: {
+          captureAmount: true,
+          captureBillingAddress: false,
+          captureShippingAddress: false,
+          captureFiData: false,
+          capturePhone: false,
+          captureEmail: false,
+        },
+
+        presentation: {
+          merchantDomain:
+            "opayo.io",
+
+          paymentPageType:
+            "redirect",
+        },
+
+        outcomeReport: {
+          redirectUrls: {
+            cancelUrl:
+              failureUrl,
+
+            failureUrl,
+
+            expiryUrl:
+              failureUrl,
+
+            successUrl,
+          },
+
+          postProcessNotification: {
+            sendVendorEmail: false,
+            sendCustomerEmail: false,
+          },
+        },
       }),
+
       cache: "no-store",
     }
   );
 
-  const data = await response.json();
+  const data =
+    await response.json();
 
   if (!response.ok) {
     console.error(
       "Opayo checkout creation failed:",
+      response.status,
       data
     );
 
@@ -91,7 +209,20 @@ export async function createOpayoCheckout(
     );
   }
 
-  if (typeof data?.nextURL !== "string") {
+  if (
+    typeof data?.nextURL !== "string" ||
+    typeof data?.registrationId !==
+      "string" ||
+    typeof data?.hmacKey !== "string" ||
+    typeof data?.hmacAlgorithm !==
+      "string" ||
+    typeof data?.expiry !== "string"
+  ) {
+    console.error(
+      "Opayo checkout response incomplete:",
+      data
+    );
+
     throw new Error(
       "Opayo returned an incomplete checkout."
     );
@@ -99,10 +230,27 @@ export async function createOpayoCheckout(
 
   return {
     type: "redirect",
-    checkoutUrl: data.nextURL,
+
+    checkoutUrl:
+      data.nextURL,
+
     providerCheckoutId:
-      typeof data?.registrationId === "string"
-        ? data.registrationId
-        : undefined,
+      data.registrationId,
+
+    secureData: {
+      provider: "opayo",
+
+      registrationId:
+        data.registrationId,
+
+      hmacKey:
+        data.hmacKey,
+
+      hmacAlgorithm:
+        data.hmacAlgorithm,
+
+      expiry:
+        data.expiry,
+    },
   };
 }

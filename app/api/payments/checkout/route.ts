@@ -501,7 +501,13 @@ export async function POST(request: Request) {
     );
   }
 
-  const secureData = result.secureData;
+  const secureData = result.secureData as {
+  provider: "opayo";
+  registrationId: string;
+  hmacKey: string;
+  hmacAlgorithm: string;
+  expiry: string;
+};
 
   const { error: secretError } = await supabaseAdmin
     .from("payment_checkout_secrets")
