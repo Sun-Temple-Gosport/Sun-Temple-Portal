@@ -15,6 +15,14 @@ export async function createWorldpayCheckout(
   const merchantEntity =
     context.credentials.merchant_entity?.trim();
 
+    const environment =
+  context.credentials.environment?.trim().toLowerCase();
+
+const worldpayBaseUrl =
+  environment === "try"
+    ? "https://try.access.worldpay.com"
+    : "https://access.worldpay.com";
+
   if (
     !username ||
     !password ||
@@ -50,7 +58,7 @@ export async function createWorldpayCheckout(
     `${siteUrl}/buy-minutes`;
 
   const response = await fetch(
-    "https://access.worldpay.com/payment_pages",
+  `${worldpayBaseUrl}/payment_pages`,
     {
       method: "POST",
       headers: {

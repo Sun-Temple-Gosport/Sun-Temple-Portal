@@ -145,6 +145,21 @@ note:
   badge: "Set up",
   fields: [
     {
+  key: "environment",
+  label: "Environment",
+  placeholder: "Choose Try or Live",
+  options: [
+    {
+      label: "Try (Test)",
+      value: "try",
+    },
+    {
+      label: "Live",
+      value: "live",
+    },
+  ],
+},
+    {
       key: "api_username",
       label: "API Username",
       placeholder: "Enter your Worldpay API username",

@@ -358,6 +358,16 @@ async function verifyWorldpay(
     "merchant_entity"
   );
 
+  const environment = credential(
+  credentials,
+  "environment"
+).toLowerCase();
+
+const worldpayBaseUrl =
+  environment === "try"
+    ? "https://try.access.worldpay.com"
+    : "https://access.worldpay.com";
+
   if (
     !username ||
     !password ||
@@ -375,7 +385,7 @@ async function verifyWorldpay(
   ).toString("base64");
 
   const response = await fetch(
-    "https://access.worldpay.com/payment_pages",
+  `${worldpayBaseUrl}/payment_pages`,
     {
       method: "POST",
       headers: {

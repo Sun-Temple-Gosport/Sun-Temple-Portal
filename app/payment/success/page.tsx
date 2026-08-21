@@ -34,6 +34,21 @@ type DojoPaymentIntent = {
   };
 };
 
+type WorldpayPaymentQueryResponse = {
+  _embedded?: {
+    payments?: {
+      paymentId?: string;
+      transactionReference?: string;
+      entity?: string;
+      lastEvent?: string;
+      value?: {
+        currency?: string;
+        amount?: number;
+      };
+    }[];
+  };
+};
+
 type SquarePaymentLinkResponse = {
   payment_link?: {
     id?: string;
@@ -72,6 +87,9 @@ type StoredCredentials = {
   environment?: string;
 access_token?: string;
 location_id?: string;
+api_username?: string;
+api_password?: string;
+merchant_entity?: string;
 };
 
 const supabaseAdmin = createClient(
@@ -652,7 +670,85 @@ if (paymentProvider === "sumup") {
     Number(dojoPayment.amount?.value) === expectedAmount &&
     dojoPayment.amount?.currencyCode?.toUpperCase() === "GBP";
 
-  paymentProviderLabel = "Dojo";
+    paymentProviderLabel = "Dojo";
+} else if (paymentProvider === "worldpay") {
+  const username =
+    credentials.api_username?.trim();
+
+  const password =
+    credentials.api_password?.trim();
+
+  const merchantEntity =
+    credentials.merchant_entity?.trim();
+
+  const environment =
+    credentials.environment?.trim().toLowerCase();
+
+  if (!username || !password || !merchantEntity) {
+    return (
+      <ErrorPage message="The salon's Worldpay payment details are incomplete." />
+    );
+  }
+
+  const worldpayBaseUrl =
+    environment === "try"
+      ? "https://try.access.worldpay.com"
+      : "https://access.worldpay.com";
+
+  const authorization = Buffer.from(
+    `${username}:${password}`
+  ).toString("base64");
+
+  const worldpayResponse = await fetch(
+    `${worldpayBaseUrl}/paymentQueries/payments?transactionReference=${encodeURIComponent(
+      checkoutReference
+    )}`,
+    {
+      method: "GET",
+      headers: {
+        Authorization: `Basic ${authorization}`,
+        Accept:
+          "application/vnd.worldpay.payment-queries-v1.hal+json",
+      },
+      cache: "no-store",
+    }
+  );
+
+  if (!worldpayResponse.ok) {
+    return (
+      <ErrorPage message="Unable to verify the payment with Worldpay." />
+    );
+  }
+
+  const worldpayData =
+    (await worldpayResponse.json()) as WorldpayPaymentQueryResponse;
+
+  const worldpayPayment =
+    worldpayData._embedded?.payments?.find(
+      (payment) =>
+        payment.transactionReference === checkoutReference
+    );
+
+  const expectedAmount =
+    Math.round(Number(purchase.amount_paid) * 100);
+
+  const successfulEvents = [
+    "authorizationSucceeded",
+    "saleSucceeded",
+    "settlementRequested",
+    "settlementRequestSubmitted",
+  ];
+
+  paymentMatches =
+    !!worldpayPayment &&
+    worldpayPayment.entity === merchantEntity &&
+    successfulEvents.includes(
+      worldpayPayment.lastEvent ?? ""
+    ) &&
+    Number(worldpayPayment.value?.amount) === expectedAmount &&
+    worldpayPayment.value?.currency?.toUpperCase() === "GBP";
+
+  paymentProviderLabel = "Worldpay";
 } else {
   return (
     <ErrorPage
