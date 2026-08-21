@@ -4,8 +4,7 @@ export type OnlinePaymentProvider =
   | "square"
   | "dojo"
   | "worldpay"
-  | "opayo"
-  | "adyen";
+  | "opayo";
 
 export type StoredPaymentCredentials = Record<
   string,
@@ -62,5 +61,4 @@ export const onlinePaymentProviders: OnlinePaymentProvider[] = [
   "dojo",
   "worldpay",
   "opayo",
-  "adyen",
-];
+  ];

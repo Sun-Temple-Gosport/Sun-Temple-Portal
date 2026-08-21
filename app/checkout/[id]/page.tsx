@@ -261,7 +261,6 @@ const [
   "dojo",
   "worldpay",
   "opayo",
-  "adyen",
 ].includes(paymentProvider ?? "") ? (
   <CheckoutButton
     amount={checkoutPrice}

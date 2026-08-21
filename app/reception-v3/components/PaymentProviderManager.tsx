@@ -10,7 +10,6 @@ type ProviderId =
   | "dojo"
   | "worldpay"
   | "opayo"
-  | "adyen"
   | "manual"
   | "other";
 
@@ -222,41 +221,7 @@ note:
     note:
       "Enter the Integration Key, Integration Password and Vendor Name from your Opayo account.",
   },
-
-  {
-    id: "adyen",
-    name: "Adyen",
-    description: "Accept online payments through Adyen.",
-    badge: "Set up",
-    fields: [
-      {
-        key: "api_key",
-        label: "API Key",
-        placeholder: "Enter your Adyen API key",
-        secret: true,
-      },
-      {
-        key: "merchant_account",
-        label: "Merchant Account",
-        placeholder: "Enter your Adyen merchant account",
-      },
-      {
-        key: "client_key",
-        label: "Client Key",
-        placeholder: "Enter your Adyen client key",
-      },
-      {
-        key: "live_url_prefix",
-        label: "Live URL Prefix",
-        placeholder: "Example: 1797a841fbb37ca7-YourCompany",
-      },
-    ],
-    note:
-      "Enter the API Key, Merchant Account, Client Key and Live URL Prefix from your Adyen account.",
-  },
-
   
-
   {
     id: "manual",
     name: "In-store payments only",

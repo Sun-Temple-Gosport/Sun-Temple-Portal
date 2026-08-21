@@ -13,7 +13,6 @@ const allowedProviders = [
   "dojo",
   "worldpay",
   "opayo",
-  "adyen",
   "manual",
   "other",
 ] as const;

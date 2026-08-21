@@ -3,7 +3,6 @@ import type {
   ProviderCheckoutContext,
 } from "./providerTypes";
 
-import { createAdyenCheckout } from "./providers/adyen";
 import { createDojoCheckout } from "./providers/dojo";
 import { createOpayoCheckout } from "./providers/opayo";
 import { createSquareCheckout } from "./providers/square";
@@ -33,8 +32,6 @@ export async function createProviderCheckout(
     case "opayo":
       return createOpayoCheckout(context);
 
-    case "adyen":
-      return createAdyenCheckout(context);
 
     default: {
       const exhaustiveCheck: never = context.provider;

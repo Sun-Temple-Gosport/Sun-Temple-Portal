@@ -272,7 +272,6 @@ export async function POST(request: Request) {
       "dojo",
       "worldpay",
       "opayo",
-      "adyen",
       ];
 
     if (!supportedProviders.includes(provider)) {

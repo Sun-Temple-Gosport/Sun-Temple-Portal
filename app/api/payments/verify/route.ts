@@ -15,7 +15,6 @@ type ProviderId =
   | "dojo"
   | "worldpay"
   | "opayo"
-  | "adyen"
   
 
 type StoredCredentials = {
@@ -536,92 +535,6 @@ const opayoBaseUrl =
   };
 }
 
-async function verifyAdyen(
-  credentials: StoredCredentials
-): Promise<VerificationResult> {
-  const apiKey = credential(credentials, "api_key");
-
-  const merchantAccount = credential(
-    credentials,
-    "merchant_account"
-  );
-
-  const clientKey = credential(
-    credentials,
-    "client_key"
-  );
-
-  const liveUrlPrefix = credential(
-    credentials,
-    "live_url_prefix"
-  );
-
-  if (
-    !apiKey ||
-    !merchantAccount ||
-    !clientKey ||
-    !liveUrlPrefix
-  ) {
-    return {
-      ok: false,
-      error:
-        "Your saved Adyen payment details are incomplete.",
-    };
-  }
-
-  if (
-    !/^[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*$/.test(
-      liveUrlPrefix
-    )
-  ) {
-    return {
-      ok: false,
-      error:
-        "Your Adyen Live URL Prefix is not valid.",
-    };
-  }
-
-  const response = await fetch(
-    `https://${liveUrlPrefix}-checkout-live.adyenpayments.com/checkout/v72/paymentMethods`,
-    {
-      method: "POST",
-      headers: {
-        "X-API-Key": apiKey,
-        "Content-Type": "application/json",
-        Accept: "application/json",
-      },
-      body: JSON.stringify({
-        merchantAccount,
-        countryCode: "GB",
-        channel: "Web",
-      }),
-      cache: "no-store",
-    }
-  );
-
-  if (!response.ok) {
-    return {
-      ok: false,
-      error:
-        "Adyen could not verify your API Key, Merchant Account and Live URL Prefix.",
-    };
-  }
-
-  const data = await response.json();
-
-  if (!Array.isArray(data?.paymentMethods)) {
-    return {
-      ok: false,
-      error:
-        "Adyen returned an unexpected verification response.",
-    };
-  }
-
-  return {
-    ok: true,
-    merchantReference: merchantAccount,
-  };
-}
 
 async function verifyProvider(
   provider: ProviderId,
@@ -645,9 +558,6 @@ async function verifyProvider(
 
     case "opayo":
       return verifyOpayo(credentials);
-
-    case "adyen":
-      return verifyAdyen(credentials);
 
   }
 }
@@ -765,7 +675,6 @@ export async function POST(request: Request) {
       "dojo",
       "worldpay",
       "opayo",
-      "adyen",
     ];
 
     if (
