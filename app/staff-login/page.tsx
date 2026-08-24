@@ -51,7 +51,7 @@ export default function StaffLoginPage() {
 
     if (role !== "owner" && role !== "staff") {
       await supabase.auth.signOut();
-      setMessage("This login is for staff only.");
+      setMessage("This login is for salon owners and staff only.");
       return;
     }
 
@@ -62,10 +62,10 @@ export default function StaffLoginPage() {
     <main className="flex min-h-screen items-center justify-center bg-black px-4 text-white">
       <div className="w-full max-w-md">
         <p className="mb-4 text-xs font-black uppercase tracking-[0.35em] text-amber-400">
-          Current Salon
+          TanSalonOS
         </p>
 
-        <h1 className="mb-8 text-5xl font-black">Staff Login</h1>
+        <h1 className="mb-8 text-5xl font-black">Salon Login</h1>
 
         <div className="rounded-3xl border border-amber-500/30 bg-slate-950 p-8 shadow-xl">
           <div className="space-y-4">
@@ -73,7 +73,7 @@ export default function StaffLoginPage() {
               type="email"
               autoComplete="email"
               className="w-full rounded-xl border border-slate-700 bg-slate-900 px-4 py-4 text-white outline-none focus:border-amber-400"
-              placeholder="Staff email address"
+              placeholder="Email address"
               value={email}
               onChange={(event) => setEmail(event.target.value)}
             />
@@ -98,7 +98,7 @@ export default function StaffLoginPage() {
               disabled={loading}
               className="w-full rounded-full bg-amber-400 px-5 py-4 font-black text-black hover:bg-amber-300 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {loading ? "Logging in..." : "Login to Reception"}
+              {loading ? "Logging in..." : "Login to TanSalonOS"}
             </button>
 
             <div className="flex justify-end">

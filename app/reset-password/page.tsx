@@ -44,26 +44,9 @@ export default function ResetPasswordPage() {
 
         salon = data;
       } else {
-        const { data, error } = await supabase
-          .from("salons")
-          .select("id, slug")
-          .eq("active", true)
-          .limit(2);
-
-        if (error) {
-          console.error("Could not load salon branding:", error.message);
-          return;
-        }
-
-        if (!data || data.length !== 1) {
-          console.error(
-            "Could not load salon branding: salon must be specified."
-          );
-          return;
-        }
-
-        salon = data[0];
-      }
+  setSalonName("TanSalonOS");
+  return;
+}
 
       const { data, error } = await supabase
         .from("salon_settings")
@@ -115,17 +98,37 @@ export default function ResetPasswordPage() {
     }
 
     setPassword("");
-    setConfirmPassword("");
-    setMessage("Password updated successfully.");
+setConfirmPassword("");
+setMessage("Password updated successfully.");
 
-    window.setTimeout(() => {
-      router.push(
-        salonSlug
-          ? `/login?salon=${encodeURIComponent(salonSlug)}`
-          : "/login"
-      );
-      router.refresh();
-    }, 1500);
+const {
+  data: { user },
+} = await supabase.auth.getUser();
+
+let destination = salonSlug
+  ? `/login?salon=${encodeURIComponent(salonSlug)}`
+  : "/login";
+
+if (user) {
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  const role = profile?.role?.toLowerCase();
+
+  if (role === "owner" || role === "staff") {
+    destination = "/staff-login";
+  }
+}
+
+await supabase.auth.signOut();
+
+window.setTimeout(() => {
+  router.push(destination);
+  router.refresh();
+}, 1500);
   }
 
   return (

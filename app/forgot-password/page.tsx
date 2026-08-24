@@ -40,26 +40,9 @@ export default function ForgotPasswordPage() {
 
         salon = data;
       } else {
-        const { data, error } = await supabase
-          .from("salons")
-          .select("id, slug")
-          .eq("active", true)
-          .limit(2);
-
-        if (error) {
-          console.error("Could not load salon branding:", error.message);
-          return;
-        }
-
-        if (!data || data.length !== 1) {
-          console.error(
-            "Could not load salon branding: salon must be specified."
-          );
-          return;
-        }
-
-        salon = data[0];
-      }
+  setSalonName("TanSalonOS");
+  return;
+}
 
       const { data, error } = await supabase
         .from("salon_settings")

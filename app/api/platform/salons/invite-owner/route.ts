@@ -21,6 +21,15 @@ const admin = createClient(
   }
 );
 
+function createSalonSlug(name: string) {
+  return name
+    .trim()
+    .toLowerCase()
+    .replace(/['’]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
 export async function POST(request: Request) {
   try {
     const authorization =
@@ -111,12 +120,21 @@ export async function POST(request: Request) {
             .toLowerCase()
         : "";
 
-    const salonSlug =
+    const salonName =
+      typeof body.salonName === "string"
+        ? body.salonName.trim()
+        : "";
+
+    const requestedSalonSlug =
       typeof body.salonSlug === "string"
         ? body.salonSlug
             .trim()
             .toLowerCase()
         : "";
+
+    const salonSlug =
+      requestedSalonSlug ||
+      createSalonSlug(salonName);
 
     if (
       !fullName ||
@@ -126,15 +144,15 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           error:
-            "Full name, email and salon slug are required.",
+            "Owner name, email and salon details are required.",
         },
         { status: 400 }
       );
     }
 
     const {
-      data: salon,
-      error: salonError,
+      data: existingSalon,
+      error: salonLookupError,
     } = await admin
       .from("salons")
       .select(
@@ -143,18 +161,68 @@ export async function POST(request: Request) {
       .eq("slug", salonSlug)
       .maybeSingle();
 
-    if (
-      salonError ||
-      !salon ||
-      !salon.active
-    ) {
+    if (salonLookupError) {
       return NextResponse.json(
         {
           error:
-            "The selected salon does not exist or is inactive.",
+            salonLookupError.message,
         },
-        { status: 400 }
+        { status: 500 }
       );
+    }
+
+    let salon = existingSalon;
+
+    if (salon) {
+      if (!salon.active) {
+        return NextResponse.json(
+          {
+            error:
+              "This salon is inactive.",
+          },
+          { status: 400 }
+        );
+      }
+    } else {
+      if (!salonName) {
+        return NextResponse.json(
+          {
+            error:
+              "Salon name is required to create a new salon.",
+          },
+          { status: 400 }
+        );
+      }
+
+      const {
+        data: createdSalon,
+        error: createSalonError,
+      } = await admin
+        .from("salons")
+        .insert({
+          name: salonName,
+          slug: salonSlug,
+        })
+        .select(
+          "id, name, slug, active"
+        )
+        .single();
+
+      if (
+        createSalonError ||
+        !createdSalon
+      ) {
+        return NextResponse.json(
+          {
+            error:
+              createSalonError?.message ||
+              "Could not create the salon.",
+          },
+          { status: 500 }
+        );
+      }
+
+      salon = createdSalon;
     }
 
     const {

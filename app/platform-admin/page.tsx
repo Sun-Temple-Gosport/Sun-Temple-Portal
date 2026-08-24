@@ -8,9 +8,9 @@ export default function PlatformAdminPage() {
   const [hasAccess, setHasAccess] = useState(false);
   const [accessMessage, setAccessMessage] = useState("");
 
+  const [salonName, setSalonName] = useState("");
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
-  const [salonSlug, setSalonSlug] = useState("");
 
   const [sending, setSending] = useState(false);
   const [message, setMessage] = useState("");
@@ -76,12 +76,12 @@ export default function PlatformAdminPage() {
     setSuccess(false);
 
     if (
+      !salonName.trim() ||
       !fullName.trim() ||
-      !email.trim() ||
-      !salonSlug.trim()
+      !email.trim()
     ) {
       setMessage(
-        "Owner name, email and salon slug are required."
+        "Salon name, owner name and email are required."
       );
       return;
     }
@@ -116,11 +116,9 @@ export default function PlatformAdminPage() {
               `Bearer ${session.access_token}`,
           },
           body: JSON.stringify({
+            salonName: salonName.trim(),
             fullName: fullName.trim(),
             email: email
-              .trim()
-              .toLowerCase(),
-            salonSlug: salonSlug
               .trim()
               .toLowerCase(),
           }),
@@ -143,9 +141,9 @@ export default function PlatformAdminPage() {
           "Owner invitation sent successfully."
       );
 
+      setSalonName("");
       setFullName("");
       setEmail("");
-      setSalonSlug("");
     } catch (error) {
       console.error(
         "Invite owner error:",
@@ -203,12 +201,32 @@ export default function PlatformAdminPage() {
           </h1>
 
           <p className="mt-2 text-sm text-slate-400">
-            Invite the first owner of a new salon.
+            Create a new TanSalonOS salon and invite its first owner.
           </p>
         </div>
 
         <section className="rounded-3xl border border-slate-800 bg-slate-900 p-6 shadow-2xl">
           <div className="space-y-5">
+            <div>
+              <label className="mb-2 block text-xs font-black uppercase tracking-wide text-slate-400">
+                Salon Name
+              </label>
+
+              <input
+                type="text"
+                value={salonName}
+                onChange={(event) =>
+                  setSalonName(event.target.value)
+                }
+                placeholder="e.g. Glow Tanning Studio"
+                className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none placeholder:text-slate-600 focus:border-amber-400"
+              />
+
+              <p className="mt-2 text-xs text-slate-500">
+                TanSalonOS will create the salon automatically.
+              </p>
+            </div>
+
             <div>
               <label className="mb-2 block text-xs font-black uppercase tracking-wide text-slate-400">
                 Owner Name
@@ -241,26 +259,6 @@ export default function PlatformAdminPage() {
               />
             </div>
 
-            <div>
-              <label className="mb-2 block text-xs font-black uppercase tracking-wide text-slate-400">
-                Salon Slug
-              </label>
-
-              <input
-                type="text"
-                value={salonSlug}
-                onChange={(event) =>
-                  setSalonSlug(event.target.value)
-                }
-                placeholder="e.g. glow-tanning-studio"
-                className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none placeholder:text-slate-600 focus:border-amber-400"
-              />
-
-              <p className="mt-2 text-xs text-slate-500">
-                This must exactly match the salon slug created in TanSalonOS.
-              </p>
-            </div>
-
             <button
               type="button"
               onClick={inviteOwner}
@@ -268,8 +266,8 @@ export default function PlatformAdminPage() {
               className="w-full rounded-xl bg-amber-400 px-4 py-3 font-black text-black transition hover:bg-amber-300 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {sending
-                ? "Sending Invitation..."
-                : "Send Owner Invitation"}
+                ? "Creating Salon & Sending Invitation..."
+                : "Create Salon & Send Invitation"}
             </button>
           </div>
 

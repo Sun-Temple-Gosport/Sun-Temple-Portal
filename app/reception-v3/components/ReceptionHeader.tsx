@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../lib/supabase";
 
@@ -23,7 +23,36 @@ export default function ReceptionHeader({
 }: Props) {
   const router = useRouter();
 
-  const [passwordModalOpen, setPasswordModalOpen] = useState(false);
+const [isPlatformAdmin, setIsPlatformAdmin] = useState(false);
+const [passwordModalOpen, setPasswordModalOpen] = useState(false);
+
+useEffect(() => {
+  async function checkPlatformAdmin() {
+    if (userRole !== "owner") {
+      setIsPlatformAdmin(false);
+      return;
+    }
+
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    if (!session?.access_token) {
+      setIsPlatformAdmin(false);
+      return;
+    }
+
+    const response = await fetch("/api/platform/me", {
+      headers: {
+        Authorization: `Bearer ${session.access_token}`,
+      },
+    });
+
+    setIsPlatformAdmin(response.ok);
+  }
+
+  void checkPlatformAdmin();
+}, [userRole]);
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [passwordMessage, setPasswordMessage] = useState("");
@@ -159,6 +188,15 @@ window.setTimeout(() => {
             <p style={styles.userName}>👤 {userName}</p>
             <p style={styles.userRole}>{roleLabel}</p>
           </div>
+          {isPlatformAdmin && (
+  <button
+    type="button"
+    onClick={() => router.push("/platform-admin")}
+    style={styles.passwordButton}
+  >
+    Platform Admin
+  </button>
+)}
           {userRole === "staff" && (
   <button
     type="button"
