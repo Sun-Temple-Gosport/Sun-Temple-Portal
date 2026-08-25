@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect, useState } from "react";
+import { supabase } from "../lib/supabase";
 import { CustomerBalance } from "../types";
 import { formatExpiry } from "../utils";
 
@@ -22,6 +24,40 @@ export default function CustomerSearch({
   onSearch,
   onSelectCustomer,
 }: Props) {
+  const [unlimitedIds, setUnlimitedIds] = useState<string[]>([]);
+const [unlimitedExpiries, setUnlimitedExpiries] =
+  useState<Record<string, string>>({});
+
+useEffect(() => {
+  const ids = customers.map((customer) => customer.customer_id);
+
+  if (ids.length === 0) {
+    setUnlimitedIds([]);
+    setUnlimitedExpiries({});
+    return;
+  }
+
+  const today = new Date().toISOString().slice(0, 10);
+
+  void supabase
+    .from("purchases")
+    .select("customer_id, expiry_date")
+    .eq("payment_status", "paid")
+    .eq("is_unlimited", true)
+    .gte("expiry_date", today)
+    .in("customer_id", ids)
+    .then(({ data }) => {
+      const rows = data ?? [];
+
+      setUnlimitedIds(rows.map((row) => row.customer_id));
+
+      setUnlimitedExpiries(
+        Object.fromEntries(
+          rows.map((row) => [row.customer_id, row.expiry_date])
+        )
+      );
+    });
+}, [customers]);
   return (
     <section style={styles.panel}>
       <div style={styles.headerRow}>
@@ -70,13 +106,19 @@ onClick={() => onSelectCustomer(customer)}
                 </div>
 
                 <div style={styles.customerStats}>
-                  <strong style={styles.minutes}>
-                    {customer.total_minutes} mins
-                  </strong>
-                  <span style={styles.expiry}>
-                    {formatExpiry(customer.next_expiry)}
-                  </span>
-                </div>
+  <strong style={styles.minutes}>
+    {unlimitedIds.includes(customer.customer_id)
+      ? "∞ Unlimited"
+      : `${customer.total_minutes ?? 0} mins`}
+  </strong>
+
+  <span style={styles.expiry}>
+    {formatExpiry(
+      unlimitedExpiries[customer.customer_id] ??
+        customer.next_expiry
+    )}
+  </span>
+</div>
               </button>
             );
           })}
