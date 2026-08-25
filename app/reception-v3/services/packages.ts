@@ -30,7 +30,9 @@ export async function loadPackages() {
 
   return await supabase
     .from("packages")
-    .select("id, name, minutes, price, expiry_days, active")
+    .select(
+      "id, name, minutes, price, expiry_days, active, is_unlimited"
+    )
     .eq("salon_id", profile.salon_id)
     .order("minutes", { ascending: true });
 }
@@ -42,6 +44,7 @@ export async function savePackage(updatedPackage: {
   price: number;
   expiry_days: number | null;
   active: boolean;
+  is_unlimited: boolean;
 }) {
   const {
     data: { user },
@@ -78,16 +81,19 @@ export async function savePackage(updatedPackage: {
       price: updatedPackage.price,
       expiry_days: updatedPackage.expiry_days,
       active: updatedPackage.active,
+      is_unlimited: updatedPackage.is_unlimited,
     })
     .eq("id", updatedPackage.id)
     .eq("salon_id", profile.salon_id);
 }
+
 export async function createPackageService(newPackage: {
   name: string;
   minutes: number;
   price: number;
   expiry_days: number;
   active: boolean;
+  is_unlimited: boolean;
 }) {
   const {
     data: { user },
@@ -110,7 +116,9 @@ export async function createPackageService(newPackage: {
   if (profileError || !profile?.salon_id) {
     return {
       data: null,
-      error: profileError ?? new Error("Could not determine the current salon."),
+      error:
+        profileError ??
+        new Error("Could not determine the current salon."),
     };
   }
 
@@ -123,8 +131,10 @@ export async function createPackageService(newPackage: {
       price: newPackage.price,
       expiry_days: newPackage.expiry_days,
       active: newPackage.active,
+      is_unlimited: newPackage.is_unlimited,
     });
 }
+
 export async function deletePackageService(id: number) {
   const {
     data: { user },

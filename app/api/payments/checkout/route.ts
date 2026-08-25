@@ -176,15 +176,15 @@ export async function POST(request: Request) {
         .maybeSingle(),
 
       supabaseAdmin
-        .from("packages")
-        .select(
-          "id, name, minutes, price, expiry_days, active"
-        )
-        .eq("id", body.packageId)
-        .eq("salon_id", customer.salon_id)
-        .eq("active", true)
-        .gte("minutes", 30)
-        .maybeSingle(),
+  .from("packages")
+  .select(
+    "id, name, minutes, price, expiry_days, active, is_unlimited"
+  )
+  .eq("id", body.packageId)
+  .eq("salon_id", customer.salon_id)
+  .eq("active", true)
+  .or("minutes.gte.30,is_unlimited.eq.true")
+  .maybeSingle(),
 
       supabaseAdmin
         .from("vip_settings")
@@ -393,11 +393,13 @@ export async function POST(request: Request) {
         : Number(pkg.price);
 
     const expiryDays =
-      isVip && typedVipSettings
-        ? Number(
-            typedVipSettings.course_expiry_days
-          )
-        : Number(pkg.expiry_days ?? 30);
+  pkg.is_unlimited
+    ? Number(pkg.expiry_days ?? 30)
+    : isVip && typedVipSettings
+    ? Number(
+        typedVipSettings.course_expiry_days
+      )
+    : Number(pkg.expiry_days ?? 30);
 
     const expiry = new Date();
 
@@ -405,7 +407,9 @@ export async function POST(request: Request) {
       expiry.getDate() + expiryDays
     );
 
-    const description = `${pkg.minutes} Minute Package${
+    const description = pkg.is_unlimited
+  ? `Unlimited Package${isVip ? " - VIP" : ""}`
+  : `${pkg.minutes} Minute Package${
       isVip ? " - VIP" : ""
     }`;
 
@@ -420,11 +424,12 @@ export async function POST(request: Request) {
       customer.customer_id,
     package_id: pkg.id,
     minutes_added: pkg.minutes,
-    amount_paid: amount,
-    expiry_date: expiry
-      .toISOString()
-      .split("T")[0],
-    payment_provider: provider,
+is_unlimited: pkg.is_unlimited === true,
+amount_paid: amount,
+expiry_date: expiry
+  .toISOString()
+  .split("T")[0],
+payment_provider: provider,
     checkout_reference:
       body.checkoutReference,
     payment_status: "pending",

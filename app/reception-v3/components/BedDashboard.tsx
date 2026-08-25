@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { BedSession, CustomerBalance } from "../types";
+import { supabase } from "../lib/supabase";
 
 
 
@@ -61,7 +62,11 @@ const [paygAmount, setPaygAmount] =
 
 const [paygPaymentMethod, setPaygPaymentMethod] =
   useState<"cash" | "card">("card");
-  const [starting, setStarting] = useState(false);
+
+const [unlimitedExpiresAt, setUnlimitedExpiresAt] =
+  useState<string | null>(null);
+
+const [starting, setStarting] = useState(false);
   const [finishingId, setFinishingId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -69,6 +74,47 @@ const [paygPaymentMethod, setPaygPaymentMethod] =
     return () => clearInterval(timer);
   }, []);
 
+  useEffect(() => {
+  let cancelled = false;
+
+  async function loadUnlimitedStatus() {
+    if (!selectedCustomer?.customer_id) {
+      setUnlimitedExpiresAt(null);
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from("customers")
+      .select("unlimited_expires_at")
+      .eq("customer_id", selectedCustomer.customer_id)
+      .maybeSingle();
+
+    if (cancelled) return;
+
+    if (error) {
+      console.error(
+        "Could not load Unlimited status:",
+        error.message
+      );
+      setUnlimitedExpiresAt(null);
+      return;
+    }
+
+    setUnlimitedExpiresAt(
+      data?.unlimited_expires_at ?? null
+    );
+  }
+
+  void loadUnlimitedStatus();
+
+  return () => {
+    cancelled = true;
+  };
+}, [selectedCustomer?.customer_id]);
+
+const hasActiveUnlimited =
+  !!unlimitedExpiresAt &&
+  new Date(unlimitedExpiresAt).getTime() > now;
   const activeSessions = sessions.filter(
   (session) => session.status === "occupied"
 );
@@ -281,17 +327,17 @@ const [paygPaymentMethod, setPaygPaymentMethod] =
         </p>
       </div>
     ) : (
-      <div className="flex items-center justify-between gap-3">
-        <p className="text-sm font-black text-white">
-          {selectedCustomer?.full_name || "No customer selected"}
-        </p>
-
-        <p className="text-xs font-bold text-slate-400">
-          {selectedCustomer
-            ? `${selectedCustomer.total_minutes ?? 0} mins`
-            : "Select customer"}
-        </p>
-      </div>
+      <div>
+  <p className="text-sm font-black text-white">
+    {selectedCustomer
+      ? `${selectedCustomer.full_name || "Customer"} - ${
+          hasActiveUnlimited
+            ? "Unlimited"
+            : `${selectedCustomer.total_minutes ?? 0} mins`
+        }`
+      : "No customer selected"}
+  </p>
+</div>
     )}
   </div>
 

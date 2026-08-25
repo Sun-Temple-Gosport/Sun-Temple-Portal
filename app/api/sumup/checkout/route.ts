@@ -68,7 +68,9 @@ export async function POST(request: Request) {
 
     let customerQuery = supabaseAdmin
       .from("customers")
-      .select("customer_id, vip_expires_at, salon_id")
+      .select(
+  "customer_id, vip_expires_at, unlimited_expires_at, salon_id"
+)
       .eq("salon_id", profile.salon_id);
 
     if (profile.customer_id) {
@@ -111,13 +113,15 @@ export async function POST(request: Request) {
       },
     ] = await Promise.all([
       supabaseAdmin
-        .from("packages")
-        .select("id, name, minutes, price, expiry_days, active")
-        .eq("id", body.packageId)
-        .eq("salon_id", customer.salon_id)
-        .eq("active", true)
-        .gte("minutes", 30)
-        .maybeSingle(),
+  .from("packages")
+  .select(
+    "id, name, minutes, price, expiry_days, active, is_unlimited"
+  )
+  .eq("id", body.packageId)
+  .eq("salon_id", customer.salon_id)
+  .eq("active", true)
+  .or("minutes.gte.30,is_unlimited.eq.true")
+  .maybeSingle(),
 
       supabaseAdmin
         .from("vip_settings")
@@ -256,14 +260,35 @@ export async function POST(request: Request) {
         : Number(pkg.price);
 
     const expiryDays =
-      isVip && vipSettings
-        ? Number(vipSettings.course_expiry_days)
-        : Number(pkg.expiry_days ?? 30);
+  pkg.is_unlimited
+    ? Number(pkg.expiry_days ?? 30)
+    : isVip && vipSettings
+    ? Number(vipSettings.course_expiry_days)
+    : Number(pkg.expiry_days ?? 30);
 
-    const expiry = new Date();
-    expiry.setDate(expiry.getDate() + expiryDays);
+const now = new Date();
 
-    const description = `${pkg.minutes} Minute Package${
+const existingUnlimitedExpiry =
+  pkg.is_unlimited &&
+  customer.unlimited_expires_at
+    ? new Date(customer.unlimited_expires_at)
+    : null;
+
+const expiry =
+  pkg.is_unlimited &&
+  existingUnlimitedExpiry &&
+  !Number.isNaN(existingUnlimitedExpiry.getTime()) &&
+  existingUnlimitedExpiry > now
+    ? new Date(existingUnlimitedExpiry)
+    : new Date(now);
+
+expiry.setDate(
+  expiry.getDate() + expiryDays
+);
+
+const description = pkg.is_unlimited
+  ? `Unlimited Package${isVip ? " - VIP" : ""}`
+  : `${pkg.minutes} Minute Package${
       isVip ? " - VIP" : ""
     }`;
 

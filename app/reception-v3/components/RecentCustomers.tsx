@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect, useState } from "react";
+import { supabase } from "../lib/supabase";
 import type { CustomerBalance } from "../types";
 
 type Props = {
@@ -14,6 +16,29 @@ export default function RecentCustomers({
   onSelectCustomer,
 }: Props) {
   if (recentCustomers.length === 0) return null;
+  const [unlimitedIds, setUnlimitedIds] = useState<string[]>([]);
+
+useEffect(() => {
+  const ids = recentCustomers.map((customer) => customer.customer_id);
+
+  if (ids.length === 0) {
+    setUnlimitedIds([]);
+    return;
+  }
+
+  const today = new Date().toISOString().slice(0, 10);
+
+  void supabase
+    .from("purchases")
+    .select("customer_id")
+    .eq("payment_status", "paid")
+    .eq("is_unlimited", true)
+    .gte("expiry_date", today)
+    .in("customer_id", ids)
+    .then(({ data }) => {
+      setUnlimitedIds((data ?? []).map((row) => row.customer_id));
+    });
+}, [recentCustomers]);
 
   return (
     <section className="rounded-2xl border border-slate-800 bg-slate-900 px-4 py-3 shadow-xl">
@@ -55,14 +80,26 @@ export default function RecentCustomers({
                 </div>
 
                 <div className="shrink-0 text-right">
-                  <p className="text-2xl font-black leading-none text-emerald-400">
-                    {customer.total_minutes ?? 0}
-                  </p>
-
-                  <p className="mt-1 text-[10px] font-black uppercase tracking-wide text-slate-500">
-                    mins
-                  </p>
-                </div>
+  {unlimitedIds.includes(customer.customer_id) ? (
+    <>
+      <p className="text-3xl font-black leading-none text-emerald-400">
+        ∞
+      </p>
+      <p className="mt-1 text-[10px] font-black uppercase tracking-wide text-emerald-400">
+        Unlimited
+      </p>
+    </>
+  ) : (
+    <>
+      <p className="text-2xl font-black leading-none text-emerald-400">
+        {customer.total_minutes ?? 0}
+      </p>
+      <p className="mt-1 text-[10px] font-black uppercase tracking-wide text-slate-500">
+        mins
+      </p>
+    </>
+  )}
+</div>
               </div>
             </button>
           );

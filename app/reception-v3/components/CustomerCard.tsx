@@ -12,6 +12,12 @@ type PackageOption = {
   price: number;
   expiry_days: number | null;
   active: boolean | null;
+  is_unlimited?: boolean;
+};
+
+type PackageSale = Sale & {
+  is_unlimited?: boolean;
+  expiry_days?: number | null;
 };
 
 type PaymentMethod = "card" | "cash";
@@ -22,7 +28,7 @@ type Props = {
   selectedCustomer: CustomerBalance | null;
   manualAdd: string;
   setManualAdd: (value: string) => void;
-  onAddMinutes: (sale?: Sale) => Promise<void>;
+  onAddMinutes: (sale?: PackageSale) => Promise<void>;
   onEditCustomer: () => void;
   packages: PackageOption[];
 };
@@ -49,7 +55,10 @@ const [selectedDiscount, setSelectedDiscount] =
   useState<DiscountType>("none");
 const [discountExpiry, setDiscountExpiry] = useState("");
 const [savingDiscount, setSavingDiscount] = useState(false);
-    const [vipDiscountPercent, setVipDiscountPercent] = useState(0);
+   const [vipDiscountPercent, setVipDiscountPercent] = useState(0);
+
+const [activeUnlimitedExpiry, setActiveUnlimitedExpiry] =
+  useState<string | null>(null);
 
 useEffect(() => {
   async function loadVipDiscount() {
@@ -96,6 +105,69 @@ useEffect(() => {
 
   void loadVipDiscount();
 }, []);
+
+useEffect(() => {
+  async function loadUnlimitedStatus() {
+    setActiveUnlimitedExpiry(null);
+
+    if (!selectedCustomer) {
+      return;
+    }
+
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
+
+    if (userError || !user) {
+      console.error(
+        "Could not determine logged-in user for Unlimited status:",
+        userError?.message
+      );
+      return;
+    }
+
+    const { data: profile, error: profileError } = await supabase
+      .from("profiles")
+      .select("salon_id")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    if (profileError || !profile?.salon_id) {
+      console.error(
+        "Could not determine salon for Unlimited status:",
+        profileError?.message || "Salon ID missing."
+      );
+      return;
+    }
+
+    const today = new Date().toISOString().split("T")[0];
+
+    const { data, error } = await supabase
+      .from("purchases")
+      .select("expiry_date")
+      .eq("salon_id", profile.salon_id)
+      .eq("customer_id", selectedCustomer.customer_id)
+      .eq("payment_status", "paid")
+      .eq("is_unlimited", true)
+      .gte("expiry_date", today)
+      .order("expiry_date", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) {
+      console.error(
+        "Could not load Unlimited status:",
+        error.message
+      );
+      return;
+    }
+
+    setActiveUnlimitedExpiry(data?.expiry_date ?? null);
+  }
+
+  void loadUnlimitedStatus();
+}, [selectedCustomer]);
 async function saveDiscount() {
   if (!selectedCustomer) return;
 
@@ -172,7 +244,9 @@ async function saveDiscount() {
   const basePackages =
     packages.length > 0
       ? packages.filter(
-          (pack) => pack.active !== false && pack.minutes >= 30
+          (pack) =>
+            pack.active !== false &&
+            (pack.is_unlimited === true || pack.minutes >= 30)
         )
       : [
           {
@@ -182,6 +256,7 @@ async function saveDiscount() {
             price: 19,
             expiry_days: 30,
             active: true,
+            is_unlimited: false,
           },
           {
             id: 60,
@@ -190,6 +265,7 @@ async function saveDiscount() {
             price: 34,
             expiry_days: 30,
             active: true,
+            is_unlimited: false,
           },
           {
             id: 90,
@@ -198,6 +274,7 @@ async function saveDiscount() {
             price: 47,
             expiry_days: 30,
             active: true,
+            is_unlimited: false,
           },
           {
             id: 120,
@@ -206,6 +283,7 @@ async function saveDiscount() {
             price: 55,
             expiry_days: 30,
             active: true,
+            is_unlimited: false,
           },
           {
             id: 240,
@@ -214,6 +292,7 @@ async function saveDiscount() {
             price: 100,
             expiry_days: 30,
             active: true,
+            is_unlimited: false,
           },
         ];
         const isVip =
@@ -267,12 +346,16 @@ const visiblePackages = basePackages;
 
     try {
       await onAddMinutes({
-        minutes: packageToSell.minutes,
+        minutes: packageToSell.is_unlimited ? 0 : packageToSell.minutes,
         amount: getPackagePrice(packageToSell),
         description:
           packageToSell.name ||
-          `${packageToSell.minutes} minute package`,
+          (packageToSell.is_unlimited
+            ? "Unlimited package"
+            : `${packageToSell.minutes} minute package`),
         payment_method: paymentMethod,
+        is_unlimited: packageToSell.is_unlimited === true,
+        expiry_days: packageToSell.expiry_days,
       });
 
       setPendingPackage(null);
@@ -291,9 +374,17 @@ const visiblePackages = basePackages;
             Customer Control
           </p>
 
-          <h2 className="mt-2 text-2xl font-black text-white">
-            {customerName}
-          </h2>
+          <div className="mt-2 flex flex-wrap items-center gap-3">
+  <h2 className="text-2xl font-black text-white">
+    {customerName}
+  </h2>
+
+  {activeUnlimitedExpiry && (
+    <span className="rounded-full border border-emerald-400/40 bg-emerald-500/15 px-3 py-1 text-xs font-black uppercase tracking-wider text-emerald-300">
+      Unlimited
+    </span>
+  )}
+</div>
 
           <p className="mt-1 text-sm text-slate-400">
             {selectedCustomer.email || "No email"} ·{" "}
@@ -301,13 +392,28 @@ const visiblePackages = basePackages;
           </p>
 
           <div className="mt-4 flex flex-wrap gap-3">
+  {activeUnlimitedExpiry ? (
   <span className="rounded-2xl bg-emerald-500 px-4 py-2 text-sm font-black text-white">
-    {selectedCustomer.total_minutes} mins Available
+    Unlimited · Expires{" "}
+    {new Date(
+      `${activeUnlimitedExpiry}T00:00:00`
+    ).toLocaleDateString("en-GB", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    })}
   </span>
+) : (
+  <>
+    <span className="rounded-2xl bg-emerald-500 px-4 py-2 text-sm font-black text-white">
+      {selectedCustomer.total_minutes} mins Available
+    </span>
 
-  <span className="rounded-2xl bg-slate-800 px-4 py-2 text-sm font-bold text-slate-200">
-    Expires: {formatExpiry(selectedCustomer.next_expiry)}
-  </span>
+    <span className="rounded-2xl bg-slate-800 px-4 py-2 text-sm font-bold text-slate-200">
+      Expires: {formatExpiry(selectedCustomer.next_expiry)}
+    </span>
+  </>
+)}
 
   {selectedCustomer.vip_expires_at &&
     new Date(selectedCustomer.vip_expires_at) > new Date() && (
@@ -374,27 +480,7 @@ const visiblePackages = basePackages;
             {visiblePackages.map((pack) => {
   const isSelling = sellingPackageId === pack.id;
 
-const discountStillValid =
-  !!selectedCustomer.discount_expires_at &&
-  new Date(selectedCustomer.discount_expires_at) >= new Date();
-
-const discountPercent =
-  pack.minutes >= 60 &&
-  discountStillValid &&
-  (selectedCustomer.discount_type === "blue_light" ||
-    selectedCustomer.discount_type === "military")
-    ? 10
-    : 0;
-
-  const displayPrice =
-    discountPercent > 0
-      ? Number(
-          (
-            Number(pack.price) *
-            (1 - discountPercent / 100)
-          ).toFixed(2)
-        )
-      : Number(pack.price);
+  const displayPrice = getPackagePrice(pack);
 
   return (
                 <button
@@ -408,8 +494,10 @@ const discountPercent =
                     "Processing..."
                   ) : (
                     <>
-                      {pack.minutes} mins
-                      £{displayPrice.toFixed(2)}
+                      {pack.is_unlimited
+                        ? "Unlimited"
+                        : `${pack.minutes} mins`}
+                      <br />£{displayPrice.toFixed(2)}
                     </>
                   )}
                 </button>
@@ -497,7 +585,9 @@ const discountPercent =
                   </p>
 
                   <p className="mt-1 text-xl font-black text-emerald-400">
-                    {pendingPackage.minutes} mins
+                    {pendingPackage.is_unlimited
+                      ? "Unlimited"
+                      : `${pendingPackage.minutes} mins`}
                   </p>
                 </div>
 
@@ -564,8 +654,12 @@ const discountPercent =
             <div className="mt-5 rounded-2xl border border-red-900/50 bg-red-950/30 p-4">
               <p className="text-sm font-bold leading-6 text-red-200">
                 Please check the customer, package, price and payment method
-                carefully. The minutes will be added as soon as the sale is
-                confirmed.
+                carefully.{" "}
+                {pendingPackage.is_unlimited
+                  ? `Unlimited access will be activated for ${
+                      pendingPackage.expiry_days ?? 30
+                    } days as soon as the sale is confirmed.`
+                  : "The minutes will be added as soon as the sale is confirmed."}
               </p>
             </div>
 

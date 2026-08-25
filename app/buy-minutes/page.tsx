@@ -12,6 +12,7 @@ type PackageOption = {
   price: number;
   expiry_days: number | null;
   active: boolean | null;
+  is_unlimited: boolean;
 };
 
 type VipSettings = {
@@ -149,12 +150,14 @@ const [
   { data: vipData, error: vipError },
 ] = await Promise.all([
   supabase
-    .from("packages")
-    .select("id, name, minutes, price, expiry_days, active")
-    .eq("salon_id", customerData.salon_id)
-    .eq("active", true)
-    .gte("minutes", 30)
-    .order("minutes", { ascending: true }),
+  .from("packages")
+  .select(
+    "id, name, minutes, price, expiry_days, active, is_unlimited"
+  )
+  .eq("salon_id", customerData.salon_id)
+  .eq("active", true)
+  .or("minutes.gte.30,is_unlimited.eq.true")
+  .order("minutes", { ascending: true }),
 
   supabase
     .from("vip_settings")
@@ -369,48 +372,71 @@ setLoading(false);
           </div>
         ) : (
           <div className="mt-8 grid gap-6 md:grid-cols-3">
-            {visiblePackages.map((pkg) => (
-              <div
-                key={pkg.id}
-                className="rounded-3xl border border-[#d6a84f]/30 bg-[#111] p-7"
-              >
-                <h2 className="text-3xl font-bold">{pkg.minutes}</h2>
+            {visiblePackages.map((pkg) => {
+  const validityDays = pkg.is_unlimited
+    ? pkg.expiry_days
+    : isVip && vip
+    ? vip.course_expiry_days
+    : pkg.expiry_days;
 
-                <p className="mt-2 text-zinc-400">Minutes</p>
+  return (
+    <div
+      key={pkg.id}
+      className="rounded-3xl border border-[#d6a84f]/30 bg-[#111] p-7"
+    >
+      <h2 className="text-3xl font-bold">
+        {pkg.is_unlimited ? "Unlimited" : pkg.minutes}
+      </h2>
 
-                <p className="mt-5 text-4xl font-bold text-[#d6a84f]">
-                  £{pkg.price.toFixed(2)}
-                </p>
+      <p className="mt-2 text-zinc-400">
+        {pkg.is_unlimited ? "Tanning Package" : "Minutes"}
+      </p>
 
-                {isVip && (
-                  <p className="mt-2 text-sm font-semibold text-emerald-400">
-                    VIP price
-                  </p>
-                )}
+      <p className="mt-5 text-4xl font-bold text-[#d6a84f]">
+        £{pkg.price.toFixed(2)}
+      </p>
 
-                <p className="mt-3 text-sm text-zinc-400">
-                  ⏰ Your minutes are valid for{" "}
-                  <strong className="text-zinc-200">
-                    {isVip && vip
-                      ? vip.course_expiry_days
-                      : pkg.expiry_days}{" "}
-                    days
-                  </strong>{" "}
-                  from the date of purchase.
-                </p>
+      {isVip && (
+        <p className="mt-2 text-sm font-semibold text-emerald-400">
+          VIP price
+        </p>
+      )}
 
-                <Link
-                  href={
-  salonSlug
-    ? `/checkout/${pkg.id}?salon=${encodeURIComponent(salonSlug)}`
-    : `/checkout/${pkg.id}`
-}
-                  className="mt-7 inline-block w-full rounded-full bg-[#d6a84f] py-4 text-center font-bold text-black"
-                >
-                  Buy Now
-                </Link>
-              </div>
-            ))}
+      <p className="mt-3 text-sm text-zinc-400">
+        {pkg.is_unlimited ? (
+          <>
+            ✓ Unlimited tanning access for{" "}
+            <strong className="text-zinc-200">
+              {validityDays} days
+            </strong>{" "}
+            from the date of purchase.
+          </>
+        ) : (
+          <>
+            ⏰ Your minutes are valid for{" "}
+            <strong className="text-zinc-200">
+              {validityDays} days
+            </strong>{" "}
+            from the date of purchase.
+          </>
+        )}
+      </p>
+
+      <Link
+        href={
+          salonSlug
+            ? `/checkout/${pkg.id}?salon=${encodeURIComponent(
+                salonSlug
+              )}`
+            : `/checkout/${pkg.id}`
+        }
+        className="mt-7 inline-block w-full rounded-full bg-[#d6a84f] py-4 text-center font-bold text-black"
+      >
+        Buy Now
+      </Link>
+    </div>
+  );
+})}
           </div>
         )}
       </section>

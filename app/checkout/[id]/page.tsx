@@ -12,6 +12,7 @@ type PackageOption = {
   price: number;
   expiry_days: number | null;
   active: boolean | null;
+  is_unlimited: boolean | null;
 };
 
 type VipSettings = {
@@ -131,13 +132,12 @@ const [
   { data: vipData, error: vipError },
 ] = await Promise.all([
   supabase
-    .from("packages")
-    .select("id, name, minutes, price, expiry_days, active")
-    .eq("id", packageId)
-    .eq("salon_id", customerData.salon_id)
-    .eq("active", true)
-    .gte("minutes", 30)
-    .maybeSingle(),
+  .from("packages")
+  .select("id, name, minutes, price, expiry_days, active, is_unlimited")
+  .eq("id", packageId)
+  .eq("salon_id", customerData.salon_id)
+  .eq("active", true)
+  .maybeSingle(),
 
   supabase
     .from("vip_settings")
@@ -223,8 +223,8 @@ const [
       </p>
 
       <h1 className="mt-2 text-4xl font-bold">
-        {pkg.minutes} Minutes
-      </h1>
+  {pkg.is_unlimited ? "Unlimited" : `${pkg.minutes} Minutes`}
+</h1>
     </div>
   </div>
 
@@ -263,11 +263,15 @@ const [
   "opayo",
 ].includes(paymentProvider ?? "") ? (
   <CheckoutButton
-    amount={checkoutPrice}
-    description={`${pkg.minutes} Minute Package`}
-    packageId={pkg.id}
-    minutes={pkg.minutes}
-  />
+  amount={checkoutPrice}
+  description={
+    pkg.is_unlimited
+      ? "Unlimited Package"
+      : `${pkg.minutes} Minute Package`
+  }
+  packageId={pkg.id}
+  minutes={pkg.minutes}
+/>
 ) : (
   <div className="mt-10 rounded-2xl border border-[#d6a84f]/30 bg-black/20 p-5 text-center">
     <p className="font-semibold text-white">

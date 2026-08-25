@@ -68,6 +68,7 @@ type PackageOption = {
   price: number;
   expiry_days: number | null;
   active: boolean;
+  is_unlimited: boolean;
 };
 
 
@@ -95,12 +96,52 @@ export default function ReceptionV3Page() {
   const [search, setSearch] = useState("");
   const [customers, setCustomers] = useState<CustomerBalance[]>([]);
   const [recentCustomers, setRecentCustomers] = useState<CustomerBalance[]>([]);
-  const [selectedCustomer, setSelectedCustomer] =
-    useState<CustomerBalance | null>(null);
-    const [currentSalonId, setCurrentSalonId] = useState<string | null>(null);
+const [selectedCustomer, setSelectedCustomer] =
+  useState<CustomerBalance | null>(null);
+
+const [unlimitedCustomerIds, setUnlimitedCustomerIds] =
+  useState<Set<string>>(() => new Set());
+
+const [currentSalonId, setCurrentSalonId] = useState<string | null>(null);
     const recentCustomersKey = currentSalonId
   ? `${RECENT_CUSTOMERS_KEY_PREFIX}:${currentSalonId}`
   : null;
+  useEffect(() => {
+  async function loadRecentUnlimitedCustomers() {
+    if (!currentSalonId || recentCustomers.length === 0) {
+      setUnlimitedCustomerIds(new Set());
+      return;
+    }
+
+    const today = new Date().toISOString().split("T")[0];
+
+    const { data, error } = await supabase
+      .from("purchases")
+      .select("customer_id")
+      .eq("salon_id", currentSalonId)
+      .eq("payment_status", "paid")
+      .eq("is_unlimited", true)
+      .gte("expiry_date", today)
+      .in(
+        "customer_id",
+        recentCustomers.map((customer) => customer.customer_id)
+      );
+
+    if (error) {
+      console.error(
+        "Could not load recent Unlimited customers:",
+        error.message
+      );
+      return;
+    }
+
+    setUnlimitedCustomerIds(
+      new Set((data ?? []).map((purchase) => purchase.customer_id))
+    );
+  }
+
+  void loadRecentUnlimitedCustomers();
+}, [currentSalonId, recentCustomers]);
 const todayActivityKey = currentSalonId
   ? `${TODAY_ACTIVITY_KEY_PREFIX}:${currentSalonId}`
   : null;
@@ -545,6 +586,7 @@ async function createPackage(newPackage: {
   price: number;
   expiry_days: number;
   active: boolean;
+  is_unlimited: boolean;
 }) {
   const { error } = await createPackageService(newPackage);
 
@@ -923,91 +965,227 @@ setRecentCustomers((prev) => {
 
   return true;
 }
-  async function addMinutes(sale?: Sale) {
-    if (!selectedCustomer) {
-      showMessage("Please select a customer first.");
+
+async function addMinutes(
+  sale?: Sale & {
+    is_unlimited?: boolean;
+    expiry_days?: number | null;
+  }
+) {
+  if (!selectedCustomer) {
+    showMessage("Please select a customer first.");
+    return;
+  }
+
+  if (sale?.is_unlimited) {
+    if (!currentSalonId) {
+      showMessage("Could not determine the current salon.");
       return;
     }
 
-    const minutesToAdd = sale?.minutes ?? Number(manualMinutes);
+    const expiryDays = Number(sale.expiry_days ?? 0);
 
-    if (!minutesToAdd || minutesToAdd <= 0) {
-      showMessage("Please enter valid minutes.");
+    if (!expiryDays || expiryDays <= 0) {
+      showMessage("Please enter a valid Unlimited package expiry.");
       return;
     }
 
     setLoading(true);
     setMessage("");
 
-    const { error } = await supabase.rpc("add_manual_minutes", {
-      p_customer_id: selectedCustomer.customer_id,
-      p_minutes: minutesToAdd,
-    });
+    const { data: customerRecord, error: customerError } = await supabase
+      .from("customers")
+      .select("unlimited_expires_at")
+      .eq("customer_id", selectedCustomer.customer_id)
+      .eq("salon_id", currentSalonId)
+      .maybeSingle();
 
-    setLoading(false);
-
-    if (error) {
-      showMessage(error.message);
+    if (customerError || !customerRecord) {
+      setLoading(false);
+      showMessage(
+        customerError?.message || "Could not load the customer."
+      );
       return;
     }
 
-    if (sale) {
-  const recorded = await recordSale(sale);
-  if (!recorded) return;
+    const now = new Date();
 
-  await logAudit({
-    action: "Package Sold",
-    customerName: selectedCustomer.full_name || "Unnamed Customer",
-    details: `${sale.description} (£${Number(sale.amount).toFixed(2)})`,
-  });
+    const existingExpiry = customerRecord.unlimited_expires_at
+      ? new Date(customerRecord.unlimited_expires_at)
+      : null;
 
-  setActivities((current) => [
-    {
-      id: crypto.randomUUID(),
-      text: `✓ Sold ${sale.description} (£${Number(sale.amount).toFixed(2)}) to ${
-        selectedCustomer.full_name || "Customer"
-      }`,
-      time: new Date().toLocaleTimeString("en-GB", {
-        hour: "2-digit",
-        minute: "2-digit",
-      }),
-    },
-    ...current,
-  ]);
+    const expiryBase =
+      existingExpiry && existingExpiry > now
+        ? existingExpiry
+        : now;
 
-  showMessage(`✓ Sold ${sale.description} (£${sale.amount})`);
-} else {
-  await logAudit({
-    action: "Manual Minutes Added",
-    customerName: selectedCustomer.full_name || "Unnamed Customer",
-    details: `${minutesToAdd} minutes added`,
-  });
+    const unlimitedExpiry = new Date(expiryBase);
+    unlimitedExpiry.setDate(
+      unlimitedExpiry.getDate() + expiryDays
+    );
 
-  setActivities((current) => [
-    {
-      id: crypto.randomUUID(),
-      text: `✓ Added ${minutesToAdd} manual minutes to ${
-        selectedCustomer.full_name || "Customer"
-      }`,
-      time: new Date().toLocaleTimeString("en-GB", {
-        hour: "2-digit",
-        minute: "2-digit",
-      }),
-    },
-    ...current,
-  ]);
+    const { error: unlimitedError } = await supabase
+      .from("customers")
+      .update({
+        unlimited_expires_at: unlimitedExpiry.toISOString(),
+      })
+      .eq("customer_id", selectedCustomer.customer_id)
+      .eq("salon_id", currentSalonId);
 
-  showMessage(`${minutesToAdd} minutes added.`);
-}
+    if (unlimitedError) {
+      setLoading(false);
+      showMessage(unlimitedError.message);
+      return;
+    }
+
+    const recorded = await recordSale(sale);
+
+    if (!recorded) {
+      await supabase
+        .from("customers")
+        .update({
+          unlimited_expires_at:
+            customerRecord.unlimited_expires_at,
+        })
+        .eq("customer_id", selectedCustomer.customer_id)
+        .eq("salon_id", currentSalonId);
+
+      setLoading(false);
+      return;
+    }
+
+    await logAudit({
+      action: "Package Sold",
+      customerName:
+        selectedCustomer.full_name || "Unnamed Customer",
+      details: `${sale.description} (£${Number(
+        sale.amount
+      ).toFixed(2)})`,
+    });
+
+    setActivities((current) => [
+      {
+        id: crypto.randomUUID(),
+        text: `✓ Sold ${sale.description} (£${Number(
+          sale.amount
+        ).toFixed(2)}) to ${
+          selectedCustomer.full_name || "Customer"
+        }`,
+        time: new Date().toLocaleTimeString("en-GB", {
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
+      },
+      ...current,
+    ]);
+
+    showMessage(
+      `✓ Sold ${sale.description} (£${sale.amount})`
+    );
 
     setManualMinutes("");
+    setLoading(false);
 
-    await refreshSelectedCustomer(selectedCustomer.customer_id);
+    await refreshSelectedCustomer(
+      selectedCustomer.customer_id
+    );
     await searchCustomers();
     await refreshDashboardStats();
-    
+
+    return;
   }
 
+  const minutesToAdd =
+    sale?.minutes ?? Number(manualMinutes);
+
+  if (!minutesToAdd || minutesToAdd <= 0) {
+    showMessage("Please enter valid minutes.");
+    return;
+  }
+
+  setLoading(true);
+  setMessage("");
+
+  const { error } = await supabase.rpc(
+    "add_manual_minutes",
+    {
+      p_customer_id: selectedCustomer.customer_id,
+      p_minutes: minutesToAdd,
+    }
+  );
+
+  setLoading(false);
+
+  if (error) {
+    showMessage(error.message);
+    return;
+  }
+
+  if (sale) {
+    const recorded = await recordSale(sale);
+    if (!recorded) return;
+
+    await logAudit({
+      action: "Package Sold",
+      customerName:
+        selectedCustomer.full_name || "Unnamed Customer",
+      details: `${sale.description} (£${Number(
+        sale.amount
+      ).toFixed(2)})`,
+    });
+
+    setActivities((current) => [
+      {
+        id: crypto.randomUUID(),
+        text: `✓ Sold ${sale.description} (£${Number(
+          sale.amount
+        ).toFixed(2)}) to ${
+          selectedCustomer.full_name || "Customer"
+        }`,
+        time: new Date().toLocaleTimeString("en-GB", {
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
+      },
+      ...current,
+    ]);
+
+    showMessage(
+      `✓ Sold ${sale.description} (£${sale.amount})`
+    );
+  } else {
+    await logAudit({
+      action: "Manual Minutes Added",
+      customerName:
+        selectedCustomer.full_name || "Unnamed Customer",
+      details: `${minutesToAdd} minutes added`,
+    });
+
+    setActivities((current) => [
+      {
+        id: crypto.randomUUID(),
+        text: `✓ Added ${minutesToAdd} manual minutes to ${
+          selectedCustomer.full_name || "Customer"
+        }`,
+        time: new Date().toLocaleTimeString("en-GB", {
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
+      },
+      ...current,
+    ]);
+
+    showMessage(`${minutesToAdd} minutes added.`);
+  }
+
+  setManualMinutes("");
+
+  await refreshSelectedCustomer(
+    selectedCustomer.customer_id
+  );
+  await searchCustomers();
+  await refreshDashboardStats();
+}
   async function deductMinutes(minutesToUse: number) {
     if (!selectedCustomer) {
       showMessage("Please select a customer first.");

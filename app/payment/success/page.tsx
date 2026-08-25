@@ -361,25 +361,29 @@ return (
 }
 
   if (purchase.payment_status === "paid") {
-    return (
-      <main className="flex min-h-screen items-center justify-center bg-[#050505] px-6 text-white">
-        <div className="text-center">
-          <h1 className="text-5xl font-bold">Payment Already Processed</h1>
+  return (
+    <main className="flex min-h-screen items-center justify-center bg-[#050505] px-6 text-white">
+      <div className="text-center">
+        <h1 className="text-5xl font-bold">
+          Payment Already Processed
+        </h1>
 
-          <p className="mt-4">
-            Your minutes have already been added to your account.
-          </p>
+        <p className="mt-4">
+          {purchase.is_unlimited
+            ? "Your Unlimited package has already been activated."
+            : "Your minutes have already been added to your account."}
+        </p>
 
-          <a
-            href="/my-minutes"
-            className="mt-8 inline-block rounded-full bg-[#d6a84f] px-8 py-4 font-bold text-black"
-          >
-            View My Minutes
-          </a>
-        </div>
-      </main>
-    );
-  }
+        <a
+          href="/my-minutes"
+          className="mt-8 inline-block rounded-full bg-[#d6a84f] px-8 py-4 font-bold text-black"
+        >
+          View My Minutes
+        </a>
+      </div>
+    </main>
+  );
+}
 
   const { data: opayoSecret, error: opayoSecretError } =
   purchase.payment_provider === "opayo"
@@ -438,19 +442,18 @@ if (!providerCheckoutId) {
 }
 
 const {
-  data: credentialsData,
-  error: credentialsError,
-} = await supabaseAdmin.rpc(
-  "get_salon_payment_credentials",
-  {
-    p_salon_id: purchase.salon_id,
-  }
-);
+  data: paymentConnection,
+  error: paymentConnectionError,
+} = await supabaseAdmin
+  .from("salon_payment_connections")
+  .select("merchant_reference")
+  .eq("salon_id", purchase.salon_id)
+  .maybeSingle();
 
-if (credentialsError) {
+if (paymentConnectionError) {
   console.error(
-    "Payment credential retrieval failed:",
-    credentialsError
+    "Payment connection lookup failed:",
+    paymentConnectionError
   );
 
   return (
@@ -458,15 +461,56 @@ if (credentialsError) {
   );
 }
 
-const credentials =
-  credentialsData as StoredCredentials | null;
+let credentials: StoredCredentials | null = null;
 
-if (!credentials) {
-  return (
-    <ErrorPage message="No saved payment details were found for this salon." />
+if (
+  paymentProvider === "sumup" &&
+  paymentConnection?.merchant_reference === "legacy_env"
+) {
+  const apiKey = process.env.SUMUP_API_KEY;
+  const merchantCode = process.env.SUMUP_MERCHANT_CODE;
+
+  if (!apiKey || !merchantCode) {
+    return (
+      <ErrorPage message="The salon's SumUp payment details are incomplete." />
+    );
+  }
+
+  credentials = {
+    api_key: apiKey,
+    merchant_code: merchantCode,
+  };
+} else {
+  const {
+    data: credentialsData,
+    error: credentialsError,
+  } = await supabaseAdmin.rpc(
+    "get_salon_payment_credentials",
+    {
+      p_salon_id: purchase.salon_id,
+    }
   );
-}
 
+  if (credentialsError) {
+    console.error(
+      "Payment credential retrieval failed:",
+      credentialsError
+    );
+
+    return (
+      <ErrorPage message="Unable to load the salon payment details securely." />
+    );
+  }
+
+  credentials =
+    credentialsData as StoredCredentials | null;
+
+  if (!credentials) {
+    return (
+      <ErrorPage message="No saved payment details were found for this salon." />
+    );
+  }
+}
 let paymentMatches = false;
 let paymentProviderLabel = "";
 
@@ -1082,97 +1126,188 @@ if (!paymentMatches) {
   );
 }
 
-  const { data: existingBatch, error: existingBatchError } =
-  await supabaseAdmin
+if (!purchase.is_unlimited) {
+  const {
+    data: existingBatch,
+    error: existingBatchError,
+  } = await supabaseAdmin
     .from("minute_batches")
     .select("id")
     .eq("purchase_id", purchase.id)
     .eq("salon_id", purchase.salon_id)
     .maybeSingle();
 
-if (existingBatchError) {
-  return (
-    <ErrorPage message="The payment was verified, but we could not confirm whether the minutes were already credited." />
-  );
-}
+  if (existingBatchError) {
+    return (
+      <ErrorPage message="The payment was verified, but we could not confirm whether the minutes were already credited." />
+    );
+  }
 
-if (existingBatch) {
-  return (
-    <main className="flex min-h-screen items-center justify-center bg-[#050505] px-6 text-white">
-      <div className="text-center">
-        <h1 className="text-5xl font-bold">Payment Already Processed</h1>
+  if (existingBatch) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-[#050505] px-6 text-white">
+        <div className="text-center">
+          <h1 className="text-5xl font-bold">
+            Payment Already Processed
+          </h1>
 
-        <p className="mt-4">
-          Your minutes have already been added to your account.
-        </p>
+          <p className="mt-4">
+            Your minutes have already been added to your account.
+          </p>
 
-        <a
-          href="/my-minutes"
-          className="mt-8 inline-block rounded-full bg-[#d6a84f] px-8 py-4 font-bold text-black"
-        >
-          View My Minutes
-        </a>
-      </div>
-    </main>
-  );
-}
+          <a
+            href="/my-minutes"
+            className="mt-8 inline-block rounded-full bg-[#d6a84f] px-8 py-4 font-bold text-black"
+          >
+            View My Minutes
+          </a>
+        </div>
+      </main>
+    );
+  }
 
- const { error: transactionError } = await supabaseAdmin
-  .from("minute_transactions")
-  .insert({
-    salon_id: purchase.salon_id,
-    customer_id: purchase.customer_id,
-    minutes: purchase.minutes_added,
-    transaction_type: "purchase",
-    reason: `Online ${paymentProviderLabel} purchase - ${checkoutReference}`,
-  });
+  const { error: transactionError } =
+    await supabaseAdmin
+      .from("minute_transactions")
+      .insert({
+        salon_id: purchase.salon_id,
+        customer_id: purchase.customer_id,
+        minutes: purchase.minutes_added,
+        transaction_type: "purchase",
+        reason: `Online ${paymentProviderLabel} purchase - ${checkoutReference}`,
+      });
 
   if (transactionError) {
-    return <ErrorPage message="The payment was verified, but the minutes could not be recorded." />;
+    return (
+      <ErrorPage message="The payment was verified, but the minutes could not be recorded." />
+    );
   }
 
   const { error: batchError } = await supabaseAdmin
-  .from("minute_batches")
-  .insert({
-    salon_id: purchase.salon_id,
-    customer_id: purchase.customer_id,
-    purchase_id: purchase.id,
-    minutes_added: purchase.minutes_added,
-    minutes_remaining: purchase.minutes_added,
-    expires_at: purchase.expiry_date,
-  });
+    .from("minute_batches")
+    .insert({
+      salon_id: purchase.salon_id,
+      customer_id: purchase.customer_id,
+      purchase_id: purchase.id,
+      minutes_added: purchase.minutes_added,
+      minutes_remaining: purchase.minutes_added,
+      expires_at: purchase.expiry_date,
+    });
 
   if (batchError) {
-  
+    await supabaseAdmin
+      .from("minute_transactions")
+      .delete()
+      .eq("salon_id", purchase.salon_id)
+      .eq("customer_id", purchase.customer_id)
+      .eq(
+        "reason",
+        `Online ${paymentProviderLabel} purchase - ${checkoutReference}`
+      );
 
-  await supabaseAdmin
-    .from("minute_transactions")
-    .delete()
-  .eq("salon_id", purchase.salon_id)
-  .eq("customer_id", purchase.customer_id)
-  .eq(
-  "reason",
-  `Online ${paymentProviderLabel} purchase - ${checkoutReference}`
-);
+    return (
+      <ErrorPage message="The payment was verified, but the minute balance could not be updated." />
+    );
+  }
+} else {
+  const {
+    data: unlimitedCustomer,
+    error: unlimitedCustomerError,
+  } = await supabaseAdmin
+    .from("customers")
+    .select(
+      "full_name, unlimited_expires_at"
+    )
+    .eq("customer_id", purchase.customer_id)
+    .eq("salon_id", purchase.salon_id)
+    .maybeSingle();
 
-    return <ErrorPage message="The payment was verified, but the minute balance could not be updated." />;
+  if (
+    unlimitedCustomerError ||
+    !unlimitedCustomer
+  ) {
+    return (
+      <ErrorPage message="The payment was verified, but the customer account could not be loaded." />
+    );
   }
 
-  const { data: updatedPurchase, error: updateError } = await supabaseAdmin
+  const purchasedExpiry =
+    purchase.expiry_date
+      ? new Date(
+          `${purchase.expiry_date}T23:59:59.999Z`
+        )
+      : null;
+
+  if (
+    !purchasedExpiry ||
+    Number.isNaN(purchasedExpiry.getTime())
+  ) {
+    return (
+      <ErrorPage message="The payment was verified, but the Unlimited package expiry is invalid." />
+    );
+  }
+
+  const currentExpiry =
+    unlimitedCustomer.unlimited_expires_at
+      ? new Date(
+          unlimitedCustomer.unlimited_expires_at
+        )
+      : null;
+
+  const unlimitedExpiry =
+    currentExpiry &&
+    !Number.isNaN(currentExpiry.getTime()) &&
+    currentExpiry > purchasedExpiry
+      ? currentExpiry
+      : purchasedExpiry;
+
+  const { error: unlimitedUpdateError } =
+    await supabaseAdmin
+      .from("customers")
+      .update({
+        unlimited_expires_at:
+          unlimitedExpiry.toISOString(),
+      })
+      .eq(
+        "customer_id",
+        purchase.customer_id
+      )
+      .eq(
+        "salon_id",
+        purchase.salon_id
+      );
+
+  if (unlimitedUpdateError) {
+    return (
+      <ErrorPage message="The payment was verified, but Unlimited access could not be activated." />
+    );
+  }
+}
+
+const {
+  data: updatedPurchase,
+  error: updateError,
+} = await supabaseAdmin
   .from("purchases")
   .update({
     payment_status: "paid",
     paid_at: new Date().toISOString(),
   })
   .eq("id", purchase.id)
-.eq("salon_id", purchase.salon_id)
-.eq("payment_status", "pending")
+  .eq("salon_id", purchase.salon_id)
+  .eq("payment_status", "pending")
   .select("id")
   .maybeSingle();
 
 if (updateError) {
   return (
-    <ErrorPage message="Minutes were added, but the purchase record could not be completed." />
+    <ErrorPage
+      message={
+        purchase.is_unlimited
+          ? "Unlimited access was activated, but the purchase record could not be completed."
+          : "Minutes were added, but the purchase record could not be completed."
+      }
+    />
   );
 }
 
@@ -1180,10 +1315,14 @@ if (!updatedPurchase) {
   return (
     <main className="flex min-h-screen items-center justify-center bg-[#050505] px-6 text-white">
       <div className="text-center">
-        <h1 className="text-5xl font-bold">Payment Already Processed</h1>
+        <h1 className="text-5xl font-bold">
+          Payment Already Processed
+        </h1>
 
         <p className="mt-4">
-          Your minutes have already been added to your account.
+          {purchase.is_unlimited
+            ? "Your Unlimited package has already been activated."
+            : "Your minutes have already been added to your account."}
         </p>
 
         <a
@@ -1196,70 +1335,114 @@ if (!updatedPurchase) {
     </main>
   );
 }
-  const { data: customer } = await supabaseAdmin
-  .from("customers")
-  .select("full_name")
-  .eq("customer_id", purchase.customer_id)
-  .eq("salon_id", purchase.salon_id)
-  .maybeSingle();
 
-const { error: saleError } = await supabaseAdmin
-  .from("reception_sales")
-  .insert({
-    salon_id: purchase.salon_id,
-    customer_id: purchase.customer_id,
-    customer_name: customer?.full_name || "Online Customer",
-    minutes: purchase.minutes_added,
-    amount: purchase.amount_paid,
-    payment_method: "card",
-  });
+const { data: customer } =
+  await supabaseAdmin
+    .from("customers")
+    .select("full_name")
+    .eq(
+      "customer_id",
+      purchase.customer_id
+    )
+    .eq(
+      "salon_id",
+      purchase.salon_id
+    )
+    .maybeSingle();
+
+const { error: saleError } =
+  await supabaseAdmin
+    .from("reception_sales")
+    .insert({
+      salon_id: purchase.salon_id,
+      customer_id: purchase.customer_id,
+      customer_name:
+        customer?.full_name ||
+        "Online Customer",
+      minutes: purchase.minutes_added,
+      amount: purchase.amount_paid,
+      payment_method: "card",
+      is_unlimited:
+        purchase.is_unlimited === true,
+    });
 
 if (saleError) {
   return (
-    <ErrorPage message="Your minutes were added, but the online sale could not be added to the Owner Dashboard." />
+    <ErrorPage
+      message={
+        purchase.is_unlimited
+          ? "Unlimited access was activated, but the online sale could not be added to the Owner Dashboard."
+          : "Your minutes were added, but the online sale could not be added to the Owner Dashboard."
+      }
+    />
   );
 }
-const { error: auditError } = await supabaseAdmin
-  .from("audit_log")
-  .insert({
-    salon_id: purchase.salon_id,
-    staff_id: null,
-    staff_name: "Online Sale",
-    action: "Package Sold",
-    customer_name: customer?.full_name || "Online Customer",
-    details: `${purchase.minutes_added} Minutes (£${Number(
-      purchase.amount_paid
-    ).toFixed(2)})`,
-  });
+
+const { error: auditError } =
+  await supabaseAdmin
+    .from("audit_log")
+    .insert({
+      salon_id: purchase.salon_id,
+      staff_id: null,
+      staff_name: "Online Sale",
+      action: "Package Sold",
+      customer_name:
+        customer?.full_name ||
+        "Online Customer",
+      details: purchase.is_unlimited
+        ? `Unlimited Package (£${Number(
+            purchase.amount_paid
+          ).toFixed(2)})`
+        : `${purchase.minutes_added} Minutes (£${Number(
+            purchase.amount_paid
+          ).toFixed(2)})`,
+    });
 
 if (auditError) {
-  console.error("Online purchase audit log failed:", auditError);
+  console.error(
+    "Online purchase audit log failed:",
+    auditError
+  );
 }
 
-  return (
-    <main className="min-h-screen bg-[#050505] px-6 py-16 text-white">
-      <section className="mx-auto max-w-2xl text-center">
-        <p className="text-sm font-semibold uppercase tracking-[0.3em] text-[#d6a84f]">
-          Payment Successful
-        </p>
+return (
+  <main className="min-h-screen bg-[#050505] px-6 py-16 text-white">
+    <section className="mx-auto max-w-2xl text-center">
+      <p className="text-sm font-semibold uppercase tracking-[0.3em] text-[#d6a84f]">
+        Payment Successful
+      </p>
 
-        <h1 className="mt-4 text-5xl font-bold">Minutes added</h1>
+      <h1 className="mt-4 text-5xl font-bold">
+        {purchase.is_unlimited
+          ? "Unlimited activated"
+          : "Minutes added"}
+      </h1>
 
-        <p className="mt-6 text-xl text-zinc-300">
-          {purchase.minutes_added} minutes have been added to your account.
-        </p>
+      <p className="mt-6 text-xl text-zinc-300">
+        {purchase.is_unlimited
+          ? "Your Unlimited tanning package is now active."
+          : `${purchase.minutes_added} minutes have been added to your account.`}
+      </p>
 
-        <p className="mt-3 text-zinc-400">
-          These minutes expire one month from today.
-        </p>
+      <p className="mt-3 text-zinc-400">
+        {purchase.is_unlimited
+          ? `Unlimited access is valid until ${new Date(
+              `${purchase.expiry_date}T12:00:00Z`
+            ).toLocaleDateString("en-GB", {
+              day: "2-digit",
+              month: "long",
+              year: "numeric",
+            })}.`
+          : "These minutes are now available on your account."}
+      </p>
 
-        <a
-          href="/my-minutes"
-          className="mt-10 inline-block rounded-full bg-[#d6a84f] px-8 py-4 font-bold text-black"
-        >
-          View My Minutes
-        </a>
-      </section>
-    </main>
-  );
+      <a
+        href="/my-minutes"
+        className="mt-10 inline-block rounded-full bg-[#d6a84f] px-8 py-4 font-bold text-black"
+      >
+        View My Minutes
+      </a>
+    </section>
+  </main>
+);
 }

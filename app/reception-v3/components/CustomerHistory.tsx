@@ -99,26 +99,43 @@ export default function CustomerHistory({
           </p>
         ) : (
           <div className="space-y-2">
-            {history.purchases.map((sale) => (
-              <div
-                key={sale.id}
-                className="flex items-center justify-between rounded-xl bg-slate-900 px-3 py-2"
-              >
-                <div>
-                  <p className="font-bold text-white">
-                    {sale.minutes} mins
-                  </p>
+            {history.purchases.map((sale) => {
+              const isUnlimited =
+                (
+                  sale as typeof sale & {
+                    is_unlimited?: boolean;
+                  }
+                ).is_unlimited === true;
 
-                  <p className="text-xs text-slate-500">
-                    {formatDate(sale.created_at)}
+              return (
+                <div
+                  key={sale.id}
+                  className="flex items-center justify-between rounded-xl bg-slate-900 px-3 py-2"
+                >
+                  <div>
+                    <p
+                      className={
+                        isUnlimited
+                          ? "font-black text-amber-400"
+                          : "font-bold text-white"
+                      }
+                    >
+                      {isUnlimited
+                        ? "Unlimited"
+                        : `${sale.minutes} mins`}
+                    </p>
+
+                    <p className="text-xs text-slate-500">
+                      {formatDate(sale.created_at)}
+                    </p>
+                  </div>
+
+                  <p className="font-black text-emerald-400">
+                    £{Number(sale.amount).toFixed(2)}
                   </p>
                 </div>
-
-                <p className="font-black text-emerald-400">
-                  £{Number(sale.amount).toFixed(2)}
-                </p>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

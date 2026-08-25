@@ -1,10 +1,13 @@
 import { supabase } from "../lib/supabase";
+
 import type { Sale } from "../types";
 
 export async function recordSale(
   customerId: string,
   customerName: string,
-  sale: Sale
+  sale: Sale & {
+    is_unlimited?: boolean;
+  }
 ) {
   const {
     data: { user },
@@ -44,7 +47,9 @@ export async function recordSale(
 
   if (!customer) {
     return {
-      error: new Error("Customer was not found in the current salon."),
+      error: new Error(
+        "Customer was not found in the current salon."
+      ),
     };
   }
 
@@ -55,10 +60,9 @@ export async function recordSale(
     amount: sale.amount,
     payment_method: sale.payment_method || "card",
     salon_id: profile.salon_id,
+    is_unlimited: sale.is_unlimited === true,
   });
 }
-
-
 
 export async function loadCustomerSales(customerId: string) {
   const {
@@ -90,7 +94,9 @@ export async function loadCustomerSales(customerId: string) {
 
   return await supabase
     .from("reception_sales")
-    .select("id, minutes, amount, created_at")
+    .select(
+      "id, minutes, amount, created_at, is_unlimited"
+    )
     .eq("salon_id", profile.salon_id)
     .eq("customer_id", customerId)
     .order("created_at", { ascending: false });
