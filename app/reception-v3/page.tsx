@@ -1106,13 +1106,16 @@ async function addMinutes(
   setLoading(true);
   setMessage("");
 
-  const { error } = await supabase.rpc(
-    "add_manual_minutes",
-    {
+  const { error } = sale
+  ? await supabase.rpc("add_package_minutes", {
       p_customer_id: selectedCustomer.customer_id,
       p_minutes: minutesToAdd,
-    }
-  );
+      p_expiry_days: Number(sale.expiry_days ?? 0),
+    })
+  : await supabase.rpc("add_manual_minutes", {
+      p_customer_id: selectedCustomer.customer_id,
+      p_minutes: minutesToAdd,
+    });
 
   setLoading(false);
 
