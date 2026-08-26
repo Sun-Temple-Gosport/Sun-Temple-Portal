@@ -212,6 +212,7 @@ const { error: receptionSaleError } = await supabaseAdmin
     amount: purchase.amount_paid,
     minutes: purchase.minutes_added,
     payment_method: "card",
+    is_unlimited: purchase.is_unlimited === true,
   });
 
 if (receptionSaleError) {
