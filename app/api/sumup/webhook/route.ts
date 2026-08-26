@@ -170,6 +170,32 @@ export async function POST(request: Request) {
       }
     }
 
+    if (purchase.is_unlimited === true) {
+  const unlimitedExpiry =
+    `${purchase.expiry_date}T23:59:59.999Z`;
+
+  const { error: unlimitedCustomerError } =
+    await supabaseAdmin
+      .from("customers")
+      .update({
+        unlimited_expires_at: unlimitedExpiry,
+      })
+      .eq("customer_id", purchase.customer_id)
+      .eq("salon_id", purchase.salon_id);
+
+  if (unlimitedCustomerError) {
+    console.error(
+      "Webhook Unlimited customer update failed:",
+      unlimitedCustomerError
+    );
+
+    return NextResponse.json(
+      { error: "Unable to activate Unlimited package." },
+      { status: 500 }
+    );
+  }
+}
+
     const { error: updateError } = await supabaseAdmin
   .from("purchases")
   .update({
