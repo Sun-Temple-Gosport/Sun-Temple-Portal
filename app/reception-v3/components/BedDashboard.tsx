@@ -60,6 +60,9 @@ const [sessionMode, setSessionMode] =
 const [paygAmount, setPaygAmount] =
   useState("");
 
+const [paygPricePerMinute, setPaygPricePerMinute] =
+  useState<number | null>(null);
+
 const [paygPaymentMethod, setPaygPaymentMethod] =
   useState<"cash" | "card">("card");
 
@@ -67,12 +70,90 @@ const [unlimitedExpiresAt, setUnlimitedExpiresAt] =
   useState<string | null>(null);
 
 const [starting, setStarting] = useState(false);
-  const [finishingId, setFinishingId] = useState<string | null>(null);
+const [finishingId, setFinishingId] =
+  useState<string | null>(null);
 
-  useEffect(() => {
-    const timer = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(timer);
-  }, []);
+useEffect(() => {
+  const timer = setInterval(() => setNow(Date.now()), 1000);
+  return () => clearInterval(timer);
+}, []);
+
+useEffect(() => {
+  let cancelled = false;
+
+  async function loadPaygPrice() {
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
+
+    if (cancelled) return;
+
+    if (userError || !user) {
+      console.error(
+        "Could not load PAYG price: user is not logged in."
+      );
+      return;
+    }
+
+    const { data: profile, error: profileError } =
+      await supabase
+        .from("profiles")
+        .select("salon_id")
+        .eq("id", user.id)
+        .maybeSingle();
+
+    if (cancelled) return;
+
+    if (profileError || !profile?.salon_id) {
+      console.error(
+        "Could not load PAYG price: salon could not be determined."
+      );
+      return;
+    }
+
+    const { data: settings, error: settingsError } =
+      await supabase
+        .from("salon_settings")
+        .select("payg_price_per_minute")
+        .eq("salon_id", profile.salon_id)
+        .maybeSingle();
+
+    if (cancelled) return;
+
+    if (settingsError) {
+      console.error(
+        "Could not load PAYG price:",
+        settingsError.message
+      );
+      return;
+    }
+
+    const rate = Number(
+      settings?.payg_price_per_minute ?? 0
+    );
+
+    setPaygPricePerMinute(rate > 0 ? rate : null);
+  }
+
+  void loadPaygPrice();
+
+  return () => {
+    cancelled = true;
+  };
+}, []);
+
+useEffect(() => {
+  if (!paygPricePerMinute) {
+    setPaygAmount("");
+    return;
+  }
+
+  const calculatedAmount =
+    selectedMinutes * paygPricePerMinute;
+
+  setPaygAmount(calculatedAmount.toFixed(2));
+}, [selectedMinutes, paygPricePerMinute]);
 
   useEffect(() => {
   let cancelled = false;
@@ -161,10 +242,9 @@ const hasActiveUnlimited =
   setStarting(false);
 
   if (success) {
-    if (sessionMode === "payg") {
-      setPaygAmount("");
-      setCustomMinutes("");
-    }
+  if (sessionMode === "payg") {
+    setCustomMinutes("");
+  }
 
     const nextFreeBed = freeBeds.find(
       (bed) => bed !== selectedBed
@@ -408,16 +488,12 @@ const hasActiveUnlimited =
           </span>
 
           <input
-            type="number"
-            min="0"
-            step="0.01"
-            value={paygAmount}
-            onChange={(event) =>
-              setPaygAmount(event.target.value)
-            }
-            placeholder="0.00"
-            className="min-w-0 flex-1 bg-transparent px-2 py-2 text-sm font-black text-white outline-none placeholder:text-slate-600"
-          />
+  type="text"
+  value={paygAmount}
+  readOnly
+  placeholder="0.00"
+  className="min-w-0 flex-1 cursor-default bg-transparent px-2 py-2 text-sm font-black text-white outline-none placeholder:text-slate-600"
+/>
         </div>
       </label>
 

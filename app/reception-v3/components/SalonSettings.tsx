@@ -14,7 +14,8 @@ type SalonSettingsData = {
   instagram: string | null;
   address: string | null;
   logo_url: string | null;
-  hero_image_url: string | null;
+    hero_image_url: string | null;
+  payg_price_per_minute: number | null;
   opening_hours: {
     monday: string;
     tuesday: string;
@@ -84,12 +85,12 @@ export default function SalonSettings() {
     setMessage("");
 
     const { data, error } = await supabase
-      .from("salon_settings")
-      .select(
-        "id, salon_name, tagline, phone, email, website, facebook, instagram, address, logo_url, hero_image_url, opening_hours"
-      )
-      .eq("salon_id", salonId)
-      .maybeSingle();
+  .from("salon_settings")
+  .select(
+    "id, salon_name, tagline, phone, email, website, facebook, instagram, address, logo_url, hero_image_url, payg_price_per_minute, opening_hours"
+  )
+  .eq("salon_id", salonId)
+  .maybeSingle();
 
     if (error) {
       setMessage(error.message);
@@ -390,7 +391,8 @@ async function reorderSalonPhotos(
         instagram: settings.instagram?.trim() || null,
         address: settings.address?.trim() || null,
         logo_url: settings.logo_url?.trim() || null,
-        hero_image_url: settings.hero_image_url?.trim() || null,
+                hero_image_url: settings.hero_image_url?.trim() || null,
+        payg_price_per_minute: settings.payg_price_per_minute,
         opening_hours: settings.opening_hours,
         updated_at: new Date().toISOString(),
       })
@@ -453,6 +455,34 @@ async function reorderSalonPhotos(
             className="w-full rounded-xl border border-slate-700 bg-slate-900 p-3 text-white"
           />
         </label>
+
+        <label className="space-y-2">
+  <span className="text-xs font-black uppercase tracking-wide text-slate-400">
+    PAYG Price Per Minute £
+  </span>
+
+  <input
+    type="number"
+    min="0"
+    step="0.01"
+    value={settings.payg_price_per_minute ?? ""}
+    onChange={(event) =>
+      setSettings({
+        ...settings,
+        payg_price_per_minute:
+          event.target.value === ""
+            ? null
+            : Number(event.target.value),
+      })
+    }
+    placeholder="0.77"
+    className="w-full rounded-xl border border-slate-700 bg-slate-900 p-3 text-white"
+  />
+
+  <p className="text-xs text-slate-500">
+    Used to automatically calculate PAYG session prices.
+  </p>
+</label>
 
         <label className="space-y-2">
           <span className="text-xs font-black uppercase tracking-wide text-slate-400">
