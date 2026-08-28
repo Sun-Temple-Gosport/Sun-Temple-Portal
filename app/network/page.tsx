@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
 
@@ -17,9 +18,6 @@ export default function NetworkPage() {
   const [salons, setSalons] = useState<NetworkSalon[]>([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
-  const [selectedSalonId, setSelectedSalonId] = useState<string | null>(
-    null
-  );
 
   useEffect(() => {
     async function loadSalons() {
@@ -191,140 +189,88 @@ export default function NetworkPage() {
           )}
 
           {!loading &&
-            filteredSalons.map((salon) => {
-              const isSelected =
-                selectedSalonId === salon.salon_id;
+            filteredSalons.map((salon) => (
+              <article
+                key={salon.salon_id}
+                className="overflow-hidden rounded-3xl border border-slate-800 bg-slate-900 shadow-2xl shadow-black/20"
+              >
+                <div className="h-1.5 bg-amber-400" />
 
-              return (
-                <article
-                  key={salon.salon_id}
-                  className="overflow-hidden rounded-3xl border border-slate-800 bg-slate-900 shadow-2xl shadow-black/20"
-                >
-                  <div className="h-1.5 bg-amber-400" />
-
-                  <div className="p-6">
-                    <div className="flex items-center gap-5">
-                      <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-slate-700 bg-black">
-                        {salon.logo_url ? (
-                          <img
-                            src={salon.logo_url}
-                            alt={`${salon.salon_name} logo`}
-                            className="h-full w-full object-cover"
-                          />
-                        ) : (
-                          <span className="text-xl font-black text-amber-400">
-                            TS
-                          </span>
-                        )}
-                      </div>
-
-                      <div className="min-w-0 flex-1">
-                        <div className="mb-2 inline-flex rounded-full border border-amber-400/20 bg-amber-400/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-amber-300">
-                          TanSalonOS Salon
-                        </div>
-
-                        <h2 className="text-xl font-black tracking-tight text-white sm:text-2xl">
-                          {salon.salon_name}
-                        </h2>
-
-                        {salon.tagline && (
-                          <p className="mt-1 text-sm font-medium text-slate-400">
-                            {salon.tagline}
-                          </p>
-                        )}
-                      </div>
+                <div className="p-6">
+                  <div className="flex items-center gap-5">
+                    <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-slate-700 bg-black">
+                      {salon.logo_url ? (
+                        <img
+                          src={salon.logo_url}
+                          alt={`${salon.salon_name} logo`}
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <span className="text-xl font-black text-amber-400">
+                          TS
+                        </span>
+                      )}
                     </div>
 
-                    {(salon.city || salon.postcode) && (
-                      <div className="mt-6 flex items-center gap-2 border-t border-slate-800 pt-5 text-sm font-bold text-slate-300">
-                        <svg
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          className="h-5 w-5 text-amber-400"
-                          aria-hidden="true"
-                        >
-                          <path d="M20 10c0 5-8 11-8 11S4 15 4 10a8 8 0 1 1 16 0Z" />
-                          <circle cx="12" cy="10" r="2" />
-                        </svg>
-
-                        <span>
-                          {[salon.city, salon.postcode]
-                            .filter(Boolean)
-                            .join(" ")}
-                        </span>
+                    <div className="min-w-0 flex-1">
+                      <div className="mb-2 inline-flex rounded-full border border-amber-400/20 bg-amber-400/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-amber-300">
+                        TanSalonOS Salon
                       </div>
-                    )}
 
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setSelectedSalonId(
-                          isSelected ? null : salon.salon_id
-                        )
-                      }
-                      className="mt-5 flex w-full items-center justify-between rounded-2xl bg-amber-400 px-5 py-4 text-left text-sm font-black text-slate-950 transition hover:bg-amber-300"
-                    >
-                      <span>
-                        {isSelected
-                          ? "Hide salon"
-                          : "View salon"}
-                      </span>
+                      <h2 className="text-xl font-black tracking-tight text-white sm:text-2xl">
+                        {salon.salon_name}
+                      </h2>
 
+                      {salon.tagline && (
+                        <p className="mt-1 text-sm font-medium text-slate-400">
+                          {salon.tagline}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  {(salon.city || salon.postcode) && (
+                    <div className="mt-6 flex items-center gap-2 border-t border-slate-800 pt-5 text-sm font-bold text-slate-300">
                       <svg
                         viewBox="0 0 24 24"
                         fill="none"
                         stroke="currentColor"
-                        strokeWidth="2.5"
-                        className={`h-5 w-5 transition-transform ${
-                          isSelected ? "rotate-180" : ""
-                        }`}
+                        strokeWidth="2"
+                        className="h-5 w-5 text-amber-400"
                         aria-hidden="true"
                       >
-                        <path d="m6 9 6 6 6-6" />
+                        <path d="M20 10c0 5-8 11-8 11S4 15 4 10a8 8 0 1 1 16 0Z" />
+                        <circle cx="12" cy="10" r="2" />
                       </svg>
-                    </button>
 
-                    {isSelected && (
-                      <div className="mt-4 rounded-2xl border border-slate-700 bg-slate-950 p-5">
-                        <div className="text-xs font-black uppercase tracking-[0.18em] text-amber-400">
-                          Salon Details
-                        </div>
+                      <span>
+                        {[salon.city, salon.postcode]
+                          .filter(Boolean)
+                          .join(" ")}
+                      </span>
+                    </div>
+                  )}
 
-                        <div className="mt-4 space-y-3">
-                          {salon.address && (
-                            <div>
-                              <div className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                                Address
-                              </div>
+                  <Link
+                    href={`/network/${salon.salon_id}`}
+                    className="mt-5 flex w-full items-center justify-between rounded-2xl bg-amber-400 px-5 py-4 text-sm font-black text-slate-950 transition hover:bg-amber-300"
+                  >
+                    <span>View salon</span>
 
-                              <div className="mt-1 font-semibold text-slate-200">
-                                {salon.address}
-                              </div>
-                            </div>
-                          )}
-
-                          {(salon.city || salon.postcode) && (
-                            <div>
-                              <div className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                                Location
-                              </div>
-
-                              <div className="mt-1 font-semibold text-slate-200">
-                                {[salon.city, salon.postcode]
-                                  .filter(Boolean)
-                                  .join(" ")}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </article>
-              );
-            })}
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2.5"
+                      className="h-5 w-5"
+                      aria-hidden="true"
+                    >
+                      <path d="m9 18 6-6-6-6" />
+                    </svg>
+                  </Link>
+                </div>
+              </article>
+            ))}
         </div>
       </section>
     </main>
