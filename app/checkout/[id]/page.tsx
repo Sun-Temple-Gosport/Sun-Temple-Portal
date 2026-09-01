@@ -24,6 +24,8 @@ type CustomerVip = {
   customer_id: string;
   vip_expires_at: string | null;
   salon_id: string;
+  discount_type: string | null;
+  discount_expires_at: string | null;
 };
 
 export default function Checkout() {
@@ -81,7 +83,9 @@ if (!profileData?.salon_id) {
 
 let customerQuery = supabase
   .from("customers")
-  .select("customer_id, vip_expires_at, salon_id")
+  .select(
+  "customer_id, vip_expires_at, salon_id, discount_type, discount_expires_at"
+)
   .eq("salon_id", profileData.salon_id);
 
 if (profileData.customer_id) {
@@ -168,15 +172,31 @@ const [
     !!customer?.vip_expires_at &&
     new Date(customer.vip_expires_at) > new Date();
 
-  const checkoutPrice =
-    pkg && isVip && vip
-      ? Number(
-          (
-            Number(pkg.price) *
-            (1 - vip.discount_percent / 100)
-          ).toFixed(2)
-        )
-      : Number(pkg?.price ?? 0);
+  const customerDiscountIsActive =
+  !!customer?.discount_expires_at &&
+  new Date(customer.discount_expires_at) >= new Date() &&
+  (customer.discount_type === "blue_light" ||
+    customer.discount_type === "military");
+
+const customerDiscountPercent =
+  customerDiscountIsActive && Number(pkg?.minutes ?? 0) >= 60
+    ? 10
+    : 0;
+
+const vipDiscountPercent =
+  isVip && vip ? Number(vip.discount_percent) : 0;
+
+const appliedDiscountPercent = Math.max(
+  vipDiscountPercent,
+  customerDiscountPercent
+);
+
+const checkoutPrice = Number(
+  (
+    Number(pkg?.price ?? 0) *
+    (1 - appliedDiscountPercent / 100)
+  ).toFixed(2)
+);
 
   const expiryDays =
     isVip && vip ? vip.course_expiry_days : pkg?.expiry_days;
@@ -238,11 +258,16 @@ const [
           £{checkoutPrice.toFixed(2)}
         </p>
 
-        {isVip && vip && (
-          <p className="mt-2 font-semibold text-emerald-400">
-            VIP price — {vip.discount_percent}% discount applied
-          </p>
-        )}
+        {appliedDiscountPercent > 0 && (
+  <p className="mt-2 font-semibold text-emerald-400">
+    {vipDiscountPercent >= customerDiscountPercent &&
+    vipDiscountPercent > 0
+      ? `VIP price — ${vipDiscountPercent}% discount applied`
+      : customer?.discount_type === "blue_light"
+      ? "Blue Light price — 10% discount applied"
+      : "Military price — 10% discount applied"}
+  </p>
+)}
 
         {expiryDays && (
           <p className="mt-4 text-sm text-zinc-400">

@@ -107,8 +107,8 @@ export async function POST(request: Request) {
     let customerQuery = supabaseAdmin
       .from("customers")
       .select(
-        "customer_id, vip_expires_at, salon_id"
-      )
+  "customer_id, vip_expires_at, salon_id, discount_type, discount_expires_at"
+)
       .eq("salon_id", profile.salon_id);
 
     if (profile.customer_id) {
@@ -378,19 +378,33 @@ export async function POST(request: Request) {
     const typedVipSettings =
       vipSettings as VipSettings | null;
 
-    const amount =
-      isVip && typedVipSettings
-        ? Number(
-            (
-              Number(pkg.price) *
-              (1 -
-                Number(
-                  typedVipSettings.discount_percent
-                ) /
-                  100)
-            ).toFixed(2)
-          )
-        : Number(pkg.price);
+    const customerDiscountIsActive =
+  !!customer.discount_expires_at &&
+  new Date(customer.discount_expires_at) >= new Date() &&
+  (customer.discount_type === "blue_light" ||
+    customer.discount_type === "military");
+
+const customerDiscountPercent =
+  customerDiscountIsActive && Number(pkg.minutes) >= 60
+    ? 10
+    : 0;
+
+const vipDiscountPercent =
+  isVip && typedVipSettings
+    ? Number(typedVipSettings.discount_percent)
+    : 0;
+
+const appliedDiscountPercent = Math.max(
+  vipDiscountPercent,
+  customerDiscountPercent
+);
+
+const amount = Number(
+  (
+    Number(pkg.price) *
+    (1 - appliedDiscountPercent / 100)
+  ).toFixed(2)
+);
 
     const expiryDays =
   pkg.is_unlimited
