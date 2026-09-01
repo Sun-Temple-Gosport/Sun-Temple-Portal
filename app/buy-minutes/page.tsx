@@ -27,6 +27,8 @@ type CustomerVip = {
   customer_id: string;
   vip_expires_at: string | null;
   salon_id: string;
+  discount_type: string | null;
+  discount_expires_at: string | null;
 };
 
 export default function BuyMinutes() {
@@ -87,7 +89,9 @@ if (!profileData?.salon_id) {
 
 let customerQuery = supabase
   .from("customers")
-  .select("customer_id, vip_expires_at, salon_id")
+  .select(
+  "customer_id, vip_expires_at, salon_id, discount_type, discount_expires_at"
+)
   .eq("salon_id", profileData.salon_id);
 
 if (profileData.customer_id) {
@@ -189,15 +193,47 @@ setLoading(false);
     !!customer?.vip_expires_at &&
     new Date(customer.vip_expires_at) > new Date();
 
-  const visiblePackages = packages.map((pkg) => ({
+  const customerDiscountIsActive =
+  !!customer?.discount_expires_at &&
+  new Date(customer.discount_expires_at) >= new Date() &&
+  (customer.discount_type === "blue_light" ||
+    customer.discount_type === "military");
+
+const visiblePackages = packages.map((pkg) => {
+  const customerDiscountPercent =
+    customerDiscountIsActive && pkg.minutes >= 60
+      ? 10
+      : 0;
+
+  const vipDiscountPercent =
+    isVip && vip ? Number(vip.discount_percent) : 0;
+
+  const appliedDiscountPercent = Math.max(
+    vipDiscountPercent,
+    customerDiscountPercent
+  );
+
+  const discountLabel =
+    appliedDiscountPercent === 0
+      ? null
+      : vipDiscountPercent >= customerDiscountPercent &&
+        vipDiscountPercent > 0
+      ? "VIP price"
+      : customer?.discount_type === "blue_light"
+      ? "Blue Light price"
+      : "Military price";
+
+  return {
     ...pkg,
-    price:
-      isVip && vip
-        ? Number(
-            (Number(pkg.price) * (1 - vip.discount_percent / 100)).toFixed(2)
-          )
-        : Number(pkg.price),
-  }));
+    price: Number(
+      (
+        Number(pkg.price) *
+        (1 - appliedDiscountPercent / 100)
+      ).toFixed(2)
+    ),
+    discountLabel,
+  };
+});
 
   if (loading) {
     return (
@@ -396,11 +432,11 @@ setLoading(false);
         £{pkg.price.toFixed(2)}
       </p>
 
-      {isVip && (
-        <p className="mt-2 text-sm font-semibold text-emerald-400">
-          VIP price
-        </p>
-      )}
+      {pkg.discountLabel && (
+  <p className="mt-2 text-sm font-semibold text-emerald-400">
+    {pkg.discountLabel}
+  </p>
+)}
 
       <p className="mt-3 text-sm text-zinc-400">
         {pkg.is_unlimited ? (
