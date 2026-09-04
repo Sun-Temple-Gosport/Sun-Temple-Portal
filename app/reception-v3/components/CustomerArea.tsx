@@ -1,11 +1,18 @@
 "use client";
-
+import { useState } from "react";
 import CustomerSearch from "./CustomerSearch";
 import NewCustomer from "./NewCustomer";
 import RecentCustomers from "./RecentCustomers";
+import RetailSale from "./RetailSale";
 import CustomerCard from "./CustomerCard";
 import CustomerHistory from "./CustomerHistory";
 import CustomerNotes from "./CustomerNotes";
+import CheckoutBasketPreview from "./Basketpreview";
+import {
+  useCheckoutBasket,
+  type CheckoutPackage,
+  type CheckoutRetailItem,
+} from "../hooks/useCheckoutBasket";
 
 import type {
   CustomerBalance,
@@ -45,6 +52,11 @@ type Props = {
   packages: PackageOption[];
   customerHistory: CustomerHistoryType | null;
   customerNotes: CustomerNote[];
+  onCombinedCheckout?: (details: {
+  paymentMethod: "card" | "cash";
+  basketPackage: CheckoutPackage | null;
+  retailItems: CheckoutRetailItem[];
+}) => Promise<boolean>;
 
   onSearchCustomers: () => void;
   onSelectCustomer: (customer: CustomerBalance) => void;
@@ -54,6 +66,7 @@ type Props = {
   onAddCustomerNote: (note: string) => Promise<void>;
   onDeleteCustomerNote: (id: string) => Promise<void>;
   onEditCustomer: () => void;
+  
 };
 
 export default function CustomerArea({
@@ -75,7 +88,10 @@ export default function CustomerArea({
   onAddCustomerNote,
   onDeleteCustomerNote,
   onEditCustomer,
+  onCombinedCheckout,
 }: Props) {
+    const checkoutBasket = useCheckoutBasket();
+    const [retailRefreshKey, setRetailRefreshKey] = useState(0);
   return (
     <>
       <CustomerSearch
@@ -95,20 +111,49 @@ export default function CustomerArea({
         selectedCustomer={selectedCustomer}
         onSelectCustomer={onSelectCustomer}
       />
+<RetailSale
+  onAddToBasket={checkoutBasket.addRetailProduct}
+  refreshKey={retailRefreshKey}
+/>
 
+<CheckoutBasketPreview
+  basketPackage={checkoutBasket.basketPackage}
+  retailItems={checkoutBasket.retailItems}
+  onReduceRetail={checkoutBasket.reduceRetailProduct}
+  onRemoveRetail={checkoutBasket.removeRetailProduct}
+  onRemovePackage={() => checkoutBasket.setPackage(null)}
+  onClear={checkoutBasket.clearBasket}
+  onCheckout={
+    selectedCustomer && onCombinedCheckout
+      ? async (paymentMethod) => {
+          const success = await onCombinedCheckout({
+            paymentMethod,
+            basketPackage: checkoutBasket.basketPackage,
+            retailItems: checkoutBasket.retailItems,
+          });
+
+          if (success) {
+  checkoutBasket.clearBasket();
+  setRetailRefreshKey((current) => current + 1);
+}
+        }
+      : undefined
+  }
+/>
       {selectedCustomer && (
         <>
           <CustomerCard
-            selectedCustomer={selectedCustomer}
-            manualAdd={manualMinutes}
-            setManualAdd={onSetManualMinutes}
-            onAddMinutes={onAddMinutes}
-             onEditCustomer={onEditCustomer}
-            packages={packages.map((pkg) => ({
-              ...pkg,
-              price: Number(pkg.price),
-            }))}
-          />
+  selectedCustomer={selectedCustomer}
+  manualAdd={manualMinutes}
+  setManualAdd={onSetManualMinutes}
+  onAddMinutes={onAddMinutes}
+  onEditCustomer={onEditCustomer}
+  packages={packages.map((pkg) => ({
+    ...pkg,
+    price: Number(pkg.price),
+  }))}
+  onAddPackageToBasket={checkoutBasket.setPackage}
+/>
 
           <CustomerHistory
             customer={selectedCustomer}

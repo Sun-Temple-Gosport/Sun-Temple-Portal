@@ -8,6 +8,10 @@ type CashUpSale = {
   amount: number;
   payment_method: string | null;
   created_at: string;
+
+  sale_type?: "package" | "retail";
+  product_name?: string | null;
+  quantity?: number | null;
 };
 
 type SaveCashUpData = {
@@ -466,58 +470,67 @@ const differenceColour =
   ) : (
     <div className="divide-y divide-slate-800">
       {sales.map((sale) => {
-        const method = sale.payment_method?.toLowerCase() || "card";
+  const method = sale.payment_method?.toLowerCase() || "card";
+  const isRetail = sale.sale_type === "retail";
 
-        const paymentClass =
-          method === "cash"
-            ? "border-amber-500/20 bg-amber-500/10 text-amber-300"
-            : method === "complimentary"
-              ? "border-violet-500/20 bg-violet-500/10 text-violet-300"
-              : "border-sky-500/20 bg-sky-500/10 text-sky-300";
+  const paymentClass =
+    method === "cash"
+      ? "border-amber-500/20 bg-amber-500/10 text-amber-300"
+      : method === "complimentary"
+        ? "border-violet-500/20 bg-violet-500/10 text-violet-300"
+        : "border-sky-500/20 bg-sky-500/10 text-sky-300";
 
-        const paymentLabel =
-          method === "cash"
-            ? "Cash"
-            : method === "complimentary"
-              ? "Complimentary"
-              : "Card";
+  const paymentLabel =
+    method === "cash"
+      ? "Cash"
+      : method === "complimentary"
+        ? "Complimentary"
+        : "Card";
 
-        const saleTime = new Intl.DateTimeFormat("en-GB", {
-          hour: "2-digit",
-          minute: "2-digit",
-        }).format(new Date(sale.created_at));
+  const saleTime = new Intl.DateTimeFormat("en-GB", {
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(sale.created_at));
 
-        return (
-          <div
-            key={sale.id}
-            className="grid gap-4 px-5 py-4 transition hover:bg-white/[0.02] sm:grid-cols-[80px_1fr_auto_auto] sm:items-center"
-          >
-            <p className="text-sm font-black text-slate-400">
-              {saleTime}
-            </p>
+  const saleTitle = isRetail
+    ? sale.product_name || "Retail Product"
+    : sale.customer_name || "Customer";
 
-            <div>
-              <p className="font-black text-white">
-                {sale.customer_name || "Customer"}
-              </p>
+  const saleDescription = isRetail
+    ? `Retail sale · Qty ${sale.quantity ?? 1}`
+    : `${sale.minutes} minute package`;
 
-              <p className="mt-1 text-xs font-semibold text-slate-500">
-                {sale.minutes} minute package
-              </p>
-            </div>
+  return (
+    <div
+      key={sale.id}
+      className="grid gap-4 px-5 py-4 transition hover:bg-white/[0.02] sm:grid-cols-[80px_1fr_auto_auto] sm:items-center"
+    >
+      <p className="text-sm font-black text-slate-400">
+        {saleTime}
+      </p>
 
-            <span
-              className={`w-fit rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-[0.14em] ${paymentClass}`}
-            >
-              {paymentLabel}
-            </span>
+      <div>
+        <p className="font-black text-white">
+          {saleTitle}
+        </p>
 
-            <p className="text-lg font-black text-white sm:min-w-[90px] sm:text-right">
-              {formatMoney(sale.amount)}
-            </p>
-          </div>
-        );
-      })}
+        <p className="mt-1 text-xs font-semibold text-slate-500">
+          {saleDescription}
+        </p>
+      </div>
+
+      <span
+        className={`w-fit rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-[0.14em] ${paymentClass}`}
+      >
+        {paymentLabel}
+      </span>
+
+      <p className="text-lg font-black text-white sm:min-w-[90px] sm:text-right">
+        {formatMoney(sale.amount)}
+      </p>
+    </div>
+  );
+})}
     </div>
   )}
 </div>

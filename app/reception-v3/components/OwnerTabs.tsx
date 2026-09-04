@@ -7,6 +7,7 @@ export type OwnerView =
   | "history"
   | "audit"
   | "beds"
+  | "stock"
   | "rota"
   | "payments"
   | "settings"
@@ -38,20 +39,20 @@ export default function OwnerTabs({
   return (
     <div className="mx-auto flex max-w-7xl flex-wrap justify-end gap-2 px-4 pt-4 md:px-8">
       <button
-  type="button"
-  onClick={() => onSelectView("launch")}
-  className={tabClass("launch")}
->
-  Salon Setup
-</button>
+        type="button"
+        onClick={() => onSelectView("launch")}
+        className={tabClass("launch")}
+      >
+        Salon Setup
+      </button>
 
-<button
-  type="button"
-  onClick={() => onSelectView("dashboard")}
-  className={tabClass("dashboard")}
->
-  Dashboard
-</button>
+      <button
+        type="button"
+        onClick={() => onSelectView("dashboard")}
+        className={tabClass("dashboard")}
+      >
+        Dashboard
+      </button>
 
       <button
         type="button"
@@ -77,21 +78,29 @@ export default function OwnerTabs({
         Audit
       </button>
 
-<button
-  type="button"
-  onClick={() => onSelectView("beds")}
-  className={tabClass("beds")}
->
-  Beds
-</button>
+      <button
+        type="button"
+        onClick={() => onSelectView("beds")}
+        className={tabClass("beds")}
+      >
+        Beds
+      </button>
 
-<button
-  type="button"
-  onClick={() => onSelectView("rota")}
-  className={tabClass("rota")}
->
-  Rota
-</button>
+      <button
+        type="button"
+        onClick={() => onSelectView("stock")}
+        className={tabClass("stock")}
+      >
+        Stock
+      </button>
+
+      <button
+        type="button"
+        onClick={() => onSelectView("rota")}
+        className={tabClass("rota")}
+      >
+        Rota
+      </button>
 
       <button
         type="button"
@@ -100,8 +109,6 @@ export default function OwnerTabs({
       >
         Staff Management
       </button>
-
-      
 
       {isOwnerMode && (
         <button

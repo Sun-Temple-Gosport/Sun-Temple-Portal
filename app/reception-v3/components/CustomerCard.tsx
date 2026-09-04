@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import type { CustomerBalance, Sale } from "../types";
 import { formatExpiry } from "../utils";
 import { supabase } from "@/lib/supabase";
+import CombinedCheckout from "./CombinedCheckout";
 
 type PackageOption = {
   id: string | number;
@@ -31,6 +32,14 @@ type Props = {
   onAddMinutes: (sale?: PackageSale) => Promise<void>;
   onEditCustomer: () => void;
   packages: PackageOption[];
+  onAddPackageToBasket?: (pack: {
+  id: number;
+  name: string | null;
+  minutes: number;
+  price: number;
+  expiry_days: number | null;
+  is_unlimited?: boolean;
+}) => void;
 };
 
 export default function CustomerCard({
@@ -40,9 +49,12 @@ export default function CustomerCard({
   onAddMinutes,
   onEditCustomer,
   packages,
+  onAddPackageToBasket,
 }: Props) {
   const [pendingPackage, setPendingPackage] =
     useState<PackageOption | null>(null);
+    const [combinedPackage, setCombinedPackage] =
+  useState<PackageOption | null>(null);
 
   const [sellingPackageId, setSellingPackageId] = useState<
     string | number | null
@@ -663,32 +675,79 @@ const visiblePackages = basePackages;
               </p>
             </div>
 
-            <div className="mt-6 grid grid-cols-2 gap-3">
-              <button
-                type="button"
-                onClick={closePackageConfirmation}
-                disabled={sellingPackageId !== null}
-                className="rounded-2xl border border-slate-700 bg-slate-900 px-4 py-3 font-black text-slate-200 transition hover:border-slate-500 hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                Cancel
-              </button>
+            <div className="mt-6 grid gap-3 sm:grid-cols-3">
+  <button
+    type="button"
+    onClick={closePackageConfirmation}
+    disabled={sellingPackageId !== null}
+    className="rounded-2xl border border-slate-700 bg-slate-900 px-4 py-3 font-black text-slate-200 transition hover:border-slate-500 hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+  >
+    Cancel
+  </button>
 
-              <button
-                type="button"
-                onClick={confirmPackageSale}
-                disabled={sellingPackageId !== null}
-                className="rounded-2xl bg-emerald-500 px-4 py-3 font-black text-white transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {sellingPackageId !== null
-                  ? "Processing..."
-                  : `Confirm ${
-                      paymentMethod === "card" ? "Card" : "Cash"
-                    } Sale`}
-              </button>
-            </div>
+  <button
+  type="button"
+  onClick={() => {
+    if (
+      !pendingPackage ||
+      sellingPackageId !== null ||
+      !onAddPackageToBasket
+    ) {
+      return;
+    }
+
+    onAddPackageToBasket({
+      id: Number(pendingPackage.id),
+      name: pendingPackage.name,
+      minutes: pendingPackage.minutes,
+      price: getPackagePrice(pendingPackage),
+      expiry_days: pendingPackage.expiry_days,
+      is_unlimited: pendingPackage.is_unlimited,
+    });
+
+    setPendingPackage(null);
+    setPaymentMethod("card");
+  }}
+  disabled={
+    sellingPackageId !== null ||
+    !onAddPackageToBasket
+  }
+  className="rounded-2xl border border-amber-400 bg-amber-400/10 px-4 py-3 font-black text-amber-300 transition hover:bg-amber-400/20 disabled:cursor-not-allowed disabled:opacity-50"
+>
+  Add to Basket
+</button>
+
+  <button
+    type="button"
+    onClick={confirmPackageSale}
+    disabled={sellingPackageId !== null}
+    className="rounded-2xl bg-emerald-500 px-4 py-3 font-black text-white transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-60"
+  >
+    {sellingPackageId !== null
+      ? "Processing..."
+      : `Confirm ${
+          paymentMethod === "card" ? "Card" : "Cash"
+        } Sale`}
+  </button>
+</div>
           </div>
         </div>
            )}
+
+           {combinedPackage && (
+  <CombinedCheckout
+    open={true}
+    customerName={customerName}
+    packageName={
+      combinedPackage.name ||
+      (combinedPackage.is_unlimited
+        ? "Unlimited package"
+        : `${combinedPackage.minutes} minute package`)
+    }
+    packagePrice={getPackagePrice(combinedPackage)}
+    onClose={() => setCombinedPackage(null)}
+  />
+)}
 
       {discountsOpen && (
         <div

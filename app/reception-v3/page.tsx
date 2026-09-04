@@ -966,6 +966,148 @@ setRecentCustomers((prev) => {
   return true;
 }
 
+async function combinedCheckout(details: {
+  paymentMethod: "card" | "cash";
+  basketPackage: {
+    id: number;
+    name: string | null;
+    minutes: number;
+    price: number;
+    expiry_days: number | null;
+    is_unlimited?: boolean;
+  } | null;
+  retailItems: {
+    id: string;
+    name: string;
+    selling_price: number;
+    stock_quantity: number;
+    quantity: number;
+  }[];
+}) {
+  if (!selectedCustomer) {
+    showMessage("Please select a customer first.");
+    return false;
+  }
+
+  if (
+    !details.basketPackage &&
+    details.retailItems.length === 0
+  ) {
+    showMessage("The basket is empty.");
+    return false;
+  }
+
+  setLoading(true);
+  setMessage("");
+
+  const packageAmount = details.basketPackage
+    ? Number(details.basketPackage.price)
+    : 0;
+
+  const retailAmount = details.retailItems.reduce(
+    (sum, item) =>
+      sum +
+      Number(item.selling_price) * Number(item.quantity),
+    0
+  );
+
+  const totalAmount = packageAmount + retailAmount;
+
+  const { error } = await supabase.rpc(
+    "checkout_combined_sale",
+    {
+      p_customer_id: selectedCustomer.customer_id,
+      p_payment_method: details.paymentMethod,
+
+      p_package_id:
+        details.basketPackage?.id ?? null,
+
+      p_package_amount:
+        details.basketPackage
+          ? packageAmount
+          : null,
+
+      p_product_items: details.retailItems.map(
+        (item) => ({
+          product_id: item.id,
+          quantity: item.quantity,
+        })
+      ),
+    }
+  );
+
+  setLoading(false);
+
+  if (error) {
+    console.error(
+      "Combined checkout failed:",
+      error
+    );
+
+    showMessage(error.message);
+    return false;
+  }
+
+  const saleParts: string[] = [];
+
+  if (details.basketPackage) {
+    saleParts.push(
+      details.basketPackage.name ||
+        (details.basketPackage.is_unlimited
+          ? "Unlimited package"
+          : `${details.basketPackage.minutes} minute package`)
+    );
+  }
+
+  details.retailItems.forEach((item) => {
+    saleParts.push(
+      `${item.name} × ${item.quantity}`
+    );
+  });
+
+  const saleDescription = saleParts.join(" + ");
+
+  await logAudit({
+    action: "Combined Sale",
+    customerName:
+      selectedCustomer.full_name || "Unnamed Customer",
+    details: `${saleDescription} (£${totalAmount.toFixed(
+      2
+    )})`,
+  });
+
+  setActivities((current) => [
+    {
+      id: crypto.randomUUID(),
+      text: `✓ Combined sale: ${saleDescription} (£${totalAmount.toFixed(
+        2
+      )}) to ${
+        selectedCustomer.full_name || "Customer"
+      }`,
+      time: new Date().toLocaleTimeString("en-GB", {
+        hour: "2-digit",
+        minute: "2-digit",
+      }),
+    },
+    ...current,
+  ]);
+
+  showMessage(
+    `✓ Combined sale completed (£${totalAmount.toFixed(
+      2
+    )})`
+  );
+
+  await refreshSelectedCustomer(
+    selectedCustomer.customer_id
+  );
+
+  await searchCustomers();
+  await refreshDashboardStats();
+
+  return true;
+}
+
 async function addMinutes(
   sale?: Sale & {
     is_unlimited?: boolean;
@@ -1472,6 +1614,7 @@ onOpenProductSettings={() => {
   onAddCustomerNote={addCustomerNote}
   onDeleteCustomerNote={deleteCustomerNote}
    onEditCustomer={() => setEditingCustomer(true)}
+   onCombinedCheckout={combinedCheckout}
 />
 
             <BedDashboard
