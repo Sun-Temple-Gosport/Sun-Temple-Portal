@@ -7,10 +7,15 @@ import { supabase } from "../../lib/supabase";
 export default function MyMinutes() {
   const [profile, setProfile] = useState<any>(null);
   const [balance, setBalance] = useState<any>(null);
+  const [unlimitedExpiresAt, setUnlimitedExpiresAt] = useState<string | null>(
+    null
+  );
+
   const [salonName, setSalonName] = useState("Your Salon");
   const [tagline, setTagline] = useState("");
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [salonSlug, setSalonSlug] = useState("");
+
   const router = useRouter();
 
   async function logout() {
@@ -30,16 +35,16 @@ export default function MyMinutes() {
       } = await supabase.auth.getUser();
 
       if (!user) {
-  const requestedSalonSlug = new URLSearchParams(
-    window.location.search
-  ).get("salon");
+        const requestedSalonSlug = new URLSearchParams(
+          window.location.search
+        ).get("salon");
 
-  window.location.href = requestedSalonSlug
-    ? `/login?salon=${encodeURIComponent(requestedSalonSlug)}`
-    : "/login";
+        window.location.href = requestedSalonSlug
+          ? `/login?salon=${encodeURIComponent(requestedSalonSlug)}`
+          : "/login";
 
-  return;
-}
+        return;
+      }
 
       const { data: profileData, error: profileError } = await supabase
         .from("profiles")
@@ -111,6 +116,24 @@ export default function MyMinutes() {
         );
       }
 
+      const { data: customerData, error: customerError } = await supabase
+        .from("customers")
+        .select("unlimited_expires_at")
+        .eq("customer_id", customerId)
+        .eq("salon_id", profileData.salon_id)
+        .maybeSingle();
+
+      if (customerError) {
+        console.error(
+          "Could not load Unlimited entitlement:",
+          customerError.message
+        );
+      } else {
+        setUnlimitedExpiresAt(
+          customerData?.unlimited_expires_at || null
+        );
+      }
+
       setProfile({
         ...profileData,
         full_name:
@@ -125,6 +148,10 @@ export default function MyMinutes() {
 
     void loadCustomer();
   }, []);
+
+  const hasActiveUnlimited =
+    unlimitedExpiresAt !== null &&
+    new Date(unlimitedExpiresAt).getTime() > Date.now();
 
   return (
     <main className="min-h-screen bg-[#050505] px-6 py-16 text-white">
@@ -150,9 +177,7 @@ export default function MyMinutes() {
         </div>
 
         {tagline && (
-          <p className="mt-4 text-zinc-400">
-            {tagline}
-          </p>
+          <p className="mt-4 text-zinc-400">{tagline}</p>
         )}
 
         <div className="mt-10 rounded-3xl border border-[#d6a84f]/30 bg-[#111] p-8">
@@ -163,36 +188,72 @@ export default function MyMinutes() {
           </h2>
 
           <div className="mt-8">
-            <p className="text-zinc-400">Minutes remaining</p>
+            {hasActiveUnlimited ? (
+              <>
+                <p className="text-zinc-400">Current package</p>
 
-            <p className="mt-2 text-7xl font-bold text-[#d6a84f]">
-              {balance?.total_minutes ?? 0}
-            </p>
+                <p className="mt-2 text-6xl font-bold text-emerald-400">
+                  ∞ UNLIMITED
+                </p>
 
-            <p className="mt-6 text-zinc-400">Next expiry</p>
+                <p className="mt-6 text-zinc-400">
+                  Unlimited until
+                </p>
 
-            <p className="mt-1 text-2xl font-bold text-white">
-              {balance?.next_expiry
-                ? new Date(balance.next_expiry).toLocaleDateString("en-GB", {
-                    day: "2-digit",
-                    month: "long",
-                    year: "numeric",
-                  })
-                : "No active expiry"}
-            </p>
+                <p className="mt-1 text-2xl font-bold text-white">
+                  {new Date(unlimitedExpiresAt).toLocaleDateString(
+  "en-GB",
+  {
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+    timeZone: "UTC",
+  }
+)}
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="text-zinc-400">
+                  Minutes remaining
+                </p>
+
+                <p className="mt-2 text-7xl font-bold text-[#d6a84f]">
+                  {balance?.total_minutes ?? 0}
+                </p>
+
+                <p className="mt-6 text-zinc-400">
+                  Next expiry
+                </p>
+
+                <p className="mt-1 text-2xl font-bold text-white">
+                  {balance?.next_expiry
+                    ? new Date(
+                        balance.next_expiry
+                      ).toLocaleDateString("en-GB", {
+                        day: "2-digit",
+                        month: "long",
+                        year: "numeric",
+                      })
+                    : "No active expiry"}
+                </p>
+              </>
+            )}
           </div>
 
           <div className="mt-10 flex flex-wrap gap-4">
             <a
-  href={
-    salonSlug
-      ? `/buy-minutes?salon=${encodeURIComponent(salonSlug)}`
-      : "/buy-minutes"
-  }
-  className="rounded-full bg-[#d6a84f] px-8 py-4 font-bold text-black"
->
-  Buy More Minutes
-</a>
+              href={
+                salonSlug
+                  ? `/buy-minutes?salon=${encodeURIComponent(
+                      salonSlug
+                    )}`
+                  : "/buy-minutes"
+              }
+              className="rounded-full bg-[#d6a84f] px-8 py-4 font-bold text-black"
+            >
+              Buy More Minutes
+            </a>
 
             <button
               type="button"
