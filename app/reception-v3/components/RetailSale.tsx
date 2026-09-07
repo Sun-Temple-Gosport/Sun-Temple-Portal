@@ -186,59 +186,59 @@ export default function RetailSale({
         )}
 
         {!loading && !errorMessage && products.length > 0 && (
-          <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {products.map((product) => (
-              <div
-                key={product.id}
-                className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4"
-              >
-                <p className="font-black text-white">
-                  {product.name}
-                </p>
-
-                <div className="mt-3">
-  <p className="text-xl font-black text-amber-400">
-    £{Number(product.selling_price).toFixed(2)}
-  </p>
-
-  <p className="mt-1 text-xs font-bold text-slate-500">
-    {product.stock_quantity} in stock
-  </p>
-
-  <div className="mt-4 grid grid-cols-2 gap-2">
-    {onAddToBasket && product.stock_quantity > 0 && (
-      <button
-        type="button"
-        onClick={() =>
-          onAddToBasket({
-            id: product.id,
-            name: product.name,
-            selling_price: Number(product.selling_price),
-            stock_quantity: product.stock_quantity,
-          })
-        }
-        className="rounded-xl border border-amber-400 px-3 py-2 text-xs font-black text-amber-300 transition hover:bg-amber-400/10"
+  <div className="mt-5 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+    {products.map((product) => (
+      <div
+        key={product.id}
+        className="rounded-xl border border-slate-800 bg-slate-900/60 p-3"
       >
-        Basket
-      </button>
-    )}
+        <p className="min-h-[2.5rem] text-sm font-black leading-tight text-white">
+          {product.name}
+        </p>
 
-    <button
-      type="button"
-      onClick={() => openSale(product)}
-      disabled={product.stock_quantity <= 0}
-      className="rounded-xl bg-amber-400 px-3 py-2 text-xs font-black text-black transition hover:bg-amber-300 disabled:cursor-not-allowed disabled:opacity-40"
-    >
-      {product.stock_quantity > 0
-        ? "Sell Now"
-        : "Sold Out"}
-    </button>
+        <div className="mt-2 flex items-end justify-between gap-2">
+          <p className="text-lg font-black text-amber-400">
+            £{Number(product.selling_price).toFixed(2)}
+          </p>
+
+          <p className="text-[11px] font-bold text-slate-500">
+            {product.stock_quantity} in stock
+          </p>
+        </div>
+
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          {onAddToBasket && product.stock_quantity > 0 && (
+            <button
+              type="button"
+              onClick={() =>
+                onAddToBasket({
+                  id: product.id,
+                  name: product.name,
+                  selling_price: Number(product.selling_price),
+                  stock_quantity: product.stock_quantity,
+                })
+              }
+              className="rounded-lg border border-amber-400 px-2 py-1.5 text-[11px] font-black text-amber-300 transition hover:bg-amber-400/10"
+            >
+              Basket
+            </button>
+          )}
+
+          <button
+            type="button"
+            onClick={() => openSale(product)}
+            disabled={product.stock_quantity <= 0}
+            className="rounded-lg bg-amber-400 px-2 py-1.5 text-[11px] font-black text-black transition hover:bg-amber-300 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            {product.stock_quantity > 0
+              ? "Sell Now"
+              : "Sold Out"}
+          </button>
+        </div>
+      </div>
+    ))}
   </div>
-</div>
-              </div>
-            ))}
-          </div>
-        )}
+)}
       </section>
 
       {selectedProduct && (
