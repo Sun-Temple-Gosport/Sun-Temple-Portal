@@ -23,6 +23,16 @@ type Notice = {
   text: string;
 };
 
+type SumUpTerminal = {
+  id: string;
+  terminalName: string;
+  readerId: string;
+  status: string;
+  isDefault: boolean;
+  deviceModel?: string | null;
+  deviceIdentifier?: string | null;
+  syncError?: boolean;
+};
 type CredentialField = {
   key: string;
   label: string;
@@ -271,6 +281,21 @@ export default function PaymentProviderManager() {
   const [salonId, setSalonId] =
     useState<string | null>(null);
 
+    const [terminalName, setTerminalName] =
+  useState("Front Desk");
+
+const [pairingCode, setPairingCode] =
+  useState("");
+
+const [pairingTerminal, setPairingTerminal] =
+  useState(false);
+
+const [loadingTerminals, setLoadingTerminals] =
+  useState(false);
+
+const [sumUpTerminals, setSumUpTerminals] =
+  useState<SumUpTerminal[]>([]);
+
   useEffect(() => {
     async function loadCurrentSalon() {
       const {
@@ -386,6 +411,69 @@ export default function PaymentProviderManager() {
 
     void loadPaymentProvider();
   }, [salonId]);
+
+  useEffect(() => {
+  async function loadSumUpTerminals() {
+    if (
+      selectedProvider !== "sumup" ||
+      connectionStatus !== "connected"
+    ) {
+      setSumUpTerminals([]);
+      return;
+    }
+
+    setLoadingTerminals(true);
+
+    const {
+      data: { session },
+      error: sessionError,
+    } = await supabase.auth.getSession();
+
+    if (sessionError || !session?.access_token) {
+      setLoadingTerminals(false);
+
+      setNotice({
+        type: "error",
+        text: "Your login session could not be verified.",
+      });
+
+      return;
+    }
+
+    const response = await fetch(
+      "/api/payments/terminals/sumup/status",
+      {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      }
+    );
+
+    const data = await response.json();
+
+    setLoadingTerminals(false);
+
+    if (!response.ok) {
+      setNotice({
+        type: "error",
+        text:
+          data.error ||
+          "Could not load SumUp terminals.",
+      });
+
+      return;
+    }
+
+    setSumUpTerminals(
+      Array.isArray(data.terminals)
+        ? data.terminals
+        : []
+    );
+  }
+
+  void loadSumUpTerminals();
+}, [selectedProvider, connectionStatus]);
 
   async function selectProvider(provider: Provider) {
     if (!salonId) {
@@ -558,6 +646,97 @@ export default function PaymentProviderManager() {
         `${provider.name} payment details have been saved securely.`,
     });
   }
+
+  async function pairSumUpTerminal() {
+  const code = pairingCode
+    .replace(/\s+/g, "")
+    .toUpperCase();
+
+  if (!code) {
+    setNotice({
+      type: "error",
+      text: "Enter the pairing code shown on the SumUp Solo.",
+    });
+
+    return;
+  }
+
+  setPairingTerminal(true);
+  setNotice(null);
+
+  const {
+    data: { session },
+    error: sessionError,
+  } = await supabase.auth.getSession();
+
+  if (sessionError || !session?.access_token) {
+    setPairingTerminal(false);
+
+    setNotice({
+      type: "error",
+      text: "Your login session could not be verified.",
+    });
+
+    return;
+  }
+
+  const response = await fetch(
+    "/api/payments/terminals/sumup/pair",
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${session.access_token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        pairingCode: code,
+        terminalName: terminalName.trim() || "Front Desk",
+      }),
+    }
+  );
+
+  const data = await response.json();
+
+  setPairingTerminal(false);
+
+  if (!response.ok) {
+    setNotice({
+      type: "error",
+      text:
+        data.error ||
+        "Could not pair the SumUp Solo.",
+    });
+
+    return;
+  }
+
+  setPairingCode("");
+
+  setSumUpTerminals((current) => {
+    const terminal: SumUpTerminal = {
+      id: data.readerId,
+      terminalName:
+        data.terminalName || terminalName,
+      readerId: data.readerId,
+      status: data.status || "processing",
+      isDefault: Boolean(data.isDefault),
+      syncError: false,
+    };
+
+    return [
+      ...current.filter(
+        (item) => item.readerId !== terminal.readerId
+      ),
+      terminal,
+    ];
+  });
+
+  setNotice({
+    type: "success",
+    text:
+      "SumUp Solo pairing started successfully.",
+  });
+}
 
   async function verifyPaymentDetails() {
     setVerifying(true);
@@ -762,6 +941,127 @@ export default function PaymentProviderManager() {
                 )}
               </div>
             )}
+
+            {selected.id === "sumup" && isConnected && (
+  <div className="mt-6 rounded-2xl border border-slate-700 bg-slate-950 p-5">
+    <div>
+      <p className="text-xs font-black uppercase tracking-[0.2em] text-amber-400">
+        Physical Terminal
+      </p>
+
+      <h3 className="mt-2 text-xl font-black text-white">
+        SumUp Solo
+      </h3>
+
+      <p className="mt-2 text-sm text-slate-400">
+        Pair your Solo so TanSalonOS can send checkout
+        totals directly to the terminal.
+      </p>
+    </div>
+
+    <div className="mt-5 space-y-3">
+      {loadingTerminals && (
+        <p className="text-sm text-slate-400">
+          Checking connected terminals...
+        </p>
+      )}
+
+      {!loadingTerminals &&
+        sumUpTerminals.length === 0 && (
+          <p className="text-sm text-slate-500">
+            No SumUp Solo terminals paired yet.
+          </p>
+        )}
+
+      {sumUpTerminals.map((terminal) => (
+        <div
+          key={terminal.readerId}
+          className="rounded-xl border border-slate-800 bg-slate-900 p-4"
+        >
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="font-black text-white">
+                {terminal.terminalName}
+              </p>
+
+              <p className="mt-1 text-xs text-slate-500">
+                {terminal.readerId}
+              </p>
+            </div>
+
+            <div className="text-right">
+              <span
+                className={`rounded-full px-3 py-1 text-xs font-black ${
+                  terminal.status === "paired"
+                    ? "bg-emerald-400/15 text-emerald-300"
+                    : "bg-amber-400/15 text-amber-300"
+                }`}
+              >
+                {terminal.status.toUpperCase()}
+              </span>
+
+              {terminal.isDefault && (
+                <p className="mt-2 text-xs font-bold text-slate-500">
+                  Default terminal
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+
+    <div className="mt-6 grid gap-4 md:grid-cols-2">
+      <label className="space-y-2">
+        <span className="text-xs font-black uppercase tracking-wide text-slate-400">
+          Terminal name
+        </span>
+
+        <input
+          type="text"
+          value={terminalName}
+          onChange={(event) =>
+            setTerminalName(event.target.value)
+          }
+          placeholder="Front Desk"
+          className="w-full rounded-xl border border-slate-700 bg-slate-900 p-3 text-white outline-none focus:border-amber-400"
+        />
+      </label>
+
+      <label className="space-y-2">
+        <span className="text-xs font-black uppercase tracking-wide text-slate-400">
+          Pairing code
+        </span>
+
+        <input
+          type="text"
+          value={pairingCode}
+          onChange={(event) =>
+            setPairingCode(
+              event.target.value.toUpperCase()
+            )
+          }
+          placeholder="Code shown on Solo"
+          autoComplete="off"
+          className="w-full rounded-xl border border-slate-700 bg-slate-900 p-3 uppercase text-white outline-none focus:border-amber-400"
+        />
+      </label>
+    </div>
+
+    <button
+      type="button"
+      onClick={() => {
+        void pairSumUpTerminal();
+      }}
+      disabled={pairingTerminal}
+      className="mt-4 rounded-xl bg-amber-400 px-5 py-3 font-black text-black transition hover:bg-amber-300 disabled:cursor-not-allowed disabled:opacity-60"
+    >
+      {pairingTerminal
+        ? "Pairing Solo..."
+        : "Pair SumUp Solo"}
+    </button>
+  </div>
+)}
 
           {!isConnected &&
             selected.fields.length > 0 && (
