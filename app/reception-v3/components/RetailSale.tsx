@@ -98,6 +98,62 @@ export default function RetailSale({
   const amountToPay =
     paymentMethod === "complimentary" ? 0 : retailTotal;
 
+    async function logRetailSaleAudit({
+  productName,
+  quantity,
+  amount,
+  paymentMethod,
+}: {
+  productName: string;
+  quantity: number;
+  amount: number;
+  paymentMethod: PaymentMethod;
+}) {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    console.error("Retail audit skipped: no authenticated user.");
+    return;
+  }
+
+  const { data: profile, error: profileError } =
+    await supabase
+      .from("profiles")
+      .select("salon_id, full_name, email")
+      .eq("id", user.id)
+      .maybeSingle();
+
+  if (profileError || !profile?.salon_id) {
+    console.error(
+      "Retail audit skipped: salon could not be determined.",
+      profileError
+    );
+    return;
+  }
+
+  const { error } = await supabase
+    .from("audit_log")
+    .insert({
+      staff_id: user.id,
+      staff_name:
+        profile.full_name ||
+        profile.email ||
+        "Staff User",
+      action: "Retail Sale",
+      customer_name: null,
+      details: `${productName} × ${quantity} (£${amount.toFixed(
+        2
+      )}) · ${paymentMethod.toUpperCase()}`,
+      salon_id: profile.salon_id,
+    });
+
+  if (error) {
+    console.error("Retail audit log failed:", error);
+  }
+}
+
   async function completeSale() {
     if (!selectedProduct || !validQuantity) {
       return;
@@ -116,15 +172,22 @@ export default function RetailSale({
     });
 
     if (error) {
-      console.error("Could not complete retail sale:", error);
-      setSaleError(
-        error.message || "Could not complete the retail sale."
-      );
-      setSavingSale(false);
-      return;
-    }
+  console.error("Could not complete retail sale:", error);
+  setSaleError(
+    error.message || "Could not complete the retail sale."
+  );
+  setSavingSale(false);
+  return;
+}
 
-    setSavingSale(false);
+await logRetailSaleAudit({
+  productName,
+  quantity: quantityNumber,
+  amount: amountToPay,
+  paymentMethod,
+});
+
+setSavingSale(false);
     setSelectedProduct(null);
     setQuantity("1");
     setPaymentMethod("card");
