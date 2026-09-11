@@ -11,6 +11,7 @@ import LaunchCentre from "./LaunchCentre";
 import StockManagement from "./StockManagement";
 import type { OwnerView } from "./OwnerTabs";
 import PaymentProviderManager from "./PaymentProviderManager";
+import BookingsManagement from "./BookingsManagement";
 
 type CashUpSale = {
   id: string | number;
@@ -145,6 +146,13 @@ export default function OwnerArea({
       bookingsEnabled={bookingsEnabled}
     />
   );
+}
+if (ownerView === "bookings") {
+  if (!bookingsEnabled) {
+    return null;
+  }
+
+  return <BookingsManagement />;
 }
 
   if (ownerView === "stock") {

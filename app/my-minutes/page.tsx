@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabase";
+import CustomerBookings from "./CustomerBookings";
 
 export default function MyMinutes() {
   const [profile, setProfile] = useState<any>(null);
@@ -15,7 +16,7 @@ export default function MyMinutes() {
   const [tagline, setTagline] = useState("");
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [salonSlug, setSalonSlug] = useState("");
-
+const [bookingsEnabled, setBookingsEnabled] = useState(false);
   const router = useRouter();
 
   async function logout() {
@@ -66,6 +67,24 @@ export default function MyMinutes() {
         );
         return;
       }
+
+      const { data: bookingsFeature, error: bookingsFeatureError } =
+  await supabase
+    .from("salon_features")
+    .select("enabled")
+    .eq("salon_id", profileData.salon_id)
+    .eq("feature_key", "bookings")
+    .maybeSingle();
+
+if (bookingsFeatureError) {
+  console.error(
+    "Could not load Bookings feature:",
+    bookingsFeatureError.message
+  );
+  setBookingsEnabled(false);
+} else {
+  setBookingsEnabled(bookingsFeature?.enabled === true);
+}
 
       const { data: salonData, error: salonError } = await supabase
         .from("salons")
@@ -254,6 +273,20 @@ export default function MyMinutes() {
             >
               Buy More Minutes
             </a>
+            {bookingsEnabled && (
+  <a
+    href={
+      salonSlug
+        ? `/book-sunbed?salon=${encodeURIComponent(
+            salonSlug
+          )}`
+        : "/book-sunbed"
+    }
+    className="rounded-full border border-[#d6a84f] px-8 py-4 font-bold text-[#d6a84f] hover:bg-[#d6a84f] hover:text-black"
+  >
+    Book a Sunbed
+  </a>
+)}
 
             <button
               type="button"
@@ -264,7 +297,19 @@ export default function MyMinutes() {
             </button>
           </div>
         </div>
+        
+
+        {bookingsEnabled &&
+          profile?.salon_id &&
+          profile?.customer_id && (
+            <CustomerBookings
+              salonId={profile.salon_id}
+              customerId={profile.customer_id}
+            />
+          )}
+
       </section>
+    
     </main>
   );
 }
