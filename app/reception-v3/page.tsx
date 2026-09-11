@@ -103,6 +103,7 @@ const [unlimitedCustomerIds, setUnlimitedCustomerIds] =
   useState<Set<string>>(() => new Set());
 
 const [currentSalonId, setCurrentSalonId] = useState<string | null>(null);
+const [bookingsEnabled, setBookingsEnabled] = useState(false);
     const recentCustomersKey = currentSalonId
   ? `${RECENT_CUSTOMERS_KEY_PREFIX}:${currentSalonId}`
   : null;
@@ -362,6 +363,35 @@ const { data, error } = await supabase
     setSalonTagline(data.tagline.trim());
   }
 }
+
+useEffect(() => {
+  async function loadBookingsFeature() {
+    if (!currentSalonId) {
+      setBookingsEnabled(false);
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from("salon_features")
+      .select("enabled")
+      .eq("salon_id", currentSalonId)
+      .eq("feature_key", "bookings")
+      .maybeSingle();
+
+    if (error) {
+      console.error(
+        "Could not load Bookings feature:",
+        error.message
+      );
+      setBookingsEnabled(false);
+      return;
+    }
+
+    setBookingsEnabled(data?.enabled === true);
+  }
+
+  void loadBookingsFeature();
+}, [currentSalonId]);
 
   function saveRecentCustomer(customer: CustomerBalance) {
     const updated = [
@@ -1541,8 +1571,9 @@ async function startPaygSession(
 
       {userRole === "owner" && (
   <OwnerTabs
-    isOwnerMode={isOwnerMode}
-    ownerView={ownerView}
+  isOwnerMode={isOwnerMode}
+  ownerView={ownerView}
+  bookingsEnabled={bookingsEnabled}
     onSelectView={(view) => {
       setIsOwnerMode(true);
       setOwnerView(view);

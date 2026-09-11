@@ -7,6 +7,7 @@ export type OwnerView =
   | "history"
   | "audit"
   | "beds"
+  | "bookings"
   | "stock"
   | "rota"
   | "payments"
@@ -16,6 +17,7 @@ export type OwnerView =
 type Props = {
   isOwnerMode: boolean;
   ownerView: OwnerView;
+  bookingsEnabled?: boolean;
   onSelectView: (view: OwnerView) => void;
   onOpenSettings: () => void;
   onEnterStaffMode: () => void;
@@ -24,6 +26,7 @@ type Props = {
 export default function OwnerTabs({
   isOwnerMode,
   ownerView,
+  bookingsEnabled = false,
   onSelectView,
   onOpenSettings,
   onEnterStaffMode,
@@ -85,6 +88,16 @@ export default function OwnerTabs({
       >
         Beds
       </button>
+
+      {bookingsEnabled && (
+        <button
+          type="button"
+          onClick={() => onSelectView("bookings")}
+          className={tabClass("bookings")}
+        >
+          Bookings
+        </button>
+      )}
 
       <button
         type="button"
