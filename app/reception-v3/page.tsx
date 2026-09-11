@@ -1596,7 +1596,8 @@ async function startPaygSession(
         
   {userRole === "owner" && isOwnerMode && (
   <OwnerArea
-    ownerView={ownerView}
+  ownerView={ownerView}
+  bookingsEnabled={bookingsEnabled}
     revenueToday={revenueToday}
     cardRevenueToday={cardRevenueToday}
     cashRevenueToday={cashRevenueToday}

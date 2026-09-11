@@ -8,6 +8,7 @@ type Bed = {
   name: string;
   display_order: number;
   active: boolean;
+  bookable: boolean;
 };
 
 type BedLampCycle = {
@@ -63,7 +64,13 @@ async function getCurrentSalonId() {
   };
 }
 
-export default function BedManagement() {
+type Props = {
+  bookingsEnabled?: boolean;
+};
+
+export default function BedManagement({
+  bookingsEnabled = false,
+}: Props) {
 const [beds, setBeds] = useState<Bed[]>([]);
 const [lampCycles, setLampCycles] = useState<BedLampCycle[]>([]);
 const [lampUsage, setLampUsage] = useState<BedLampUsage[]>([]);
@@ -111,7 +118,7 @@ const [loading, setLoading] = useState(true);
 ] = await Promise.all([
   supabase
     .from("beds")
-    .select("id, name, display_order, active")
+    .select("id, name, display_order, active, bookable")
     .eq("salon_id", salonId)
     .eq("active", true)
     .order("display_order", { ascending: true }),
@@ -283,6 +290,49 @@ setLoading(false);
     await loadBeds();
     setSaving(false);
   }
+
+  async function toggleBookable(bed: Bed) {
+  setSaving(true);
+  setErrorMessage("");
+  setSuccessMessage("");
+
+  const { salonId, error: salonError } =
+    await getCurrentSalonId();
+
+  if (salonError || !salonId) {
+    setErrorMessage(
+      salonError?.message ||
+        "Could not determine the current salon."
+    );
+    setSaving(false);
+    return;
+  }
+
+  const nextBookable = !bed.bookable;
+
+  const { error } = await supabase
+    .from("beds")
+    .update({
+      bookable: nextBookable,
+    })
+    .eq("id", bed.id)
+    .eq("salon_id", salonId);
+
+  if (error) {
+    setErrorMessage(error.message);
+    setSaving(false);
+    return;
+  }
+
+  setSuccessMessage(
+    `${bed.name} is now ${
+      nextBookable ? "available" : "unavailable"
+    } for online booking.`
+  );
+
+  await loadBeds();
+  setSaving(false);
+}
 
   async function deleteBed(bed: Bed) {
     const confirmed = window.confirm(
@@ -769,6 +819,21 @@ async function startLampCycle(bed: Bed) {
                 <span className="rounded-full bg-emerald-500/15 px-3 py-1 text-xs font-black uppercase tracking-wide text-emerald-300">
                   Active
                 </span>
+
+                {bookingsEnabled && (
+  <button
+    type="button"
+    onClick={() => void toggleBookable(bed)}
+    disabled={saving}
+    className={`rounded-full border px-4 py-2 text-xs font-black uppercase tracking-wide transition disabled:opacity-50 ${
+      bed.bookable
+        ? "border-emerald-400 bg-emerald-400/10 text-emerald-300 hover:bg-emerald-400 hover:text-black"
+        : "border-slate-600 text-slate-400 hover:border-amber-400 hover:text-amber-300"
+    }`}
+  >
+    {bed.bookable ? "Bookable" : "Not Bookable"}
+  </button>
+)}
 
                 <button
                   type="button"

@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+
 import OwnerDashboard from "./OwnerDashboard";
 import CashUp from "./CashUp";
 import CashUpHistory from "./CashUpHistory";
@@ -38,6 +38,7 @@ type SaveCashUpDetails = {
 
 type Props = {
   ownerView: OwnerView;
+  bookingsEnabled?: boolean;
 
   revenueToday: number;
   cardRevenueToday: number;
@@ -62,6 +63,7 @@ type Props = {
 
 export default function OwnerArea({
   ownerView,
+  bookingsEnabled = false,
   revenueToday,
   cardRevenueToday,
   cashRevenueToday,
@@ -138,8 +140,12 @@ export default function OwnerArea({
   }
 
   if (ownerView === "beds") {
-    return <BedManagement />;
-  }
+  return (
+    <BedManagement
+      bookingsEnabled={bookingsEnabled}
+    />
+  );
+}
 
   if (ownerView === "stock") {
     return <StockManagement />;
