@@ -9,6 +9,7 @@ import BedDashboard from "./components/BedDashboard";
 import OwnerSettings from "./components/OwnerSettings";
 import OwnerTabs, { type OwnerView } from "./components/OwnerTabs";
 import CustomerArea from "./components/CustomerArea";
+import BookingsManagement from "./components/BookingsManagement";
 import {
   loadCustomerBedSessions,
   loadSessionsToday as loadSessionsTodayService,
@@ -1624,46 +1625,79 @@ onOpenProductSettings={() => {
 )}
 
 {!isOwnerMode && (
-<div className="grid gap-6 xl:grid-cols-[2fr_1fr]">
-  <div className="min-w-0 space-y-5">
-    
-            <CustomerArea
-  search={search}
-  setSearch={setSearch}
-  customers={customers}
-  recentCustomers={recentCustomers}
-  selectedCustomer={selectedCustomer}
-  loading={loading}
-  manualMinutes={manualMinutes}
-  packages={packages}
-  customerHistory={customerHistory}
-  customerNotes={customerNotes}
-  onSearchCustomers={searchCustomers}
-  onSelectCustomer={selectCustomer}
-  onCreateCustomer={createCustomer}
-  onSetManualMinutes={setManualMinutes}
-  onAddMinutes={addMinutes}
-  onAddCustomerNote={addCustomerNote}
-  onDeleteCustomerNote={deleteCustomerNote}
-   onEditCustomer={() => setEditingCustomer(true)}
-   onCombinedCheckout={combinedCheckout}
-/>
+  <>
+    {bookingsEnabled && (
+      <div className="flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={() => setOwnerView("dashboard")}
+          className={`rounded-full px-4 py-2 text-xs font-black uppercase tracking-wide ${
+            ownerView !== "bookings"
+              ? "bg-amber-400 text-black"
+              : "border border-slate-700 bg-slate-900 text-slate-300"
+          }`}
+        >
+          Reception
+        </button>
 
-            <BedDashboard
-  selectedCustomer={selectedCustomer}
-  sessions={sessions}
-  beds={beds}
-  onStartSession={startBedSession}
-  onStartPaygSession={startPaygSession}
-  onFinishSession={finishBedSession}
-/>
-          </div>
+        <button
+          type="button"
+          onClick={() => setOwnerView("bookings")}
+          className={`rounded-full px-4 py-2 text-xs font-black uppercase tracking-wide ${
+            ownerView === "bookings"
+              ? "bg-amber-400 text-black"
+              : "border border-slate-700 bg-slate-900 text-slate-300"
+          }`}
+        >
+          Bookings
+        </button>
+      </div>
+    )}
 
-          <div className="space-y-5">
-            <ActivityFeed activities={activities} />
-          </div>
+    {bookingsEnabled && ownerView === "bookings" ? (
+      <BookingsManagement />
+    ) : (
+      <div className="grid gap-6 xl:grid-cols-[2fr_1fr]">
+        <div className="min-w-0 space-y-5">
+          <CustomerArea
+            search={search}
+            setSearch={setSearch}
+            customers={customers}
+            recentCustomers={recentCustomers}
+            selectedCustomer={selectedCustomer}
+            loading={loading}
+            manualMinutes={manualMinutes}
+            packages={packages}
+            customerHistory={customerHistory}
+            customerNotes={customerNotes}
+            onSearchCustomers={searchCustomers}
+            onSelectCustomer={selectCustomer}
+            onCreateCustomer={createCustomer}
+            onSetManualMinutes={setManualMinutes}
+            onAddMinutes={addMinutes}
+            onAddCustomerNote={addCustomerNote}
+            onDeleteCustomerNote={deleteCustomerNote}
+            onEditCustomer={() => setEditingCustomer(true)}
+            onCombinedCheckout={combinedCheckout}
+          />
+
+          <BedDashboard
+            selectedCustomer={selectedCustomer}
+            sessions={sessions}
+            beds={beds}
+            onStartSession={startBedSession}
+            onStartPaygSession={startPaygSession}
+            onFinishSession={finishBedSession}
+          />
         </div>
-      )}
+
+        <div className="space-y-5">
+          <ActivityFeed activities={activities} />
+        </div>
+      </div>
+    )}
+  </>
+)}
       </div>
 
       <EditCustomer
