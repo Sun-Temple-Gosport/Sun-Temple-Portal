@@ -5,11 +5,11 @@ export type CustomerBalance = {
   phone: string | null;
   total_minutes: number;
   next_expiry: string | null;
+  unlimited_expires_at: string | null;
   vip_expires_at: string | null;
   discount_type?: "blue_light" | "military" | null;
-discount_expires_at?: string | null;
+  discount_expires_at?: string | null;
 };
-
 export type BedSession = {
   id: string;
   customer_id: string;

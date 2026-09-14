@@ -107,16 +107,19 @@ onClick={() => onSelectCustomer(customer)}
 
                 <div style={styles.customerStats}>
   <strong style={styles.minutes}>
-    {unlimitedIds.includes(customer.customer_id)
-      ? "∞ Unlimited"
-      : `${customer.total_minutes ?? 0} mins`}
+    {customer.unlimited_expires_at &&
+new Date(customer.unlimited_expires_at) > new Date()
+  ? "∞ Unlimited"
+  : `${customer.total_minutes ?? 0} mins`}
   </strong>
 
   <span style={styles.expiry}>
     {formatExpiry(
-      unlimitedExpiries[customer.customer_id] ??
-        customer.next_expiry
-    )}
+  customer.unlimited_expires_at &&
+  new Date(customer.unlimited_expires_at) > new Date()
+    ? customer.unlimited_expires_at
+    : customer.next_expiry
+)}
   </span>
 </div>
               </button>

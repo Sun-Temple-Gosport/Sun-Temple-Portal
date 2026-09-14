@@ -69,8 +69,6 @@ const [discountExpiry, setDiscountExpiry] = useState("");
 const [savingDiscount, setSavingDiscount] = useState(false);
    const [vipDiscountPercent, setVipDiscountPercent] = useState(0);
 
-const [activeUnlimitedExpiry, setActiveUnlimitedExpiry] =
-  useState<string | null>(null);
 
 useEffect(() => {
   async function loadVipDiscount() {
@@ -118,68 +116,11 @@ useEffect(() => {
   void loadVipDiscount();
 }, []);
 
-useEffect(() => {
-  async function loadUnlimitedStatus() {
-    setActiveUnlimitedExpiry(null);
-
-    if (!selectedCustomer) {
-      return;
-    }
-
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser();
-
-    if (userError || !user) {
-      console.error(
-        "Could not determine logged-in user for Unlimited status:",
-        userError?.message
-      );
-      return;
-    }
-
-    const { data: profile, error: profileError } = await supabase
-      .from("profiles")
-      .select("salon_id")
-      .eq("id", user.id)
-      .maybeSingle();
-
-    if (profileError || !profile?.salon_id) {
-      console.error(
-        "Could not determine salon for Unlimited status:",
-        profileError?.message || "Salon ID missing."
-      );
-      return;
-    }
-
-    const today = new Date().toISOString().split("T")[0];
-
-    const { data, error } = await supabase
-      .from("purchases")
-      .select("expiry_date")
-      .eq("salon_id", profile.salon_id)
-      .eq("customer_id", selectedCustomer.customer_id)
-      .eq("payment_status", "paid")
-      .eq("is_unlimited", true)
-      .gte("expiry_date", today)
-      .order("expiry_date", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (error) {
-      console.error(
-        "Could not load Unlimited status:",
-        error.message
-      );
-      return;
-    }
-
-    setActiveUnlimitedExpiry(data?.expiry_date ?? null);
-  }
-
-  void loadUnlimitedStatus();
-}, [selectedCustomer]);
+const activeUnlimitedExpiry =
+  selectedCustomer?.unlimited_expires_at &&
+  new Date(selectedCustomer.unlimited_expires_at) > new Date()
+    ? selectedCustomer.unlimited_expires_at.split("T")[0]
+    : null;
 async function saveDiscount() {
   if (!selectedCustomer) return;
 
