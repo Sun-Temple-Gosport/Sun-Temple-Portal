@@ -23,6 +23,124 @@ type ProviderRequest = {
   provider?: ProviderId;
 };
 
+export async function GET(request: Request) {
+  try {
+    const authHeader =
+      request.headers.get("authorization");
+
+    if (!authHeader?.startsWith("Bearer ")) {
+      return NextResponse.json(
+        { error: "Authentication required." },
+        { status: 401 }
+      );
+    }
+
+    const accessToken =
+      authHeader.slice("Bearer ".length);
+
+    const {
+      data: { user },
+      error: userError,
+    } = await supabaseAdmin.auth.getUser(
+      accessToken
+    );
+
+    if (userError || !user) {
+      return NextResponse.json(
+        {
+          error:
+            "Invalid or expired login session.",
+        },
+        { status: 401 }
+      );
+    }
+
+    const {
+      data: profile,
+      error: profileError,
+    } = await supabaseAdmin
+      .from("profiles")
+      .select("salon_id, role")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    if (
+      profileError ||
+      !profile?.salon_id
+    ) {
+      console.error(
+        "Payment provider GET profile lookup failed:",
+        profileError
+      );
+
+      return NextResponse.json(
+        {
+          error:
+            "Could not determine the current salon.",
+        },
+        { status: 500 }
+      );
+    }
+
+    const role =
+      String(profile.role ?? "").toLowerCase();
+
+    if (
+      role !== "owner" &&
+      role !== "staff"
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            "Staff access is required.",
+        },
+        { status: 403 }
+      );
+    }
+
+    const {
+      data: connection,
+      error: connectionError,
+    } = await supabaseAdmin
+      .from("salon_payment_connections")
+      .select("provider")
+      .eq("salon_id", profile.salon_id)
+      .maybeSingle();
+
+    if (connectionError) {
+      console.error(
+        "Payment provider GET connection lookup failed:",
+        connectionError
+      );
+
+      return NextResponse.json(
+        {
+          error:
+            "Could not load payment provider.",
+        },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json({
+      provider: connection?.provider ?? null,
+    });
+  } catch (error) {
+    console.error(
+      "Payment provider GET route failed:",
+      error
+    );
+
+    return NextResponse.json(
+      {
+        error:
+          "Unexpected payment provider error.",
+      },
+      { status: 500 }
+    );
+  }
+}
+
 export async function POST(request: Request) {
   try {
     const authHeader = request.headers.get("authorization");

@@ -332,25 +332,43 @@ const {
   setCurrentSalonId(profile.salon_id);
 
   const {
-  data: paymentConnection,
-  error: paymentConnectionError,
-} = await supabase
-  .from("salon_payment_connections")
-  .select("provider")
-  .eq("salon_id", profile.salon_id)
-  .maybeSingle();
+  data: { session },
+  error: sessionError,
+} = await supabase.auth.getSession();
 
-if (paymentConnectionError) {
+if (sessionError || !session?.access_token) {
   console.error(
-    "Could not load salon payment provider:",
-    paymentConnectionError.message
+    "Could not load salon payment provider: no valid session."
   );
 
   setPaymentProvider(null);
 } else {
-  setPaymentProvider(
-    paymentConnection?.provider ?? null
+  const paymentProviderResponse = await fetch(
+    "/api/payments/provider",
+    {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${session.access_token}`,
+      },
+      cache: "no-store",
+    }
   );
+
+  const paymentProviderData =
+    await paymentProviderResponse.json();
+
+  if (!paymentProviderResponse.ok) {
+    console.error(
+      "Could not load salon payment provider:",
+      paymentProviderData.error
+    );
+
+    setPaymentProvider(null);
+  } else {
+    setPaymentProvider(
+      paymentProviderData.provider ?? null
+    );
+  }
 }
 
 const { data: salon, error: salonError } = await supabase
