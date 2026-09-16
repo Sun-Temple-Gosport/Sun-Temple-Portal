@@ -296,6 +296,12 @@ const [loadingTerminals, setLoadingTerminals] =
 const [sumUpTerminals, setSumUpTerminals] =
   useState<SumUpTerminal[]>([]);
 
+const [settingDefaultReaderId, setSettingDefaultReaderId] =
+  useState<string | null>(null);
+
+  const [testingSoloPayment, setTestingSoloPayment] =
+  useState(false);
+
   useEffect(() => {
     async function loadCurrentSalon() {
       const {
@@ -738,6 +744,127 @@ const [sumUpTerminals, setSumUpTerminals] =
   });
 }
 
+async function makeSumUpTerminalDefault(
+  readerId: string
+) {
+  setSettingDefaultReaderId(readerId);
+  setNotice(null);
+
+  const {
+    data: { session },
+    error: sessionError,
+  } = await supabase.auth.getSession();
+
+  if (sessionError || !session?.access_token) {
+    setSettingDefaultReaderId(null);
+
+    setNotice({
+      type: "error",
+      text: "Your login session could not be verified.",
+    });
+
+    return;
+  }
+
+  const response = await fetch(
+    "/api/payments/terminals/sumup/default",
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${session.access_token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        readerId,
+      }),
+    }
+  );
+
+  const data = await response.json();
+
+  setSettingDefaultReaderId(null);
+
+  if (!response.ok) {
+    setNotice({
+      type: "error",
+      text:
+        data.error ||
+        "Could not change the default SumUp terminal.",
+    });
+
+    return;
+  }
+
+  setSumUpTerminals((current) =>
+    current.map((terminal) => ({
+      ...terminal,
+      isDefault: terminal.readerId === readerId,
+    }))
+  );
+
+  setNotice({
+    type: "success",
+    text: "Default SumUp terminal updated.",
+  });
+}
+async function testSumUpSoloPayment() {
+  setTestingSoloPayment(true);
+  setNotice(null);
+
+  const {
+    data: { session },
+    error: sessionError,
+  } = await supabase.auth.getSession();
+
+  if (sessionError || !session?.access_token) {
+    setTestingSoloPayment(false);
+
+    setNotice({
+      type: "error",
+      text: "Your login session could not be verified.",
+    });
+
+    return;
+  }
+
+  const response = await fetch(
+    "/api/payments/terminals/sumup/checkout",
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${session.access_token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        amount: 1,
+        description: "TanSalonOS Solo test payment",
+      }),
+    }
+  );
+
+  const data = await response.json();
+
+  setTestingSoloPayment(false);
+
+  if (!response.ok) {
+    setNotice({
+      type: "error",
+      text:
+        data.error ||
+        "Could not start the SumUp Solo test payment.",
+    });
+
+    return;
+  }
+
+  setNotice({
+    type: "success",
+    text: `£1 test payment sent to ${
+      data.terminalName || "the default SumUp Solo"
+    }.`,
+  });
+}
+
   async function verifyPaymentDetails() {
     setVerifying(true);
     setNotice(null);
@@ -1000,11 +1127,28 @@ const [sumUpTerminals, setSumUpTerminals] =
                 {terminal.status.toUpperCase()}
               </span>
 
-              {terminal.isDefault && (
-                <p className="mt-2 text-xs font-bold text-slate-500">
-                  Default terminal
-                </p>
-              )}
+              {terminal.isDefault ? (
+  <p className="mt-2 text-xs font-bold text-slate-500">
+    Default terminal
+  </p>
+) : (
+  <button
+    type="button"
+    onClick={() => {
+      void makeSumUpTerminalDefault(
+        terminal.readerId
+      );
+    }}
+    disabled={
+      settingDefaultReaderId === terminal.readerId
+    }
+    className="mt-2 rounded-lg border border-amber-400/40 px-3 py-2 text-xs font-black text-amber-300 transition hover:bg-amber-400/10 disabled:cursor-not-allowed disabled:opacity-50"
+  >
+    {settingDefaultReaderId === terminal.readerId
+      ? "Updating..."
+      : "Make Default"}
+  </button>
+)}
             </div>
           </div>
         </div>
@@ -1060,6 +1204,35 @@ const [sumUpTerminals, setSumUpTerminals] =
         ? "Pairing Solo..."
         : "Pair SumUp Solo"}
     </button>
+    {sumUpTerminals.some(
+  (terminal) =>
+    terminal.isDefault &&
+    terminal.status === "paired"
+) && (
+  <div className="mt-6 rounded-xl border border-sky-500/30 bg-sky-500/10 p-4">
+    <p className="font-black text-sky-200">
+      Test default terminal
+    </p>
+
+    <p className="mt-1 text-sm text-slate-400">
+      Sends a real £1 card payment to the current
+      default SumUp Solo.
+    </p>
+
+    <button
+      type="button"
+      onClick={() => {
+        void testSumUpSoloPayment();
+      }}
+      disabled={testingSoloPayment}
+      className="mt-3 rounded-xl border border-sky-400/40 bg-sky-400/10 px-5 py-3 font-black text-sky-200 transition hover:bg-sky-400/20 disabled:cursor-not-allowed disabled:opacity-50"
+    >
+      {testingSoloPayment
+        ? "Sending £1..."
+        : "Send £1 Test Payment"}
+    </button>
+  </div>
+)}
   </div>
 )}
 
