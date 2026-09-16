@@ -321,6 +321,29 @@ if (vipSaleError) {
   );
 }
 
+const { error: vipAuditError } =
+  await supabaseAdmin
+    .from("audit_log")
+    .insert({
+      salon_id: activeVip.salon_id,
+      staff_id: null,
+      staff_name: "Online Sale",
+      action: "VIP Membership Sold",
+      customer_name:
+        vipCustomer?.full_name ||
+        "Online Customer",
+      details: `VIP Membership (£${Number(
+        activeVip.amount_paid
+      ).toFixed(2)})`,
+    });
+
+if (vipAuditError) {
+  console.error(
+    "VIP membership audit log failed:",
+    vipAuditError
+  );
+}
+
 return (
   <main className="min-h-screen bg-[#050505] px-6 py-16 text-white">
     <section className="mx-auto max-w-2xl text-center">
