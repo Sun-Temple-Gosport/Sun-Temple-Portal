@@ -16,11 +16,16 @@ type PaymentMethod = "card" | "cash" | "complimentary";
 type Props = {
   onAddToBasket?: (product: CheckoutRetailProduct) => void;
   refreshKey?: number;
+  onTakeCardPayment: (
+    amount: number,
+    description: string
+  ) => Promise<boolean>;
 };
 
 export default function RetailSale({
   onAddToBasket,
   refreshKey = 0,
+  onTakeCardPayment,
 }: Props) {
   const [products, setProducts] = useState<RetailProduct[]>([]);
   const [loading, setLoading] = useState(true);
@@ -164,7 +169,20 @@ export default function RetailSale({
 
     const productName = selectedProduct.name;
 
-    const { error } = await supabase.rpc("sell_product", {
+if (paymentMethod === "card") {
+  const paymentSuccessful =
+    await onTakeCardPayment(
+      amountToPay,
+      `Retail sale - ${productName}`
+    );
+
+  if (!paymentSuccessful) {
+    setSavingSale(false);
+    return;
+  }
+}
+
+const { error } = await supabase.rpc("sell_product", {
       p_product_id: selectedProduct.id,
       p_quantity: quantityNumber,
       p_payment_method: paymentMethod,

@@ -52,13 +52,18 @@ type Props = {
   packages: PackageOption[];
   customerHistory: CustomerHistoryType | null;
   customerNotes: CustomerNote[];
-  onCombinedCheckout?: (details: {
+ onCombinedCheckout?: (details: {
   paymentMethod: "card" | "cash";
   basketPackage: CheckoutPackage | null;
   retailItems: CheckoutRetailItem[];
 }) => Promise<boolean>;
 
-  onSearchCustomers: () => void;
+onTakeCardPayment: (
+  amount: number,
+  description: string
+) => Promise<boolean>;
+
+onSearchCustomers: () => void;
   onSelectCustomer: (customer: CustomerBalance) => void;
   onCreateCustomer: (customer: NewCustomerDetails) => Promise<void>;
   onSetManualMinutes: (value: string) => void;
@@ -88,7 +93,8 @@ export default function CustomerArea({
   onAddCustomerNote,
   onDeleteCustomerNote,
   onEditCustomer,
-  onCombinedCheckout,
+onCombinedCheckout,
+onTakeCardPayment,
 }: Props) {
     const checkoutBasket = useCheckoutBasket();
     const [retailRefreshKey, setRetailRefreshKey] = useState(0);
@@ -114,6 +120,7 @@ export default function CustomerArea({
 <RetailSale
   onAddToBasket={checkoutBasket.addRetailProduct}
   refreshKey={retailRefreshKey}
+  onTakeCardPayment={onTakeCardPayment}
 />
 
 <CheckoutBasketPreview

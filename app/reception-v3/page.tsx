@@ -1586,12 +1586,24 @@ async function startPaygSession(
   }
 
   if (!amount || amount <= 0) {
-    showMessage("Please enter a valid PAYG price.");
+  showMessage("Please enter a valid PAYG price.");
+  return false;
+}
+
+if (paymentMethod === "card") {
+  const paymentSuccessful =
+    await takeSumUpCardPayment(
+      amount,
+      `PAYG ${minutes} mins - ${bedName}`
+    );
+
+  if (!paymentSuccessful) {
     return false;
   }
+}
 
-  const { error } =
-    await startPaygBedSessionService(
+const { error } =
+  await startPaygBedSessionService(
       bedName,
       minutes,
       amount,
@@ -1829,6 +1841,7 @@ onOpenProductSettings={() => {
             onDeleteCustomerNote={deleteCustomerNote}
             onEditCustomer={() => setEditingCustomer(true)}
             onCombinedCheckout={combinedCheckout}
+onTakeCardPayment={takeSumUpCardPayment}
           />
 
           <BedDashboard
