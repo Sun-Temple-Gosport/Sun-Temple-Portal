@@ -980,6 +980,110 @@ setRecentCustomers((prev) => {
 });
   }
 
+  async function takeSumUpCardPayment(
+  amount: number,
+  description: string
+) {
+  const {
+    data: { session },
+    error: sessionError,
+  } = await supabase.auth.getSession();
+
+  if (sessionError || !session?.access_token) {
+    showMessage(
+      "Your login session could not be verified."
+    );
+    return false;
+  }
+
+  showMessage(
+    `Waiting for SumUp payment (£${amount.toFixed(2)})...`
+  );
+
+  const checkoutResponse = await fetch(
+    "/api/payments/terminals/sumup/checkout",
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${session.access_token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        amount,
+        description,
+      }),
+    }
+  );
+
+  const checkoutData =
+    await checkoutResponse.json();
+
+  if (
+    !checkoutResponse.ok ||
+    !checkoutData.checkoutId ||
+    !checkoutData.readerId
+  ) {
+    showMessage(
+      checkoutData.error ||
+        "Could not start the SumUp payment."
+    );
+
+    return false;
+  }
+
+  for (let attempt = 0; attempt < 80; attempt += 1) {
+    await new Promise((resolve) =>
+      setTimeout(resolve, 1500)
+    );
+
+    const statusResponse = await fetch(
+      `/api/payments/terminals/sumup/checkout-status?readerId=${encodeURIComponent(
+        checkoutData.readerId
+      )}&checkoutId=${encodeURIComponent(
+        checkoutData.checkoutId
+      )}`,
+      {
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        cache: "no-store",
+      }
+    );
+
+    const statusData =
+      await statusResponse.json();
+
+    if (!statusResponse.ok) {
+      showMessage(
+        statusData.error ||
+          "Could not confirm the SumUp payment."
+      );
+
+      return false;
+    }
+
+    if (statusData.status === "successful") {
+      return true;
+    }
+
+    if (statusData.status === "failed") {
+      showMessage("SumUp payment failed.");
+      return false;
+    }
+
+    if (statusData.status === "cancelled") {
+      showMessage("SumUp payment cancelled.");
+      return false;
+    }
+  }
+
+  showMessage(
+    "SumUp payment confirmation timed out. Check the Solo before retrying."
+  );
+
+  return false;
+}
+
   async function recordSale(sale: Sale) {
   if (!selectedCustomer) return false;
 
@@ -1044,7 +1148,21 @@ async function combinedCheckout(details: {
 
   const totalAmount = packageAmount + retailAmount;
 
-  const { error } = await supabase.rpc(
+if (details.paymentMethod === "card") {
+  const paymentSuccessful =
+    await takeSumUpCardPayment(
+      totalAmount,
+      `Reception sale - ${
+        selectedCustomer.full_name || "Customer"
+      }`
+    );
+
+  if (!paymentSuccessful) {
+    setLoading(false);
+    return false;
+  }
+}
+const { error } = await supabase.rpc(
     "checkout_combined_sale",
     {
       p_customer_id: selectedCustomer.customer_id,
@@ -1159,12 +1277,28 @@ async function addMinutes(
     const expiryDays = Number(sale.expiry_days ?? 0);
 
     if (!expiryDays || expiryDays <= 0) {
-      showMessage("Please enter a valid Unlimited package expiry.");
-      return;
-    }
+  showMessage("Please enter a valid Unlimited package expiry.");
+  return;
+}
 
-    setLoading(true);
-    setMessage("");
+if (sale.payment_method === "card") {
+  setLoading(true);
+  setMessage("");
+
+  const paymentSuccessful =
+    await takeSumUpCardPayment(
+      Number(sale.amount),
+      `Reception Unlimited package - ${sale.description}`
+    );
+
+  if (!paymentSuccessful) {
+    setLoading(false);
+    return;
+  }
+}
+
+setLoading(true);
+setMessage("");
 
     const { data: customerRecord, error: customerError } = await supabase
       .from("customers")
@@ -1272,12 +1406,28 @@ async function addMinutes(
     sale?.minutes ?? Number(manualMinutes);
 
   if (!minutesToAdd || minutesToAdd <= 0) {
-    showMessage("Please enter valid minutes.");
-    return;
-  }
+  showMessage("Please enter valid minutes.");
+  return;
+}
 
+if (sale?.payment_method === "card") {
   setLoading(true);
   setMessage("");
+
+  const paymentSuccessful =
+    await takeSumUpCardPayment(
+      Number(sale.amount),
+      `Reception package - ${sale.description}`
+    );
+
+  if (!paymentSuccessful) {
+    setLoading(false);
+    return;
+  }
+}
+
+setLoading(true);
+setMessage("");
 
   const { error } = sale
   ? await supabase.rpc("add_package_minutes", {
