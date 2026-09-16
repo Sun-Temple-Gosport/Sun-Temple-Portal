@@ -104,6 +104,10 @@ const [unlimitedCustomerIds, setUnlimitedCustomerIds] =
   useState<Set<string>>(() => new Set());
 
 const [currentSalonId, setCurrentSalonId] = useState<string | null>(null);
+
+const [paymentProvider, setPaymentProvider] =
+  useState<string | null>(null);
+
 const [bookingsEnabled, setBookingsEnabled] = useState(false);
     const recentCustomersKey = currentSalonId
   ? `${RECENT_CUSTOMERS_KEY_PREFIX}:${currentSalonId}`
@@ -326,6 +330,28 @@ const {
     return;
   }
   setCurrentSalonId(profile.salon_id);
+
+  const {
+  data: paymentConnection,
+  error: paymentConnectionError,
+} = await supabase
+  .from("salon_payment_connections")
+  .select("provider")
+  .eq("salon_id", profile.salon_id)
+  .maybeSingle();
+
+if (paymentConnectionError) {
+  console.error(
+    "Could not load salon payment provider:",
+    paymentConnectionError.message
+  );
+
+  setPaymentProvider(null);
+} else {
+  setPaymentProvider(
+    paymentConnection?.provider ?? null
+  );
+}
 
 const { data: salon, error: salonError } = await supabase
   .from("salons")
@@ -1084,6 +1110,29 @@ setRecentCustomers((prev) => {
   return false;
 }
 
+async function takeCardPayment(
+  amount: number,
+  description: string
+) {
+  if (!paymentProvider) {
+    showMessage(
+      "Could not determine this salon's payment provider."
+    );
+    return false;
+  }
+
+  if (paymentProvider === "sumup") {
+    return await takeSumUpCardPayment(
+      amount,
+      description
+    );
+  }
+
+  // Other providers currently keep the existing
+  // manual card-terminal workflow.
+  return true;
+}
+
   async function recordSale(sale: Sale) {
   if (!selectedCustomer) return false;
 
@@ -1150,7 +1199,7 @@ async function combinedCheckout(details: {
 
 if (details.paymentMethod === "card") {
   const paymentSuccessful =
-    await takeSumUpCardPayment(
+    await takeCardPayment(
       totalAmount,
       `Reception sale - ${
         selectedCustomer.full_name || "Customer"
@@ -1286,7 +1335,7 @@ if (sale.payment_method === "card") {
   setMessage("");
 
   const paymentSuccessful =
-    await takeSumUpCardPayment(
+    await takeCardPayment(
       Number(sale.amount),
       `Reception Unlimited package - ${sale.description}`
     );
@@ -1415,7 +1464,7 @@ if (sale?.payment_method === "card") {
   setMessage("");
 
   const paymentSuccessful =
-    await takeSumUpCardPayment(
+    await takeCardPayment(
       Number(sale.amount),
       `Reception package - ${sale.description}`
     );
@@ -1592,7 +1641,7 @@ async function startPaygSession(
 
 if (paymentMethod === "card") {
   const paymentSuccessful =
-    await takeSumUpCardPayment(
+    await takeCardPayment(
       amount,
       `PAYG ${minutes} mins - ${bedName}`
     );
@@ -1841,7 +1890,7 @@ onOpenProductSettings={() => {
             onDeleteCustomerNote={deleteCustomerNote}
             onEditCustomer={() => setEditingCustomer(true)}
             onCombinedCheckout={combinedCheckout}
-onTakeCardPayment={takeSumUpCardPayment}
+onTakeCardPayment={takeCardPayment}
           />
 
           <BedDashboard
