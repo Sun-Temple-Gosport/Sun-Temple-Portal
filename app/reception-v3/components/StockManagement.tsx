@@ -39,8 +39,10 @@ export default function StockManagement() {
   const [movementType, setMovementType] =
     useState<MovementType>("delivery");
   const [adjustQuantity, setAdjustQuantity] = useState("");
-  const [adjustNote, setAdjustNote] = useState("");
-  const [savingAdjustment, setSavingAdjustment] = useState(false);
+const [adjustNote, setAdjustNote] = useState("");
+const [editSellingPrice, setEditSellingPrice] = useState("");
+const [savingPrice, setSavingPrice] = useState(false);
+const [savingAdjustment, setSavingAdjustment] = useState(false);
 
   const [formError, setFormError] = useState("");
   const [adjustError, setAdjustError] = useState("");
@@ -92,13 +94,14 @@ export default function StockManagement() {
   }
 
   function openAdjustStock(product: Product) {
-    setSelectedProduct(product);
-    setMovementType("delivery");
-    setAdjustQuantity("");
-    setAdjustNote("");
-    setAdjustError("");
-    setSuccessMessage("");
-  }
+  setSelectedProduct(product);
+  setMovementType("delivery");
+  setAdjustQuantity("");
+  setAdjustNote("");
+  setEditSellingPrice(String(product.selling_price));
+  setAdjustError("");
+  setSuccessMessage("");
+}
 
   function closeAdjustStock() {
     if (savingAdjustment) {
@@ -182,6 +185,50 @@ export default function StockManagement() {
 
     await loadProducts();
   }
+
+  async function handleUpdateSellingPrice() {
+  if (!selectedProduct) {
+    return;
+  }
+
+  const newPrice = Number(editSellingPrice);
+
+  if (
+    editSellingPrice.trim() === "" ||
+    Number.isNaN(newPrice) ||
+    newPrice < 0
+  ) {
+    setAdjustError("Enter a valid selling price.");
+    return;
+  }
+
+  setSavingPrice(true);
+  setAdjustError("");
+
+  const { error } = await supabase
+    .from("products")
+    .update({
+      selling_price: newPrice,
+    })
+    .eq("id", selectedProduct.id);
+
+  if (error) {
+    console.error("Could not update selling price:", error);
+    setAdjustError(
+      error.message || "Could not update the selling price."
+    );
+    setSavingPrice(false);
+    return;
+  }
+
+  setSavingPrice(false);
+  setSelectedProduct(null);
+  setSuccessMessage(
+    `${selectedProduct.name} selling price updated to £${newPrice.toFixed(2)}.`
+  );
+
+  await loadProducts();
+}
 
   async function handleAdjustStock() {
     if (!selectedProduct) {
@@ -677,10 +724,45 @@ export default function StockManagement() {
             </div>
 
             <div className="mt-6 space-y-4">
-              <div>
-                <label className="mb-2 block text-xs font-black uppercase tracking-wide text-slate-400">
-                  Reason
-                </label>
+  <div>
+    <label className="mb-2 block text-xs font-black uppercase tracking-wide text-slate-400">
+      Selling Price
+    </label>
+
+    <div className="relative">
+      <span className="absolute left-4 top-1/2 -translate-y-1/2 font-bold text-slate-400">
+        £
+      </span>
+
+      <input
+        type="number"
+        min="0"
+        step="0.01"
+        value={editSellingPrice}
+        onChange={(event) =>
+          setEditSellingPrice(event.target.value)
+        }
+        className="w-full rounded-xl border border-slate-700 bg-slate-900 py-3 pl-8 pr-4 text-white outline-none focus:border-amber-400"
+      />
+    </div>
+<p className="mt-2 text-xs text-slate-500">
+  Change this price for promotions or sales.
+</p>
+
+<button
+  type="button"
+  onClick={() => void handleUpdateSellingPrice()}
+  disabled={savingPrice}
+  className="mt-3 w-full rounded-xl border border-amber-400 px-4 py-3 text-sm font-black text-amber-300 hover:bg-amber-400 hover:text-black disabled:cursor-not-allowed disabled:opacity-50"
+>
+  {savingPrice ? "Updating Price..." : "Update Price"}
+</button>
+  </div>
+
+  <div>
+    <label className="mb-2 block text-xs font-black uppercase tracking-wide text-slate-400">
+      Reason
+    </label>
 
                 <select
                   value={movementType}
