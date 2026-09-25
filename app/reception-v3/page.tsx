@@ -167,6 +167,11 @@ const [ownerSettingsMode, setOwnerSettingsMode] =
 const [sessions, setSessions] = useState<BedSession[]>([]);
 const [beds, setBeds] = useState<string[]>([]);
 const [manualMinutes, setManualMinutes] = useState("");
+const [pendingPaygItem, setPendingPaygItem] = useState<{
+  bedName: string;
+  minutes: number;
+  amount: number;
+} | null>(null);
   const [loading, setLoading] = useState(false);
  const [message, setMessage] = useState("");
 const [activityDate, setActivityDate] = useState(getLocalDateKey);
@@ -1178,6 +1183,11 @@ async function combinedCheckout(details: {
     expiry_days: number | null;
     is_unlimited?: boolean;
   } | null;
+  paygItem: {
+    bedName: string;
+    minutes: number;
+    amount: number;
+  } | null;
   retailItems: {
     id: string;
     name: string;
@@ -1186,16 +1196,24 @@ async function combinedCheckout(details: {
     quantity: number;
   }[];
 }) {
-  if (!selectedCustomer) {
-    showMessage("Please select a customer first.");
-    return false;
-  }
-
   if (
     !details.basketPackage &&
+    !details.paygItem &&
     details.retailItems.length === 0
   ) {
     showMessage("The basket is empty.");
+    return false;
+  }
+
+  if (details.basketPackage && details.paygItem) {
+    showMessage(
+      "A PAYG session and a package cannot be sold in the same basket."
+    );
+    return false;
+  }
+
+  if (!details.paygItem && !selectedCustomer) {
+    showMessage("Please select a customer first.");
     return false;
   }
 
@@ -1206,6 +1224,10 @@ async function combinedCheckout(details: {
     ? Number(details.basketPackage.price)
     : 0;
 
+  const paygAmount = details.paygItem
+    ? Number(details.paygItem.amount)
+    : 0;
+
   const retailAmount = details.retailItems.reduce(
     (sum, item) =>
       sum +
@@ -1213,23 +1235,116 @@ async function combinedCheckout(details: {
     0
   );
 
-  const totalAmount = packageAmount + retailAmount;
+  const totalAmount =
+    packageAmount + paygAmount + retailAmount;
 
-if (details.paymentMethod === "card") {
-  const paymentSuccessful =
-    await takeCardPayment(
-      totalAmount,
-      `Reception sale - ${
-        selectedCustomer.full_name || "Customer"
-      }`
+  if (details.paymentMethod === "card") {
+    const paymentDescription = details.paygItem
+      ? `PAYG ${details.paygItem.minutes} mins - ${details.paygItem.bedName}`
+      : `Reception sale - ${
+          selectedCustomer?.full_name || "Customer"
+        }`;
+
+    const paymentSuccessful =
+      await takeCardPayment(
+        totalAmount,
+        paymentDescription
+      );
+
+    if (!paymentSuccessful) {
+      setLoading(false);
+      return false;
+    }
+  }
+
+  /*
+    PAYG + RETAIL CHECKOUT
+  */
+  if (details.paygItem) {
+    const { error } = await supabase.rpc(
+      "checkout_payg_retail_sale",
+      {
+        p_bed_name: details.paygItem.bedName,
+        p_minutes: details.paygItem.minutes,
+        p_payg_amount: paygAmount,
+        p_payment_method: details.paymentMethod,
+        p_product_items: details.retailItems.map(
+          (item) => ({
+            product_id: item.id,
+            quantity: item.quantity,
+          })
+        ),
+      }
     );
 
-  if (!paymentSuccessful) {
     setLoading(false);
+
+    if (error) {
+      console.error(
+        "PAYG basket checkout failed:",
+        error
+      );
+
+      showMessage(error.message);
+      return false;
+    }
+
+    const saleParts: string[] = [
+      `PAYG ${details.paygItem.minutes} mins - ${details.paygItem.bedName}`,
+    ];
+
+    details.retailItems.forEach((item) => {
+      saleParts.push(
+        `${item.name} × ${item.quantity}`
+      );
+    });
+
+    const saleDescription = saleParts.join(" + ");
+
+    await logAudit({
+      action: "PAYG Combined Sale",
+      customerName: "PAYG",
+      details: `${saleDescription} (£${totalAmount.toFixed(
+        2
+      )})`,
+    });
+
+    setActivities((current) => [
+      {
+        id: crypto.randomUUID(),
+        text: `✓ PAYG sale: ${saleDescription} (£${totalAmount.toFixed(
+          2
+        )})`,
+        time: new Date().toLocaleTimeString("en-GB", {
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
+      },
+      ...current,
+    ]);
+
+    showMessage(
+      `✓ PAYG sale completed (£${totalAmount.toFixed(
+        2
+      )})`
+    );
+
+    await loadActiveSessions();
+    await refreshDashboardStats();
+
+    return true;
+  }
+
+  /*
+    EXISTING PACKAGE + RETAIL CHECKOUT
+  */
+  if (!selectedCustomer) {
+    setLoading(false);
+    showMessage("Please select a customer first.");
     return false;
   }
-}
-const { error } = await supabase.rpc(
+
+  const { error } = await supabase.rpc(
     "checkout_combined_sale",
     {
       p_customer_id: selectedCustomer.customer_id,
@@ -1323,7 +1438,6 @@ const { error } = await supabase.rpc(
 
   return true;
 }
-
 async function addMinutes(
   sale?: Sale & {
     is_unlimited?: boolean;
@@ -1899,6 +2013,8 @@ onOpenProductSettings={() => {
             packages={packages}
             customerHistory={customerHistory}
             customerNotes={customerNotes}
+            pendingPaygItem={pendingPaygItem}
+onPendingPaygItemHandled={() => setPendingPaygItem(null)}
             onSearchCustomers={searchCustomers}
             onSelectCustomer={selectCustomer}
             onCreateCustomer={createCustomer}
@@ -1912,13 +2028,20 @@ onTakeCardPayment={takeCardPayment}
           />
 
           <BedDashboard
-            selectedCustomer={selectedCustomer}
-            sessions={sessions}
-            beds={beds}
-            onStartSession={startBedSession}
-            onStartPaygSession={startPaygSession}
-            onFinishSession={finishBedSession}
-          />
+  selectedCustomer={selectedCustomer}
+  sessions={sessions}
+  beds={beds}
+  onStartSession={startBedSession}
+  onStartPaygSession={startPaygSession}
+  onAddPaygToBasket={(bedName, minutes, amount) =>
+    setPendingPaygItem({
+      bedName,
+      minutes,
+      amount,
+    })
+  }
+  onFinishSession={finishBedSession}
+/>
         </div>
 
         <div className="space-y-5">

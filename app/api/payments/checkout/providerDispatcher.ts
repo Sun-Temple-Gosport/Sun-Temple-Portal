@@ -32,7 +32,6 @@ export async function createProviderCheckout(
     case "opayo":
       return createOpayoCheckout(context);
 
-
     default: {
       const exhaustiveCheck: never = context.provider;
 

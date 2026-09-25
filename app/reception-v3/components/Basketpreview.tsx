@@ -4,6 +4,7 @@ import { useState } from "react";
 
 import type {
   CheckoutPackage,
+  CheckoutPaygItem,
   CheckoutRetailItem,
 } from "../hooks/useCheckoutBasket";
 
@@ -11,22 +12,26 @@ type PaymentMethod = "card" | "cash";
 
 type Props = {
   basketPackage: CheckoutPackage | null;
+  paygItem: CheckoutPaygItem | null;
   retailItems: CheckoutRetailItem[];
   onReduceRetail: (productId: string) => void;
   onRemoveRetail: (productId: string) => void;
   onClear: () => void;
   onRemovePackage?: () => void;
+  onRemovePayg?: () => void;
 
   onCheckout?: (paymentMethod: PaymentMethod) => Promise<void>;
 };
 
 export default function CheckoutBasketPreview({
   basketPackage,
+  paygItem,
   retailItems,
   onReduceRetail,
   onRemoveRetail,
   onClear,
   onRemovePackage,
+  onRemovePayg,
   onCheckout,
 }: Props) {
   const [paymentMethod, setPaymentMethod] =
@@ -35,7 +40,9 @@ export default function CheckoutBasketPreview({
   const [processing, setProcessing] = useState(false);
 
   const hasItems =
-    basketPackage !== null || retailItems.length > 0;
+    basketPackage !== null ||
+    paygItem !== null ||
+    retailItems.length > 0;
 
   if (!hasItems) {
     return null;
@@ -51,7 +58,17 @@ export default function CheckoutBasketPreview({
     ? Number(basketPackage.price)
     : 0;
 
-  const basketTotal = packageTotal + retailTotal;
+  const paygTotal = paygItem
+    ? Number(paygItem.amount)
+    : 0;
+
+  const basketTotal =
+    packageTotal + paygTotal + retailTotal;
+
+  const basketSections =
+    Number(Boolean(basketPackage)) +
+    Number(Boolean(paygItem)) +
+    Number(retailItems.length > 0);
 
   async function handleCheckout() {
     if (!onCheckout || processing) {
@@ -123,6 +140,37 @@ export default function CheckoutBasketPreview({
           </div>
         )}
 
+        {paygItem && (
+          <div className="flex items-center justify-between gap-4 rounded-2xl border border-amber-500/20 bg-amber-500/[0.07] p-4">
+            <div>
+              <p className="text-xs font-black uppercase tracking-wide text-amber-400">
+                PAYG Session
+              </p>
+
+              <p className="mt-1 font-black text-white">
+                {paygItem.minutes} mins · {paygItem.bedName}
+              </p>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <p className="font-black text-amber-400">
+                £{Number(paygItem.amount).toFixed(2)}
+              </p>
+
+              {onRemovePayg && (
+                <button
+                  type="button"
+                  onClick={onRemovePayg}
+                  disabled={processing}
+                  className="rounded-full border border-red-500/40 px-3 py-2 text-xs font-black text-red-300 transition hover:bg-red-500/10 disabled:opacity-50"
+                >
+                  Remove
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
         {retailItems.map((item) => (
           <div
             key={item.id}
@@ -181,10 +229,18 @@ export default function CheckoutBasketPreview({
           </p>
         </div>
 
-        {basketPackage && retailItems.length > 0 && (
+        {basketSections > 1 && (
           <p className="mt-2 text-right text-xs font-bold text-slate-500">
-            Package £{packageTotal.toFixed(2)} + Retail £
-            {retailTotal.toFixed(2)}
+            {basketPackage &&
+              `Package £${packageTotal.toFixed(2)}`}
+            {basketPackage && paygItem && " + "}
+            {paygItem &&
+              `PAYG £${paygTotal.toFixed(2)}`}
+            {(basketPackage || paygItem) &&
+              retailItems.length > 0 &&
+              " + "}
+            {retailItems.length > 0 &&
+              `Retail £${retailTotal.toFixed(2)}`}
           </p>
         )}
       </div>

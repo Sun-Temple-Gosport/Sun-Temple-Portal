@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import CustomerSearch from "./CustomerSearch";
 import NewCustomer from "./NewCustomer";
 import RecentCustomers from "./RecentCustomers";
@@ -11,6 +11,7 @@ import CheckoutBasketPreview from "./Basketpreview";
 import {
   useCheckoutBasket,
   type CheckoutPackage,
+  type CheckoutPaygItem,
   type CheckoutRetailItem,
 } from "../hooks/useCheckoutBasket";
 
@@ -52,9 +53,12 @@ type Props = {
   packages: PackageOption[];
   customerHistory: CustomerHistoryType | null;
   customerNotes: CustomerNote[];
+  pendingPaygItem?: CheckoutPaygItem | null;
+onPendingPaygItemHandled?: () => void;
  onCombinedCheckout?: (details: {
   paymentMethod: "card" | "cash";
   basketPackage: CheckoutPackage | null;
+  paygItem: CheckoutPaygItem | null;
   retailItems: CheckoutRetailItem[];
 }) => Promise<boolean>;
 
@@ -85,6 +89,8 @@ export default function CustomerArea({
   packages,
   customerHistory,
   customerNotes,
+  pendingPaygItem,
+onPendingPaygItemHandled,
   onSearchCustomers,
   onSelectCustomer,
   onCreateCustomer,
@@ -96,8 +102,17 @@ export default function CustomerArea({
 onCombinedCheckout,
 onTakeCardPayment,
 }: Props) {
-    const checkoutBasket = useCheckoutBasket();
-    const [retailRefreshKey, setRetailRefreshKey] = useState(0);
+   const checkoutBasket = useCheckoutBasket();
+const [retailRefreshKey, setRetailRefreshKey] = useState(0);
+
+useEffect(() => {
+  if (!pendingPaygItem) {
+    return;
+  }
+
+  checkoutBasket.setPayg(pendingPaygItem);
+  onPendingPaygItemHandled?.();
+}, [pendingPaygItem]);
   return (
     <>
       <CustomerSearch
@@ -125,24 +140,27 @@ onTakeCardPayment,
 
 <CheckoutBasketPreview
   basketPackage={checkoutBasket.basketPackage}
+  paygItem={checkoutBasket.paygItem}
   retailItems={checkoutBasket.retailItems}
   onReduceRetail={checkoutBasket.reduceRetailProduct}
   onRemoveRetail={checkoutBasket.removeRetailProduct}
   onRemovePackage={() => checkoutBasket.setPackage(null)}
+  onRemovePayg={() => checkoutBasket.setPayg(null)}
   onClear={checkoutBasket.clearBasket}
   onCheckout={
-    selectedCustomer && onCombinedCheckout
-      ? async (paymentMethod) => {
+  onCombinedCheckout
+    ? async (paymentMethod) => {
           const success = await onCombinedCheckout({
             paymentMethod,
             basketPackage: checkoutBasket.basketPackage,
+            paygItem: checkoutBasket.paygItem,
             retailItems: checkoutBasket.retailItems,
           });
 
           if (success) {
-  checkoutBasket.clearBasket();
-  setRetailRefreshKey((current) => current + 1);
-}
+            checkoutBasket.clearBasket();
+            setRetailRefreshKey((current) => current + 1);
+          }
         }
       : undefined
   }

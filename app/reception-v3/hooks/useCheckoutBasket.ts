@@ -22,6 +22,12 @@ export type CheckoutRetailItem = CheckoutRetailProduct & {
   quantity: number;
 };
 
+export type CheckoutPaygItem = {
+  bedName: string;
+  minutes: number;
+  amount: number;
+};
+
 export function useCheckoutBasket() {
   const [basketPackage, setBasketPackage] =
     useState<CheckoutPackage | null>(null);
@@ -29,8 +35,15 @@ export function useCheckoutBasket() {
   const [retailItems, setRetailItems] =
     useState<CheckoutRetailItem[]>([]);
 
+  const [paygItem, setPaygItem] =
+    useState<CheckoutPaygItem | null>(null);
+
   function setPackage(pack: CheckoutPackage | null) {
     setBasketPackage(pack);
+  }
+
+  function setPayg(item: CheckoutPaygItem | null) {
+    setPaygItem(item);
   }
 
   function addRetailProduct(product: CheckoutRetailProduct) {
@@ -88,13 +101,16 @@ export function useCheckoutBasket() {
   function clearBasket() {
     setBasketPackage(null);
     setRetailItems([]);
+    setPaygItem(null);
   }
 
   return {
     basketPackage,
     retailItems,
+    paygItem,
 
     setPackage,
+    setPayg,
     addRetailProduct,
     reduceRetailProduct,
     removeRetailProduct,

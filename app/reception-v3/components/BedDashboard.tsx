@@ -15,11 +15,17 @@ type Props = {
     minutes: number
   ) => Promise<boolean>;
     onStartPaygSession: (
-    bedName: string,
-    minutes: number,
-    amount: number,
-    paymentMethod: "cash" | "card"
-  ) => Promise<boolean>;
+  bedName: string,
+  minutes: number,
+  amount: number,
+  paymentMethod: "cash" | "card"
+) => Promise<boolean>;
+
+onAddPaygToBasket?: (
+  bedName: string,
+  minutes: number,
+  amount: number
+) => void;
   onFinishSession: (
     sessionId: string
   ) => Promise<void>;
@@ -45,8 +51,9 @@ export default function BedDashboard({
   selectedCustomer,
   sessions,
   beds = [],
-  onStartSession,
+    onStartSession,
   onStartPaygSession,
+  onAddPaygToBasket,
   onFinishSession,
 }: Props) {
   const [now, setNow] = useState(Date.now());
@@ -535,24 +542,63 @@ const hasActiveUnlimited =
     </div>
   )}
 
-  <button
-    type="button"
-    disabled={
-      (sessionMode === "customer" && !selectedCustomer) ||
-      !!selectedBedSession ||
-      starting
-    }
-    onClick={startSession}
-    className="mt-4 w-full rounded-xl bg-emerald-400 px-4 py-2.5 text-xs font-black uppercase text-black transition hover:bg-emerald-300 disabled:cursor-not-allowed disabled:bg-slate-800 disabled:text-slate-500"
-  >
-    {starting
-      ? "Starting..."
-      : selectedBedSession
-      ? "Bed Not Available"
-      : sessionMode === "payg"
-      ? `Start PAYG · ${selectedBed}`
-      : `Start Session · ${selectedBed}`}
-  </button>
+    {sessionMode === "payg" ? (
+    <div className="mt-4 grid grid-cols-2 gap-2">
+      <button
+        type="button"
+        disabled={
+          !!selectedBedSession ||
+          starting ||
+          !onAddPaygToBasket ||
+          !paygAmount ||
+          Number(paygAmount) <= 0
+        }
+        onClick={() =>
+          onAddPaygToBasket?.(
+            selectedBed,
+            selectedMinutes,
+            Number(paygAmount)
+          )
+        }
+        className="rounded-xl border border-amber-400 px-4 py-2.5 text-xs font-black uppercase text-amber-300 transition hover:bg-amber-400/10 disabled:cursor-not-allowed disabled:border-slate-800 disabled:text-slate-500"
+      >
+        Add to Basket
+      </button>
+
+      <button
+        type="button"
+        disabled={
+          !!selectedBedSession ||
+          starting
+        }
+        onClick={startSession}
+        className="rounded-xl bg-emerald-400 px-4 py-2.5 text-xs font-black uppercase text-black transition hover:bg-emerald-300 disabled:cursor-not-allowed disabled:bg-slate-800 disabled:text-slate-500"
+      >
+        {starting
+          ? "Starting..."
+          : selectedBedSession
+          ? "Bed Not Available"
+          : `Start PAYG · ${selectedBed}`}
+      </button>
+    </div>
+  ) : (
+    <button
+      type="button"
+      disabled={
+        !selectedCustomer ||
+        !!selectedBedSession ||
+        starting
+      }
+      onClick={startSession}
+      className="mt-4 w-full rounded-xl bg-emerald-400 px-4 py-2.5 text-xs font-black uppercase text-black transition hover:bg-emerald-300 disabled:cursor-not-allowed disabled:bg-slate-800 disabled:text-slate-500"
+    >
+      {starting
+        ? "Starting..."
+        : selectedBedSession
+        ? "Bed Not Available"
+        : `Start Session · ${selectedBed}`}
+    </button>
+  )}
 </div>
 
         <div className="rounded-3xl border border-slate-800 bg-slate-950 p-5">
